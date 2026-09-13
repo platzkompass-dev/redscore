@@ -1,0 +1,8 @@
+.env.local
+.git
+node_modules
+assets/branding
+tools
+supabase
+docs
+

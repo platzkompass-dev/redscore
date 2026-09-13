@@ -24,6 +24,14 @@ Der lokale Node-Server liefert die statische Website aus und vermittelt
 `/api/live-lage` serverseitig an Supabase. Dadurch befindet sich kein API-Schlüssel
 im Frontend-Bundle.
 
+## Deployment
+
+Vercel liefert `dist/` über das Edge-CDN aus und betreibt `api/live-lage.js` als
+serverseitigen Proxy. Das Projekt benötigt dort die serverseitigen Variablen
+`SUPABASE_URL` und `SUPABASE_ANON_KEY`. Pushes auf `main` lösen nach aktivierter
+GitHub-Integration automatisch ein Produktionsdeployment aus. Die kanonische Domain
+ist `https://www.redscore.de`; `redscore.de` wird auf diese Adresse umgeleitet.
+
 ## Struktur
 
 - `dist/`: installierbare responsive Website/PWA
