@@ -5,6 +5,7 @@ const toastRegion = document.querySelector("#toast-region");
 const fileInput = document.querySelector("#family-photo-input");
 const STORAGE_KEY = "redscore-state-v1";
 const LEGACY_STORAGE_KEY = "plans-state-v2";
+const CONTACT_EMAIL = "administration@redscore.de";
 const clone = value => JSON.parse(JSON.stringify(value));
 const esc = (value = "") => String(value).replace(/[&<>'"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]);
 const icon = (name, className = "icon3d") => `<img class="${className}" src="assets/icons-3d/${name}.png" alt="" />`;
@@ -91,8 +92,8 @@ function brand(light = false) {
 function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
     ${brand(false)}
-    <nav><a href="#about">Über RedScore</a><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><a href="#privacy">Datenschutz</a><a href="#imprint">Impressum</a><a href="#contact">Kontakt</a></nav>
-    <p>Orientiert an offiziellen Empfehlungen des BBK.</p>
+    <nav><a href="#about">Über RedScore</a><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><a href="mailto:${CONTACT_EMAIL}?subject=Datenschutz%20bei%20RedScore">Datenschutz</a><a href="mailto:${CONTACT_EMAIL}?subject=Impressum%20RedScore">Impressum</a><a href="mailto:${CONTACT_EMAIL}">Kontakt</a></nav>
+    <p>Orientiert an offiziellen Empfehlungen des BBK. · <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></p>
   </footer>`;
 }
 
