@@ -1,0 +1,15 @@
+{
+  "name": "redscore",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "homepage": "https://www.redscore.de",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/platzkompass-dev/redscore.git"
+  },
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs"
+  }
+}

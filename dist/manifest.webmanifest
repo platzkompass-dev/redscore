@@ -1,0 +1,16 @@
+{
+  "name": "RedScore",
+  "short_name": "RedScore",
+  "id": "https://www.redscore.de/",
+  "start_url": "/",
+  "scope": "/",
+  "description": "Katastrophenvorbereitung für Bürgerinnen und Bürger: Vorsorge, Vorräte, Warnungen und Notfallwissen.",
+  "lang": "de-DE",
+  "display": "standalone",
+  "background_color": "#061722",
+  "theme_color": "#061722",
+  "icons": [
+    { "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
