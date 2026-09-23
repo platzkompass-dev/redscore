@@ -6,6 +6,10 @@
     "api/live-lage.js": {
       "maxDuration": 10,
       "supportsCancellation": true
+    },
+    "api/personalize-image.js": {
+      "maxDuration": 300,
+      "supportsCancellation": true
     }
   },
   "headers": [
@@ -22,4 +26,3 @@
     }
   ]
 }
-

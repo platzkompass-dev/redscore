@@ -11,8 +11,10 @@ Live-Lage.
   Freiburg (Elbe), Flecken, Niedersachsen
 
 Es werden keine erfundenen Scores, Bestände, erledigten Aufgaben, Schutzräume oder
-Live-Meldungen angezeigt. Persönliche Eingaben und das optionale Familienfoto bleiben
-im aktuellen MVP lokal im Browser.
+Live-Meldungen angezeigt. Persönliche Vorsorgeeingaben bleiben lokal im Browser.
+Ein optionales Referenzfoto wird nur nach ausdrücklicher Auswahl an die serverseitige
+Bildpersonalisierung übertragen; RedScore speichert das Original nicht serverseitig.
+Die fertigen Motive werden lokal in IndexedDB abgelegt.
 
 ## Lokal starten
 
@@ -21,14 +23,15 @@ im aktuellen MVP lokal im Browser.
 3. `http://127.0.0.1:4173` öffnen.
 
 Der lokale Node-Server liefert die statische Website aus und vermittelt
-`/api/live-lage` serverseitig an Supabase. Dadurch befindet sich kein API-Schlüssel
-im Frontend-Bundle.
+`/api/live-lage` serverseitig an Supabase sowie `/api/personalize-image` an den
+konfigurierten Bilddienst. Dadurch befinden sich keine API-Schlüssel im Frontend-Bundle.
 
 ## Deployment
 
-Vercel liefert `dist/` über das Edge-CDN aus und betreibt `api/live-lage.js` als
-serverseitigen Proxy. Das Projekt benötigt dort die serverseitigen Variablen
-`SUPABASE_URL` und `SUPABASE_ANON_KEY`. Pushes auf `main` lösen nach aktivierter
+Vercel liefert `dist/` über das Edge-CDN aus und betreibt die API-Endpunkte als
+serverseitige Functions. Das Projekt benötigt dort `SUPABASE_URL`,
+`SUPABASE_ANON_KEY` und für die optionale Bildpersonalisierung `OPENAI_API_KEY`,
+`OPENAI_IMAGE_MODEL` sowie `PERSONALIZATION_ENABLED=true`. Pushes auf `main` lösen nach aktivierter
 GitHub-Integration automatisch ein Produktionsdeployment aus. Die kanonische Domain
 ist `https://www.redscore.de`; `redscore.de` wird auf diese Adresse umgeleitet.
 
@@ -39,7 +42,20 @@ ist `https://www.redscore.de`; `redscore.de` wird auf diese Adresse umgeleitet.
 - `supabase/migrations/`: Datenmodell, abgesicherte Leseroutinen und Scheduler
 - `supabase/functions/`: Import- und Read-Edge-Functions mit Quellenadaptern
 - `docs/live-lage.md`: Architektur, Deduplizierung, Relevanz und Produktionshinweise
-- `assets/branding/`: verbindliches Wappen für Website, App und Kommunikation
+- `assets/branding/`: verbindliches RedScore-Logo für Website, App und Kommunikation
+
+## Personalisierte Vorsorge-Motive
+
+Nach Auswahl eines JPEG-, PNG- oder WebP-Fotos entfernt der Browser beim Skalieren
+Metadaten und startet vier nacheinander ausgeführte Backend-Jobs: Dashboard, Vorräte,
+Warnschutz und Wissen. Der Fortschrittsbalken springt erst weiter, wenn das jeweilige
+Motiv tatsächlich vom Backend geliefert wurde. Das Frontend verwendet niemals das
+Referenzfoto selbst als Katastrophenhintergrund.
+
+Der Endpunkt akzeptiert nur dieselben vier serverseitig definierten Szenarien, prüft
+Dateityp, Dateisignatur, Größe und Same-Origin und liefert WebP-Bilder ohne Cache aus.
+`PERSONALIZATION_ENABLED` bleibt absichtlich `false`, bis ein OpenAI-Projektschlüssel,
+Budgetgrenzen, echte Authentifizierung und ein belastbares Rate-Limit eingerichtet sind.
 
 ## Quellenbasis des MVP
 

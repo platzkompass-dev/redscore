@@ -50,6 +50,65 @@ let liveState = {
 let liveRequest = null;
 let liveRefreshTimer = null;
 let liveClockTimer = null;
+const MEDIA_DB_NAME = "redscore-private-media-v1";
+const MEDIA_STORE_NAME = "personalized-scenes";
+const PERSONALIZATION_SCENARIOS = [
+  ["dashboard", "Dashboard-Motiv"],
+  ["supplies", "Vorrats-Motiv"],
+  ["warning", "Warnschutz-Motiv"],
+  ["knowledge", "Wissens-Motiv"],
+];
+let personalizedImages = {};
+let personalizationState = { status: "idle", progress: 0, label: "", error: null };
+let personalizationAvailability = { checked: false, available: false, reason: "" };
+
+function openMediaDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(MEDIA_DB_NAME, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(MEDIA_STORE_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function mediaStore(mode, action) {
+  const database = await openMediaDatabase();
+  try {
+    return await new Promise((resolve, reject) => {
+      const transaction = database.transaction(MEDIA_STORE_NAME, mode);
+      const request = action(transaction.objectStore(MEDIA_STORE_NAME));
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } finally { database.close(); }
+}
+
+async function loadPersonalizedImages() {
+  if (!state.media.familyPhoto) return;
+  const keys = await mediaStore("readonly", store => store.getAllKeys());
+  for (const key of keys) {
+    const blob = await mediaStore("readonly", store => store.get(key));
+    if (blob instanceof Blob && blob.type.startsWith("image/")) personalizedImages[key] = URL.createObjectURL(blob);
+  }
+  if (Object.keys(personalizedImages).length) personalizationState = { status: "complete", progress: 100, label: "Personalisierte Motive sind bereit.", error: null };
+}
+
+async function storePersonalizedImage(key, blob) {
+  await mediaStore("readwrite", store => store.put(blob, key));
+  if (personalizedImages[key]) URL.revokeObjectURL(personalizedImages[key]);
+  personalizedImages[key] = URL.createObjectURL(blob);
+}
+
+async function clearPersonalizedImages() {
+  Object.values(personalizedImages).forEach(url => URL.revokeObjectURL(url));
+  personalizedImages = {};
+  await mediaStore("readwrite", store => store.clear());
+}
+
+function sceneStyle(key, property = "--scene-image") {
+  const url = personalizedImages[key];
+  return url ? `style="${property}:url('${esc(url)}')"` : "";
+}
 const save = () => {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch { toast("Diese Änderung konnte lokal nicht gespeichert werden."); }
@@ -87,7 +146,7 @@ function navigate(route) {
 
 const routeLabel = route => ({ home: "Start", plan: "Mein Plan", supplies: "Vorräte", map: "Schutz in deiner Nähe", warnschutz: "Warnschutz", knowledge: "Wissen", profile: "Profil" })[route] || "Start";
 function brand(light = false) {
-  return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png" alt="" /><span>Red<span>Score</span></span><small>KATASTROPHENVORBEREITUNG FÜR ALLE.</small></button>`;
+  return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png" alt="" /><span><em>Red</em>Score</span><small>KATASTROPHENVORBEREITUNG FÜR BÜRGER</small></button>`;
 }
 function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
@@ -130,7 +189,7 @@ function renderPublic() {
       <article class="why-card"><small>WARUM VORSORGEN?</small><h2>Krisen kommen<br>meist ungeplant.</h2><p>Ob Stromausfall, Unwetter oder eine andere Notlage: Vorbereitung schützt Handlungsspielraum und reduziert Risiken.</p><div class="benefits"><span>🛡️ <b>Mehr Sicherheit</b></span><span>🌱 <b>Weniger Abhängigkeit</b></span><span>🤝 <b>Ruhe und Klarheit</b></span><span>▥ <b>Schritt für Schritt</b></span></div></article>
     </section>
     <section class="how-strip" id="how"><h2>So einfach geht’s</h2><div><article><b>1</b><span><strong>Testzugang öffnen</strong><small>Nicole ist der einzige eingerichtete Testuser.</small></span></article><i>›</i><article><b>2</b><span><strong>Angaben machen</strong><small>Bestände und Vorsorge ehrlich erfassen.</small></span></article><i>›</i><article><b>3</b><span><strong>Stand erhalten</strong><small>Auswertung ansehen und Maßnahmen umsetzen.</small></span></article></div></section>
-    <section class="public-band"><article>👥<span><b>Für alle Lebenslagen</b><small>Haushaltsabhängig geplant.</small></span></article><article>🛡️<span><b>Offizielle Grundlagen</b><small>BBK und DWD als Quellen.</small></span></article><article>🔒<span><b>Deine Daten bleiben lokal</b><small>Foto und Eingaben auf diesem Gerät.</small></span></article><article>🍃<span><b>Mehr Resilienz</b><small>Praktisch statt alarmistisch.</small></span></article></section>
+    <section class="public-band"><article>👥<span><b>Für alle Lebenslagen</b><small>Haushaltsabhängig geplant.</small></span></article><article>🛡️<span><b>Offizielle Grundlagen</b><small>BBK und DWD als Quellen.</small></span></article><article>🔒<span><b>Datensparsam</b><small>Vorsorgedaten lokal; Fotos nur mit Einwilligung verarbeitet.</small></span></article><article>🍃<span><b>Mehr Resilienz</b><small>Praktisch statt alarmistisch.</small></span></article></section>
     ${footer()}
   </div>${modal()}`;
 }
@@ -139,8 +198,10 @@ function appHeader(active) {
   return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools"><button class="search-button">⌕</button><button class="bell" data-route="warnschutz">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile">NM</button><button class="user-name" data-route="profile">Nicole⌄</button></div></header>`;
 }
 function familyUpload(className = "") {
-  if (state.media.familyPhoto) return `<button class="family-photo ${className}" data-upload-photo style="--photo:url('${state.media.familyPhoto}')"><span>Foto ändern</span></button>`;
-  return `<button class="family-upload ${className}" data-upload-photo>${icon("profile", "upload-icon")}<span><b>Eigenes Foto hochladen</b><small>Erst danach erscheinen personalisierte Motive. Das Foto bleibt auf diesem Gerät.</small></span><strong>＋</strong></button>`;
+  if (personalizationState.status === "processing") return `<div class="family-photo generation-card ${className}">${icon("profile", "generation-icon")}<div class="generation-status"><b>${esc(personalizationState.label)}</b><div class="generation-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${personalizationState.progress}"><i style="width:${personalizationState.progress}%"></i></div><small>${personalizationState.progress}% · Das Referenzfoto wird nicht als Seitenmotiv angezeigt.</small></div></div>`;
+  if (personalizationState.status === "error") return `<div class="family-photo generation-card error ${className}">${icon("profile", "generation-icon")}<div class="generation-status"><b>${state.media.familyPhoto ? "Generierung unterbrochen" : "Bilddienst nicht verfügbar"}</b><small>${esc(personalizationState.error || "Bitte erneut versuchen.")}</small><span>${state.media.familyPhoto ? `<button data-retry-generation>Erneut versuchen</button><button data-upload-photo>Foto ändern</button>` : `<button data-upload-photo>Verfügbarkeit erneut prüfen</button>`}</span></div></div>`;
+  if (state.media.familyPhoto) return `<div class="family-photo generation-card complete ${className}">${icon("profile", "generation-icon")}<div class="generation-status"><b>${Object.keys(personalizedImages).length ? `${Object.keys(personalizedImages).length} persönliche Motive bereit` : "Referenzfoto sicher vorgemerkt"}</b><small>${Object.keys(personalizedImages).length ? "Das Originalfoto bleibt verborgen; angezeigt werden nur die erzeugten RedScore-Szenen." : "Sobald der Bilddienst verfügbar ist, werden daraus die persönlichen Vorsorge-Szenen erzeugt."}</small><span><button data-upload-photo>Foto ändern</button></span></div></div>`;
+  return `<button class="family-upload ${className}" data-upload-photo>${icon("profile", "upload-icon")}<span><b>Eigenes Foto hochladen</b><small>Danach erzeugt der Bilddienst vier persönliche Vorsorge-Motive. Das Original wird von RedScore nicht serverseitig gespeichert.</small></span><strong>＋</strong></button>`;
 }
 function loggedShell(active, content, pageClass = "") {
   document.body.className = "logged-mode";
@@ -202,6 +263,44 @@ function liveEventIcon(category) {
   return category === "drones" ? "radio" : "settings";
 }
 
+const weatherClusterCategories = new Set(["official_warning", "storm", "heavy_rain", "flood", "severe_weather", "extreme_heat"]);
+function normalizedIncidentTitle(value) {
+  const noise = new Set(["amtliche", "warnung", "wetterwarnung", "unwetterwarnung", "vor", "fur", "fuer", "der", "die", "das", "und"]);
+  return String(value || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9äöüß ]/g, " ").split(/\s+/).filter(token => token.length > 1 && !noise.has(token)).join(" ");
+}
+function eventPrimarySource(event) {
+  const source = Array.isArray(event.sources) ? event.sources[0] : null;
+  if (source?.name) return String(source.name).toLowerCase().trim();
+  try { return new URL(event.canonical_url || "").hostname.replace(/^www\./, ""); }
+  catch { return "unknown"; }
+}
+function sameVisibleIncident(left, right) {
+  if (left.category !== right.category || String(left.country || "").toLowerCase() !== String(right.country || "").toLowerCase()) return false;
+  if (Math.abs(Date.parse(left.published_at || 0) - Date.parse(right.published_at || 0)) > 12 * 60 * 60 * 1000) return false;
+  if (normalizedIncidentTitle(left.title) !== normalizedIncidentTitle(right.title) || eventPrimarySource(left) !== eventPrimarySource(right)) return false;
+  if (weatherClusterCategories.has(left.category) && (left.verification_status === "official" || right.verification_status === "official")) return true;
+  return `${left.city || ""}|${left.region || ""}`.toLowerCase() === `${right.city || ""}|${right.region || ""}`.toLowerCase() || (left.canonical_url && left.canonical_url === right.canonical_url);
+}
+function collapseLiveEvents(events) {
+  const groups = [];
+  for (const event of events) {
+    const group = groups.find(candidate => sameVisibleIncident(candidate[0], event));
+    if (group) group.push(event); else groups.push([event]);
+  }
+  return groups.map(group => {
+    if (group.length === 1 || Number(group[0].cluster_count) > 1) return group[0];
+    const members = [...group].sort((a, b) => Number(b.relevance?.score || 0) - Number(a.relevance?.score || 0) || Date.parse(b.published_at) - Date.parse(a.published_at));
+    const sources = [], sourceKeys = new Set();
+    for (const source of members.flatMap(item => Array.isArray(item.sources) ? item.sources : [])) {
+      const key = `${String(source.url || "").toLowerCase()}|${String(source.name || "").toLowerCase()}`;
+      if (!sourceKeys.has(key)) { sourceKeys.add(key); sources.push(source); }
+    }
+    const affectedRegions = [...new Set(members.flatMap(item => [item.city, item.region]).filter(Boolean))];
+    return { ...members[0], sources, source_count: sources.length, cluster_count: members.length, affected_regions: affectedRegions, related_events: members.map(item => ({ id: item.id, title: item.title, summary: item.summary, city: item.city, region: item.region, country: item.country, published_at: item.published_at, canonical_url: item.canonical_url })) };
+  });
+}
+function visibleLiveEvents() { return collapseLiveEvents(liveState.events).slice(0, 12); }
+
 function liveConnectionIsFresh() {
   const received = liveState.receivedAt ? new Date(liveState.receivedAt).getTime() : 0;
   const synced = liveState.lastSyncAt ? new Date(liveState.lastSyncAt).getTime() : received;
@@ -237,7 +336,7 @@ async function requestLiveLage(force = false) {
   if (!force && received && Date.now() - received < 30_000) return;
   liveState.status = liveState.events.length ? "refreshing" : "loading";
   const params = new URLSearchParams({
-    scope: liveState.scope, filter: liveState.filter, limit: "12", country: "Deutschland",
+    scope: liveState.scope, filter: liveState.filter, limit: "30", country: "Deutschland",
     region: "Niedersachsen", district: "Stade", lat: "53.823008", lon: "9.285572",
   });
   liveRequest = fetch(`/api/live-lage?${params}`, { cache: "no-store", headers: { accept: "application/json" } })
@@ -271,7 +370,8 @@ async function requestLiveLage(force = false) {
 function liveEventCard(event) {
   const severity = String(event.severity || "info");
   const verification = liveVerificationLabels[event.verification_status] || liveVerificationLabels.unknown;
-  const location = [event.city, event.region, event.country].filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join(" · ") || "Ort nicht ermittelt";
+  const regions = Array.isArray(event.affected_regions) ? event.affected_regions : [];
+  const location = Number(event.cluster_count) > 1 ? `${regions.slice(0, 2).join(", ")}${regions.length > 2 ? ` +${regions.length - 2}` : ""} · ${event.country || ""}` : [event.city, event.region, event.country].filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join(" · ") || "Ort nicht ermittelt";
   const sources = Array.isArray(event.sources) ? event.sources : [];
   const sourceNames = [...new Set(sources.map(source => source.name).filter(Boolean))].slice(0, 2).join(", ") || "Quelle nicht benannt";
   const distance = event.relevance?.distance_km;
@@ -279,7 +379,7 @@ function liveEventCard(event) {
     <div class="live-event-top">${icon(liveEventIcon(event.category), "live-event-icon")}<span>${esc(liveCategoryLabels[event.category] || event.category || "Lage")}</span><b>${esc(liveSeverityLabels[severity] || "HINWEIS")}</b><time>${relativeTime(event.published_at)}</time></div>
     <h3>${esc(event.title)}</h3><p>${esc(event.summary || "Für diese strukturierte Meldung liegt keine weitere Kurzbeschreibung vor.")}</p>
     <div class="live-meta"><span>⌖ ${esc(location)}</span><span>Quelle: ${esc(sourceNames)}</span></div>
-    <div class="live-evidence"><em class="verify-${esc(event.verification_status || "unknown")}">${esc(verification)}</em>${Number(event.source_count) > 1 ? `<span>Bestätigt durch ${Number(event.source_count)} Quellen</span>` : ""}</div>
+    <div class="live-evidence"><em class="verify-${esc(event.verification_status || "unknown")}">${esc(verification)}</em>${Number(event.cluster_count) > 1 ? `<span class="cluster-badge">${Number(event.cluster_count)} regionale Meldungen gebündelt</span>` : Number(event.source_count) > 1 ? `<span>Bestätigt durch ${Number(event.source_count)} Quellen</span>` : ""}</div>
     <div class="live-relevance"><span>Relevanz für dich: <b>${esc(liveSeverityLabels[event.relevance?.level] || "GERING")}</b>${Number.isFinite(distance) ? ` · ${Math.round(distance)} km entfernt` : ""}</span><button data-live-detail="${esc(event.id)}">Details öffnen →</button></div>
   </article>`;
 }
@@ -287,13 +387,14 @@ function liveEventCard(event) {
 function liveLagePanel() {
   const isLive = liveConnectionIsFresh();
   const stateTitle = isLive ? "LIVE-LAGE" : "OFFLINE";
-  const events = liveState.events;
+  const events = visibleLiveEvents();
+  const hiddenDuplicates = Math.max(0, liveState.events.length - events.length);
   return `<aside class="live-lage-panel" aria-label="Aktuelle Sicherheits- und Krisenlage">
     <header><div><span class="live-dot ${isLive ? "live" : "offline"}"></span><h2>${stateTitle}</h2></div><button data-live-refresh aria-label="Live-Lage aktualisieren">↻</button><small id="live-age">${isLive ? "Zuletzt aktualisiert" : "Letzter Lageabgleich"} ${relativeTime(isLive ? liveState.receivedAt : (liveState.lastSyncAt || liveState.receivedAt))}</small></header>
     <div class="live-scope">${Object.entries(liveScopeLabels).map(([key,label]) => `<button data-live-scope="${key}" class="${liveState.scope===key?"active":""}">${label}</button>`).join("")}</div>
     <div class="live-filters">${Object.entries(liveFilterLabels).map(([key,label]) => `<button data-live-filter="${key}" class="${liveState.filter===key?"active":""}">${label}</button>`).join("")}</div>
     <div class="live-list ${liveState.status}">${events.length ? events.map(liveEventCard).join("") : `<div class="live-empty">${icon("radio","big-icon")}<h3>${liveState.status === "loading" ? "Lageabgleich läuft …" : liveState.status === "error" ? "Lage-Dienst nicht erreichbar" : "Keine aktiven Meldungen in dieser Auswahl"}</h3><p>${liveState.status === "error" ? "Gespeicherte Meldungen würden hier offline weiter angezeigt. Bitte später erneut versuchen." : "Das ist kein Entwarnungssignal. Im Ereignisfall gelten amtliche Warnungen und Anweisungen."}</p></div>`}</div>
-    <footer><span>${liveState.sources.length} strukturierte Quellen aktiv</span><small>Keine Boulevard- oder allgemeinen Politikmeldungen.</small></footer>
+    <footer><span>${liveState.sources.length} strukturierte Quellen aktiv${hiddenDuplicates ? ` · ${hiddenDuplicates} Wiederholungen gebündelt` : ""}</span><small>Keine Boulevard- oder allgemeinen Politikmeldungen.</small></footer>
   </aside>`;
 }
 function nextTask() { return tasks.find(task => !state.taskStatus[task.id]) || null; }
@@ -304,7 +405,7 @@ function renderHome() {
   const water = state.supplies.water;
   const waterDays = water === null ? null : Math.floor(water / 6);
   const statusTone = warningState.status === "ok" && !warningState.warnings.length ? "safe" : ["loading", "fallback"].includes(warningState.status) ? "neutral" : "danger";
-  const heroPhoto = state.media.familyPhoto ? `style="--hero-photo:url('${state.media.familyPhoto}')"` : "";
+  const heroPhoto = sceneStyle("dashboard", "--hero-photo");
   const content = `<div class="home-live-layout"><div class="home-core"><section class="dashboard-hero" ${heroPhoto}>
     <div class="dashboard-copy"><h1>Heute vorsorgen.<br><em>Morgen sicherer.</em></h1><p>Krisen kommen oft unerwartet.<br>Sei vorbereitet – für deine Familie,<br>dein Zuhause und deine Zukunft.</p><blockquote>„Sicherheit ist planbar – Schritt für Schritt.“</blockquote></div>
     <div class="dashboard-score">${scoreRing(value, value !== null && value < 50)}<div class="score-message"><strong>${value === null ? "Noch nicht bewertet." : value >= 70 ? "Gut vorbereitet." : "Es gibt wichtige Lücken."}</strong><p>${value === null ? "Beantworte zuerst alle zwölf Fragen. Wir zeigen niemals einen erfundenen Beispielwert." : "Der Wert basiert ausschließlich auf deinen Antworten."}</p><button class="${value !== null && value < 50 ? "red" : "green"}" data-open-assessment>${value === null ? "Jetzt ehrlich prüfen" : "Angaben aktualisieren"} →</button></div></div>
@@ -324,7 +425,11 @@ function renderHome() {
     ["shelter.png","Schutz in deiner Nähe","Verifizierte Anlaufstellen.","map"],
     ["warning-storm.png","Warnschutz","DWD-Status und Warnwege.","warnschutz"],
     ["knowledge.png","Wissen","Offizielle Hinweise verständlich.","knowledge"],
-  ].map(([img,title,copy,route]) => `<button data-route="${route}" style="--feature:url('assets/${img}')"><span><b>${title}</b><small>${copy}</small></span><strong>›</strong></button>`).join("")}</section></div>${liveLagePanel()}</div>`;
+  ].map(([img,title,copy,route]) => {
+    const generatedKey = route === "supplies" ? "supplies" : route === "warnschutz" ? "warning" : route === "knowledge" ? "knowledge" : null;
+    const featureImage = generatedKey && personalizedImages[generatedKey] ? personalizedImages[generatedKey] : `assets/${img}`;
+    return `<button data-route="${route}" style="--feature:url('${esc(featureImage)}')"><span><b>${title}</b><small>${copy}</small></span><strong>›</strong></button>`;
+  }).join("")}</section></div>${liveLagePanel()}</div>`;
   app.innerHTML = loggedShell("home", content, "home-page");
   requestLiveLage();
 }
@@ -348,7 +453,7 @@ function renderPlan() {
 function renderSupplies() {
   const percent = supplyPercent();
   const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt"];
-  const content = `<section class="image-hero pantry-hero"><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
+  const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
     <div class="content-wrap supplies-layout"><aside class="side-card">${scoreRing(percent)}<p>${percent === null ? "Noch kein Bestand erfasst." : "Aus selbst eingetragenen Beständen berechnet."}</p><button class="outline" data-open-supply="water">Jetzt erfassen</button></aside>
     <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>2 Erwachsene · 1 Kind · 1 Hund</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b></p></div></article>
       <div class="filter-row">${filters.map(f => `<button class="${f==="Alle"?"active":""}">${f}</button>`).join("")}</div>
@@ -373,7 +478,7 @@ function renderMap() {
 
 function renderWarnschutz() {
   const checked = warningState.checkedAt ? new Date(warningState.checkedAt).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) : "–";
-  const content = `<section class="image-hero warning-hero"><div><h1>Früh informiert.<br><em>Besser vorbereitet.</em></h1><p>Amtliche Wetterwarnungen und belastbare Warnwege für Nicole in Freiburg (Elbe).</p></div></section>
+  const content = `<section class="image-hero warning-hero" ${sceneStyle("warning")}><div><h1>Früh informiert.<br><em>Besser vorbereitet.</em></h1><p>Amtliche Wetterwarnungen und belastbare Warnwege für Nicole in Freiburg (Elbe).</p></div></section>
     <div class="warning-layout"><section><article class="current-warning ${warningState.status==="ok"&&!warningState.warnings.length?"safe":warningState.status==="fallback"?"neutral":""}">${icon(warningState.warnings.length?"weather-warning":"health","warning-large")}${warningSummary()}<span>Live-Prüfung: ${checked}</span><a href="${sources.dwd}" target="_blank" rel="noreferrer">Beim DWD öffnen ↗</a></article>
       <div class="warning-cards"><article>${icon("bell","big-icon")}<h3>Cell Broadcast</h3><p>Warnungen werden auf kompatiblen, eingeschalteten Mobiltelefonen ohne App ausgesendet.</p></article><article>${icon("weather-warning","big-icon")}<h3>NINA</h3><p>Die offizielle Warn-App des BBK bündelt Zivil-, Polizei-, Wetter- und Hochwasserwarnungen.</p><a href="${sources.nina}" target="_blank">NINA beim BBK ↗</a></article><article>${icon("radio","big-icon")}<h3>Radio</h3><p>Ein Batterie-, Solar- oder Kurbelradio bleibt bei Strom- und Internetausfall wichtig.</p></article></div>
     </section><aside><h3>Benachrichtigungen</h3><p>RedScore kann den Browserzugriff anfragen. Eine Freigabe ersetzt keine Warn-App.</p><button class="green" data-notifications>${"Notification" in window && Notification.permission === "granted" ? "Browser-Mitteilungen erlaubt" : "Berechtigung prüfen"}</button><h3>Verhalten bei Unwetter</h3><ul><li>Amtliche Meldungen verfolgen</li><li>Fenster und Türen schließen</li><li>Lose Gegenstände sichern</li><li>Überflutete Bereiche meiden</li></ul></aside></div>`;
@@ -384,8 +489,8 @@ function renderWarnschutz() {
 function renderKnowledge() {
   const query = state.ui.knowledgeSearch.toLowerCase();
   const shown = knowledgeArticles.filter(a => !query || (a.title+" "+a.summary).toLowerCase().includes(query));
-  const content = `<section class="image-hero knowledge-hero"><div><h1>Wissen <em>schützt.</em></h1><h2>Verstehen. Vorbereiten. Handeln.</h2><p>Verständliche Hinweise und offizielle Quellen für mehr Sicherheit in allen Lebenslagen.</p><form data-knowledge-search><input name="query" value="${esc(state.ui.knowledgeSearch)}" placeholder="Thema suchen …"><button>⌕</button></form></div><span class="sign-copy">WISSEN<br>VON HEUTE.<br>SICHERHEIT<br>VON MORGEN.</span></section>
-    <div class="content-wrap knowledge-content"><section><h2>Empfehlungen für dich</h2><div class="article-grid">${shown.map(article => `<article class="${state.media.familyPhoto?"personalized":""}" ${state.media.familyPhoto?`style="--photo:url('${state.media.familyPhoto}')"`:""}><div class="article-visual">${icon(article.icon,"article-icon")}</div><small>${article.category} · ${article.minutes} Min.</small><h3>${article.title}</h3><p>${article.summary}</p><button data-article="${article.id}">Ansehen →</button></article>`).join("")}</div></section>
+  const content = `<section class="image-hero knowledge-hero" ${sceneStyle("knowledge")}><div><h1>Wissen <em>schützt.</em></h1><h2>Verstehen. Vorbereiten. Handeln.</h2><p>Verständliche Hinweise und offizielle Quellen für mehr Sicherheit in allen Lebenslagen.</p><form data-knowledge-search><input name="query" value="${esc(state.ui.knowledgeSearch)}" placeholder="Thema suchen …"><button>⌕</button></form></div><span class="sign-copy">WISSEN<br>VON HEUTE.<br>SICHERHEIT<br>VON MORGEN.</span></section>
+    <div class="content-wrap knowledge-content"><section><h2>Empfehlungen für dich</h2><div class="article-grid">${shown.map(article => `<article><div class="article-visual">${icon(article.icon,"article-icon")}</div><small>${article.category} · ${article.minutes} Min.</small><h3>${article.title}</h3><p>${article.summary}</p><button data-article="${article.id}">Ansehen →</button></article>`).join("")}</div></section>
       <aside class="knowledge-side"><h3>Offizielle Ressourcen</h3><a href="${sources.bbkGuide}" target="_blank">BBK-Ratgeber ↗</a><a href="${sources.bbkBag}" target="_blank">Notgepäck ↗</a><a href="${sources.bbkDocuments}" target="_blank">Dokumente sichern ↗</a><a href="${sources.nina}" target="_blank">Warn-App NINA ↗</a></aside></div>`;
   app.innerHTML = loggedShell("knowledge", content, "knowledge-page");
 }
@@ -393,7 +498,7 @@ function renderKnowledge() {
 function renderProfile() {
   const content = `<div class="content-wrap profile-layout"><section><h1>Profil</h1><article class="profile-card"><div class="avatar large">NM</div><div><h2>Nicole Mrozinski</h2><p>2 Erwachsene · 1 Kind · 1 Hund</p><small>Freiburg (Elbe), Flecken · Niedersachsen</small></div></article>
     <div class="profile-photo-panel">${familyUpload()}</div>
-    <div class="settings-list"><article>${icon("map","row-icon")}<span><b>Standort</b><small>21729 Freiburg (Elbe) · Landkreis Stade</small></span></article><article>${icon("profile","row-icon")}<span><b>Haushalt</b><small>2 Erwachsene · 1 Kind · 1 Hund</small></span></article><article>${icon("settings","row-icon")}<span><b>Datenschutz</b><small>Foto, Antworten und Bestände bleiben lokal in diesem Browser.</small></span></article></div>
+    <div class="settings-list"><article>${icon("map","row-icon")}<span><b>Standort</b><small>21729 Freiburg (Elbe) · Landkreis Stade</small></span></article><article>${icon("profile","row-icon")}<span><b>Haushalt</b><small>2 Erwachsene · 1 Kind · 1 Hund</small></span></article><article>${icon("settings","row-icon")}<span><b>Datenschutz</b><small>Antworten und Bestände bleiben lokal. Das Referenzfoto wird nur zur angeforderten Bildgenerierung verschlüsselt übertragen; RedScore speichert es nicht serverseitig.</small></span></article></div>
   </section><aside class="profile-actions"><button class="outline" data-open-assessment>Vorsorgestand neu prüfen</button><button class="outline" data-remove-photo ${state.media.familyPhoto?"":"disabled"}>Foto entfernen</button><button class="red" data-logout>Abmelden</button></aside></div>`;
   app.innerHTML = loggedShell("profile", content, "profile-page");
 }
@@ -419,11 +524,12 @@ function modal() {
   }
   if (state.ui.modal.startsWith("live:")) {
     const id = state.ui.modal.slice(5);
-    const event = liveState.events.find(item => item.id === id);
+    const event = visibleLiveEvents().find(item => item.id === id);
     if (!event) return "";
     const originals = (Array.isArray(event.sources) ? event.sources : []).filter(source => safeExternalUrl(source.url));
     const originalUrl = safeExternalUrl(event.canonical_url);
-    return `<div class="modal-backdrop"><section class="modal live-detail-modal"><button class="modal-close" data-close-modal>×</button>${icon(liveEventIcon(event.category),"modal-icon")}<small>${esc(liveCategoryLabels[event.category] || "LAGEEREIGNIS")} · ${esc(liveVerificationLabels[event.verification_status] || liveVerificationLabels.unknown)}</small><h2>${esc(event.title)}</h2><p>${esc(event.summary)}</p><dl><div><dt>Veröffentlicht</dt><dd>${new Date(event.published_at).toLocaleString("de-DE")}</dd></div><div><dt>Von RedScore gefunden</dt><dd>${new Date(event.first_seen_at).toLocaleString("de-DE")}</dd></div><div><dt>Region</dt><dd>${esc([event.city,event.region,event.country].filter(Boolean).join(" · ") || "nicht ermittelt")}</dd></div><div><dt>Relevanz</dt><dd>${esc(liveSeverityLabels[event.relevance?.level] || "GERING")}</dd></div></dl><h3>Nachvollziehbare Quellen (${originals.length})</h3><div class="live-source-list">${originals.map(source => `<a href="${safeExternalUrl(source.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(source.name)}</b><small>${esc(source.title || "Originalmeldung")} · ${relativeTime(source.published_at)}</small></a>`).join("") || "<p>Keine veröffentlichte Original-URL verfügbar.</p>"}</div>${originalUrl ? `<a class="green link-button" href="${originalUrl}" target="_blank" rel="noopener noreferrer">Originalmeldung öffnen ↗</a>` : ""}<em>Diese Lageübersicht ersetzt keine amtliche Warnung. Folge im Ereignisfall den Anweisungen der Behörden.</em></section></div>`;
+    const affected = Array.isArray(event.affected_regions) ? event.affected_regions : [];
+    return `<div class="modal-backdrop"><section class="modal live-detail-modal"><button class="modal-close" data-close-modal>×</button>${icon(liveEventIcon(event.category),"modal-icon")}<small>${esc(liveCategoryLabels[event.category] || "LAGEEREIGNIS")} · ${esc(liveVerificationLabels[event.verification_status] || liveVerificationLabels.unknown)}</small><h2>${esc(event.title)}</h2><p>${esc(event.summary)}</p>${Number(event.cluster_count) > 1 ? `<div class="cluster-explanation"><b>${Number(event.cluster_count)} gleichartige Regionalmeldungen zusammengefasst</b><span>RedScore zeigt sie als ein Lageereignis, die einzelnen betroffenen Gebiete bleiben nachvollziehbar.</span></div>` : ""}<dl><div><dt>Veröffentlicht</dt><dd>${new Date(event.published_at).toLocaleString("de-DE")}</dd></div><div><dt>Von RedScore gefunden</dt><dd>${new Date(event.first_seen_at).toLocaleString("de-DE")}</dd></div><div><dt>Region</dt><dd>${esc([event.city,event.region,event.country].filter(Boolean).join(" · ") || "nicht ermittelt")}</dd></div><div><dt>Relevanz</dt><dd>${esc(liveSeverityLabels[event.relevance?.level] || "GERING")}</dd></div></dl>${affected.length ? `<h3>Betroffene Gebiete (${affected.length})</h3><div class="live-region-list">${affected.map(region => `<span>${esc(region)}</span>`).join("")}</div>` : ""}<h3>Nachvollziehbare Quellen (${originals.length})</h3><div class="live-source-list">${originals.map(source => `<a href="${safeExternalUrl(source.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(source.name)}</b><small>${esc(source.title || "Originalmeldung")} · ${relativeTime(source.published_at)}</small></a>`).join("") || "<p>Keine veröffentlichte Original-URL verfügbar.</p>"}</div>${originalUrl ? `<a class="green link-button" href="${originalUrl}" target="_blank" rel="noopener noreferrer">Originalmeldung öffnen ↗</a>` : ""}<em>Diese Lageübersicht ersetzt keine amtliche Warnung. Folge im Ereignisfall den Anweisungen der Behörden.</em></section></div>`;
   }
   return "";
 }
@@ -439,6 +545,86 @@ async function requestWarnings() {
   warningRequested = true;
   await requestLiveLage();
   warningRequested = false;
+}
+
+function dataUrlToBlob(dataUrl) {
+  const [metadata, encoded] = dataUrl.split(",");
+  const mimeType = metadata.match(/^data:([^;]+)/)?.[1] || "image/jpeg";
+  const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
+  return new Blob([bytes], { type: mimeType });
+}
+
+async function checkPersonalizationAvailability(force = false) {
+  if (!navigator.onLine) return { available: false, reason: "Für die Bildgenerierung wird einmalig eine Internetverbindung benötigt." };
+  if (personalizationAvailability.checked && !force) return personalizationAvailability;
+  try {
+    const response = await fetch("/api/personalize-image", { cache: "no-store", headers: { accept: "application/json" } });
+    const payload = await response.json().catch(() => ({}));
+    personalizationAvailability = { checked: true, available: response.ok && payload.available === true, reason: payload.available === true ? "" : (payload.message || "Der persönliche Bilddienst ist noch nicht freigeschaltet.") };
+  } catch {
+    personalizationAvailability = { checked: true, available: false, reason: "Der persönliche Bilddienst ist momentan nicht erreichbar." };
+  }
+  return personalizationAvailability;
+}
+
+async function generatePersonalizedImages(referenceBlob) {
+  if (!navigator.onLine) {
+    personalizationState = { status: "error", progress: 0, label: "", error: "Für die Bildgenerierung wird einmalig eine Internetverbindung benötigt." };
+    return render();
+  }
+
+  personalizationState = { status: "processing", progress: 5, label: "Referenzfoto wird sicher vorbereitet …", error: null };
+  await clearPersonalizedImages();
+  render();
+
+  try {
+    for (let index = 0; index < PERSONALIZATION_SCENARIOS.length; index += 1) {
+      const [scenario, label] = PERSONALIZATION_SCENARIOS[index];
+      personalizationState.label = `${label} wird im Backend generiert …`;
+      personalizationState.progress = 8 + Math.round(index / PERSONALIZATION_SCENARIOS.length * 84);
+      render();
+
+      const form = new FormData();
+      form.append("image", referenceBlob, "redscore-reference.jpg");
+      form.append("scenario", scenario);
+      form.append("household", JSON.stringify({ adults: state.household.adults, children: state.household.children, dogs: state.household.dogs }));
+      const response = await fetch("/api/personalize-image", { method: "POST", body: form, credentials: "same-origin" });
+      if (!response.ok) {
+        const payload = await response.clone().json().catch(() => ({}));
+        throw new Error(payload.error || "Das Motiv konnte nicht erzeugt werden.");
+      }
+      const blob = await response.blob();
+      if (!blob.type.startsWith("image/") || !blob.size) throw new Error("Der Bilddienst hat kein gültiges Motiv geliefert.");
+      await storePersonalizedImage(scenario, blob);
+      personalizationState.progress = 8 + Math.round((index + 1) / PERSONALIZATION_SCENARIOS.length * 84);
+      render();
+    }
+
+    personalizationState = { status: "complete", progress: 100, label: "Vier persönliche Motive sind bereit.", error: null };
+    toast("Vier personalisierte RedScore-Motive wurden erstellt.");
+    render();
+  } catch (error) {
+    personalizationState = { status: "error", progress: personalizationState.progress, label: "", error: error instanceof Error ? error.message : "Die Bildgenerierung wurde unterbrochen." };
+    render();
+  }
+}
+
+function prepareReferenceImage(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      canvas.getContext("2d", { alpha: false }).drawImage(image, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => blob ? resolve({ blob, dataUrl: canvas.toDataURL("image/jpeg", .86) }) : reject(new Error("Das Foto konnte nicht vorbereitet werden.")), "image/jpeg", .86);
+    };
+    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Das Foto konnte nicht gelesen werden.")); };
+    image.src = objectUrl;
+  });
 }
 
 app.addEventListener("click", async event => {
@@ -466,8 +652,17 @@ app.addEventListener("click", async event => {
   if (button.dataset.openSupply) { state.ui.modal = "supply:"+button.dataset.openSupply; return render(); }
   if (button.dataset.mapFilter) { state.ui.mapFilter = button.dataset.mapFilter; save(); return render(); }
   if (button.dataset.article) { state.ui.modal = "article:"+button.dataset.article; return render(); }
-  if (button.matches("[data-upload-photo]")) return fileInput.click();
-  if (button.matches("[data-remove-photo]")) { state.media.familyPhoto = null; save(); toast("Das lokale Foto wurde entfernt."); return render(); }
+  if (button.matches("[data-upload-photo]")) {
+    const availability = await checkPersonalizationAvailability(true);
+    if (!availability.available) { personalizationState = { status: "error", progress: 0, label: "", error: availability.reason }; toast(availability.reason); return render(); }
+    return fileInput.click();
+  }
+  if (button.matches("[data-retry-generation]")) {
+    const availability = await checkPersonalizationAvailability(true);
+    if (!availability.available) { personalizationState = { status: "error", progress: 0, label: "", error: availability.reason }; return render(); }
+    return generatePersonalizedImages(dataUrlToBlob(state.media.familyPhoto));
+  }
+  if (button.matches("[data-remove-photo]")) { state.media.familyPhoto = null; personalizationState = { status: "idle", progress: 0, label: "", error: null }; await clearPersonalizedImages(); save(); toast("Referenzfoto und personalisierte Motive wurden lokal entfernt."); return render(); }
   if (button.matches("[data-save-offline]")) { state.settings.offlinePlacesSaved = true; save(); toast("Die verifizierte Ortsliste ist lokal gespeichert. Die Kartenkacheln bleiben online."); return render(); }
   if (button.matches("[data-notifications]")) {
     if (!("Notification" in window)) return toast("Dieser Browser unterstützt keine Web-Mitteilungen.");
@@ -488,23 +683,20 @@ app.addEventListener("submit", event => {
   if (form.matches("[data-knowledge-search]")) { state.ui.knowledgeSearch = new FormData(form).get("query").trim(); save(); render(); }
 });
 
-fileInput.addEventListener("change", () => {
+fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
-  if (!file || !file.type.startsWith("image/")) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const image = new Image();
-    image.onload = () => {
-      const scale = Math.min(1, 1400 / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale);
-      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-      state.media.familyPhoto = canvas.toDataURL("image/jpeg", .84);
-      save(); fileInput.value = ""; toast("Foto lokal gespeichert."); render();
-    };
-    image.src = reader.result;
-  };
-  reader.readAsDataURL(file);
+  if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) return toast("Bitte ein JPEG-, PNG- oder WebP-Foto auswählen.");
+  try {
+    const prepared = await prepareReferenceImage(file);
+    state.media.familyPhoto = prepared.dataUrl;
+    save();
+    fileInput.value = "";
+    await generatePersonalizedImages(prepared.blob);
+  } catch (error) {
+    fileInput.value = "";
+    personalizationState = { status: "error", progress: 0, label: "", error: error instanceof Error ? error.message : "Das Foto konnte nicht verarbeitet werden." };
+    render();
+  }
 });
 
 window.addEventListener("hashchange", render);
@@ -513,6 +705,7 @@ window.addEventListener("online", () => { if (state.authenticated) requestLiveLa
 liveClockTimer = setInterval(updateLiveClock, 1000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 render();
+loadPersonalizedImages().then(() => render()).catch(() => {});
 
 if (navigator.modelContext?.registerTool) {
   navigator.modelContext.registerTool({ name: "get_redscore_status", description: "Returns Nicole's entered RedScore state without inventing data.", inputSchema: { type: "object", properties: {} }, execute: async () => ({ score: score(), supplies: state.supplies, completedTasks: Object.keys(state.taskStatus).filter(id => state.taskStatus[id]), household: state.household }) });

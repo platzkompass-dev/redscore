@@ -2,6 +2,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { GET as personalizationStatus, POST as personalizeImage } from "./api/personalize-image.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, "dist");
@@ -83,6 +84,23 @@ async function proxyLiveLage(request, response, requestUrl) {
   }
 }
 
+async function runPersonalizationHandler(request, response, requestUrl) {
+  const handler = request.method === "GET" ? personalizationStatus : request.method === "POST" ? personalizeImage : null;
+  if (!handler) return sendJson(response, 405, { error: "GET oder POST erforderlich" });
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  const body = chunks.length ? Buffer.concat(chunks) : undefined;
+  const webRequest = new Request(requestUrl, {
+    method: request.method,
+    headers: request.headers,
+    body,
+  });
+  const result = await handler(webRequest);
+  const payload = Buffer.from(await result.arrayBuffer());
+  response.writeHead(result.status, Object.fromEntries(result.headers.entries()));
+  response.end(payload);
+}
+
 async function serveStatic(response, requestUrl) {
   let pathname;
   try { pathname = decodeURIComponent(requestUrl.pathname); }
@@ -114,8 +132,9 @@ async function serveStatic(response, requestUrl) {
 
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "127.0.0.1"}`);
-  if (requestUrl.pathname === "/api/health") return sendJson(response, 200, { ok: true, liveLageConfigured: Boolean(supabaseUrl && anonKey) });
+  if (requestUrl.pathname === "/api/health") return sendJson(response, 200, { ok: true, liveLageConfigured: Boolean(supabaseUrl && anonKey), personalizationConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.PERSONALIZATION_ENABLED === "true") });
   if (requestUrl.pathname === "/api/live-lage") return proxyLiveLage(request, response, requestUrl);
+  if (requestUrl.pathname === "/api/personalize-image") return runPersonalizationHandler(request, response, requestUrl);
   return serveStatic(response, requestUrl);
 });
 

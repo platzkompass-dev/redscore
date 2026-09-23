@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { DatabaseClient } from "../_shared/live-lage/db.ts";
 import { corsHeaders } from "../_shared/live-lage/security.ts";
 import { calculateRelevance } from "../_shared/live-lage/relevance.ts";
+import { clusterLiveEvents } from "../_shared/live-lage/cluster.ts";
 import type { UserContext } from "../_shared/live-lage/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -49,6 +50,8 @@ Deno.serve(async request => {
 
   const ranked = events.map(event => ({ ...event, relevance: calculateRelevance(event, user) }))
     .filter(event => scope !== "for_you" || event.relevance.score >= 45)
+    .sort((a, b) => b.relevance.score - a.relevance.score || Date.parse(b.published_at) - Date.parse(a.published_at));
+  const clustered = clusterLiveEvents(ranked)
     .sort((a, b) => b.relevance.score - a.relevance.score || Date.parse(b.published_at) - Date.parse(a.published_at))
     .slice(0, limit);
   const sourceState = await db.request<any[]>("rpc/get_live_lage_source_state", { method: "POST", body: "{}" });
@@ -59,7 +62,7 @@ Deno.serve(async request => {
     lastSyncAt,
     scope,
     filter,
-    events: ranked,
+    events: clustered,
     sources: sourceState,
     disclaimer: "Lageübersicht aus strukturierten Quellen. Im Ereignisfall gelten ausschließlich amtliche Warnungen und Anweisungen.",
   }), { headers: { ...headers, "cache-control": "public, max-age=20, stale-while-revalidate=60" } });

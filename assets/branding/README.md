@@ -1,25 +1,27 @@
 # RedScore-Branding
 
-`redscore-logo.png` ist die verbindliche Masterdatei und das zentrale Erkennungszeichen
-von RedScore. Das Wappen wird für App, Website und Kommunikation nicht durch ein anderes
-Symbol ersetzt.
+`redscore-logo.png` ist die verbindliche Masterdatei mit rotem Signalzeichen,
+RedScore-Wortmarke und dem Zusatz „Katastrophenvorbereitung für Bürger“. Sie wird für
+Website, App und Kommunikation nicht durch ein anderes Symbol ersetzt.
 
 ## Verwendung
 
 - `favicon.ico` sowie `favicon-*.png`: Browser und Web-App
 - `app-icon-*.png`: Smartphone-, Tablet- und Desktop-App
 - `app-icon-foreground-1024.png`: transparenter Vordergrund für adaptive App-Symbole
-- `app-logo-512.png`: Logo innerhalb der Benutzeroberfläche
-- `communication-logo-1200.png`: E-Mail, Dokumente, Präsentationen und Kommunikation
+- `app-logo-512.png`: kompaktes Signalzeichen innerhalb der Benutzeroberfläche
+- `communication-logo-1200.png`: vollständige Wortmarke für E-Mail, Dokumente,
+  Präsentationen und Kommunikation
 - `redscore-desktop.ico`: Windows-Desktop-App
 
 ## Regeln
 
-- Das Wappen immer vollständig und unverzerrt darstellen.
+- Wortmarke und Signalzeichen immer unverzerrt darstellen.
 - Keine Schrift oder zusätzlichen Elemente in das Logo integrieren.
-- Genügend freien Abstand um das Wappen lassen.
-- Die transparente Masterdatei für neue Ableitungen verwenden.
-- Die weißen, quadratischen `app-icon-*.png` für App-Stores und Launcher einsetzen.
+- Genügend freien Abstand um Logo beziehungsweise Signalzeichen lassen.
+- Die Masterdatei für neue Ableitungen verwenden.
+- Die weißen, quadratischen `app-icon-*.png` für App-Stores und Launcher einsetzen;
+  dort wird bewusst nur das deutlich erkennbare Signalzeichen verwendet.
 
 Die abgeleiteten Dateien können jederzeit reproduzierbar mit
 `tools/generate_brand_assets.py` neu erzeugt werden.
