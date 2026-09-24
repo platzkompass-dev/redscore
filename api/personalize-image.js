@@ -1,3 +1,5 @@
+import { createGateway, generateImage } from "ai";
+
 const MAX_UPLOAD_BYTES = 8_000_000;
 const MAX_OUTPUT_BYTES = 8_000_000;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
@@ -147,54 +149,69 @@ export async function POST(request) {
   }
 
   const prompt = `${scenario.prompt}\n${householdContext(form.get("household"))}\nPreserve natural skin texture, age, body proportions, and recognizable identity. Do not add text, logos, watermarks, uniforms, weapons, visible injuries, or disaster victims.`;
-  const upstreamForm = new FormData();
   const extension = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
-  upstreamForm.append("model", model);
-  upstreamForm.append("image", new File([inputBytes], `reference-image.${extension}`, { type: image.type }));
-  upstreamForm.append("prompt", prompt);
-  upstreamForm.append("size", "1536x1024");
-  upstreamForm.append("quality", "medium");
-  upstreamForm.append("output_format", "webp");
-  upstreamForm.append("output_compression", "82");
-  if (provider === "openai-direct" && !/^gpt-image-2(?:-|$)/.test(model)) upstreamForm.append("input_fidelity", "high");
 
   try {
-    const result = await fetch(endpoint, {
-      method: "POST",
-      headers: { authorization: `Bearer ${token}` },
-      body: upstreamForm,
-      redirect: "error",
-      signal: AbortSignal.timeout(280_000),
-    });
-    if (!result.ok) {
-      const upstreamError = await result.json().catch(() => ({}));
-      const upstreamCode = String(upstreamError?.error?.code || upstreamError?.code || "unknown").slice(0, 80);
-      const upstreamType = String(upstreamError?.error?.type || upstreamError?.type || "unknown").slice(0, 80);
-      console.error("RedScore personalization upstream failure", {
-        status: result.status,
-        requestId: result.headers.get("x-request-id") || "no-request-id",
-        code: upstreamCode,
-        type: upstreamType,
-        provider,
-        model,
+    let output;
+    let mediaType = "image/png";
+    if (provider === "vercel-ai-gateway") {
+      const gateway = createGateway({ apiKey: token });
+      const generated = await generateImage({
+        model: gateway.image(model),
+        prompt: { text: prompt, images: [inputBytes] },
+        size: "1536x1024",
+        maxRetries: 1,
+        abortSignal: AbortSignal.timeout(280_000),
       });
-      if (result.status === 402) return json(503, { error: "Das Bildbudget ist momentan ausgeschöpft. Bitte später erneut versuchen." });
-      if (result.status === 401 || result.status === 403) return json(503, { error: "Der Bilddienst ist serverseitig noch nicht korrekt verbunden. Bitte später erneut versuchen." });
-      return json(result.status === 429 ? 429 : 502, { error: result.status === 429 ? "Die Bildgenerierung ist gerade ausgelastet. Bitte später erneut versuchen." : "Das personalisierte Motiv konnte nicht erzeugt werden." });
+      output = generated.image.uint8Array;
+      mediaType = generated.image.mediaType || mediaType;
+    } else {
+      const upstreamForm = new FormData();
+      upstreamForm.append("model", model);
+      upstreamForm.append("image", new File([inputBytes], `reference-image.${extension}`, { type: image.type }));
+      upstreamForm.append("prompt", prompt);
+      upstreamForm.append("size", "1536x1024");
+      upstreamForm.append("quality", "medium");
+      upstreamForm.append("output_format", "webp");
+      upstreamForm.append("output_compression", "82");
+      if (!/^gpt-image-2(?:-|$)/.test(model)) upstreamForm.append("input_fidelity", "high");
+      const result = await fetch(endpoint, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: upstreamForm,
+        redirect: "error",
+        signal: AbortSignal.timeout(280_000),
+      });
+      if (!result.ok) {
+        const upstreamError = await result.json().catch(() => ({}));
+        const upstreamCode = String(upstreamError?.error?.code || upstreamError?.code || "unknown").slice(0, 80);
+        const upstreamType = String(upstreamError?.error?.type || upstreamError?.type || "unknown").slice(0, 80);
+        console.error("RedScore personalization upstream failure", {
+          status: result.status,
+          requestId: result.headers.get("x-request-id") || "no-request-id",
+          code: upstreamCode,
+          type: upstreamType,
+          provider,
+          model,
+        });
+        if (result.status === 402) return json(503, { error: "Das Bildbudget ist momentan ausgeschöpft. Bitte später erneut versuchen." });
+        if (result.status === 401 || result.status === 403) return json(503, { error: "Der Bilddienst ist serverseitig noch nicht korrekt verbunden. Bitte später erneut versuchen." });
+        return json(result.status === 429 ? 429 : 502, { error: result.status === 429 ? "Die Bildgenerierung ist gerade ausgelastet. Bitte später erneut versuchen." : "Das personalisierte Motiv konnte nicht erzeugt werden." });
+      }
+      const payload = await result.json();
+      const encoded = payload?.data?.[0]?.b64_json;
+      if (typeof encoded !== "string") throw new Error("missing image output");
+      output = Buffer.from(encoded, "base64");
+      mediaType = "image/webp";
     }
-
-    const payload = await result.json();
-    const encoded = payload?.data?.[0]?.b64_json;
-    if (typeof encoded !== "string") throw new Error("missing image output");
-    const output = Buffer.from(encoded, "base64");
     if (!output.length || output.length > MAX_OUTPUT_BYTES) throw new Error("invalid image output size");
     return new Response(output, {
       status: 200,
       headers: {
-        "content-type": "image/webp",
+        "content-type": mediaType,
         "content-length": String(output.length),
         "cache-control": "private, no-store",
-        "content-disposition": `inline; filename="redscore-${scenarioKey}.webp"`,
+        "content-disposition": `inline; filename="redscore-${scenarioKey}.${mediaType === "image/webp" ? "webp" : "png"}"`,
         "x-content-type-options": "nosniff",
         "referrer-policy": "no-referrer",
         "x-redscore-scenario": scenarioKey,

@@ -12,5 +12,8 @@
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test"
+  },
+  "dependencies": {
+    "ai": "^7.0.114"
   }
 }
