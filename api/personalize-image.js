@@ -1,6 +1,10 @@
 const MAX_UPLOAD_BYTES = 8_000_000;
 const MAX_OUTPUT_BYTES = 8_000_000;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 8;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const rateLimitBuckets = globalThis.__redscoreImageRateLimits || new Map();
+globalThis.__redscoreImageRateLimits = rateLimitBuckets;
 
 const SCENARIOS = Object.freeze({
   dashboard: {
@@ -21,22 +25,62 @@ const SCENARIOS = Object.freeze({
   },
 });
 
-function json(status, payload) {
+function json(status, payload, extraHeaders = {}) {
   return Response.json(payload, {
     status,
     headers: {
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
       "referrer-policy": "no-referrer",
+      ...extraHeaders,
     },
   });
 }
 
 function configuration() {
-  const apiKey = process.env.OPENAI_API_KEY || "";
-  const enabled = process.env.PERSONALIZATION_ENABLED === "true";
-  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2.5-sunburst";
-  return { apiKey, enabled, model };
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || "";
+  const directToken = process.env.OPENAI_API_KEY || "";
+  const useGateway = Boolean(gatewayToken);
+  const enabledSetting = process.env.PERSONALIZATION_ENABLED;
+  const enabled = enabledSetting === "true" || (enabledSetting !== "false" && useGateway);
+  return {
+    token: useGateway ? gatewayToken : directToken,
+    enabled,
+    model: useGateway
+      ? (process.env.AI_GATEWAY_IMAGE_MODEL || "openai/gpt-image-2")
+      : (process.env.OPENAI_IMAGE_MODEL || "gpt-image-2.5-sunburst"),
+    endpoint: useGateway
+      ? "https://ai-gateway.vercel.sh/v1/images/edits"
+      : "https://api.openai.com/v1/images/edits",
+    provider: useGateway ? "vercel-ai-gateway" : "openai-direct",
+  };
+}
+
+function requestIdentity(request) {
+  const forwarded = request.headers.get("x-vercel-forwarded-for") || request.headers.get("x-forwarded-for") || "local";
+  return forwarded.split(",")[0].trim().slice(0, 80) || "local";
+}
+
+function consumeRateLimit(request) {
+  const now = Date.now();
+  const key = requestIdentity(request);
+  const existing = rateLimitBuckets.get(key);
+  const bucket = !existing || now >= existing.resetAt
+    ? { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS }
+    : existing;
+
+  if (bucket.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
+  }
+  bucket.count += 1;
+  rateLimitBuckets.set(key, bucket);
+
+  if (rateLimitBuckets.size > 5_000) {
+    for (const [bucketKey, value] of rateLimitBuckets) {
+      if (now >= value.resetAt) rateLimitBuckets.delete(bucketKey);
+    }
+  }
+  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - bucket.count };
 }
 
 function sameOrigin(request) {
@@ -64,18 +108,19 @@ function householdContext(raw) {
 }
 
 export async function GET() {
-  const { apiKey, enabled } = configuration();
-  const available = Boolean(apiKey && enabled);
+  const { token, enabled, provider } = configuration();
+  const available = Boolean(token && enabled);
   return json(200, {
     available,
     scenarios: Object.keys(SCENARIOS),
+    provider: available ? provider : null,
     message: available ? "Bildpersonalisierung ist verfügbar." : "Der persönliche Bilddienst ist noch nicht freigeschaltet.",
   });
 }
 
 export async function POST(request) {
-  const { apiKey, enabled, model } = configuration();
-  if (!enabled || !apiKey) return json(503, { error: "Die serverseitige Bildpersonalisierung ist noch nicht freigeschaltet." });
+  const { token, enabled, model, endpoint, provider } = configuration();
+  if (!enabled || !token) return json(503, { error: "Die serverseitige Bildpersonalisierung ist noch nicht freigeschaltet." });
   if (!sameOrigin(request)) return json(403, { error: "Anfrage nicht zulässig." });
 
   let form;
@@ -93,6 +138,11 @@ export async function POST(request) {
   const inputBytes = new Uint8Array(await image.arrayBuffer());
   if (!hasSupportedSignature(inputBytes, image.type)) return json(400, { error: "Der Dateiinhalt ist kein unterstütztes Bild." });
 
+  const rateLimit = consumeRateLimit(request);
+  if (!rateLimit.allowed) {
+    return json(429, { error: "Das Bildlimit für diesen Anschluss ist erreicht. Bitte später erneut versuchen." }, { "retry-after": String(rateLimit.retryAfter) });
+  }
+
   const prompt = `${scenario.prompt}\n${householdContext(form.get("household"))}\nPreserve natural skin texture, age, body proportions, and recognizable identity. Do not add text, logos, watermarks, uniforms, weapons, visible injuries, or disaster victims.`;
   const upstreamForm = new FormData();
   const extension = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
@@ -103,18 +153,19 @@ export async function POST(request) {
   upstreamForm.append("quality", "medium");
   upstreamForm.append("output_format", "webp");
   upstreamForm.append("output_compression", "82");
-  if (!/^gpt-image-2(?:-|$)/.test(model)) upstreamForm.append("input_fidelity", "high");
+  if (provider === "openai-direct" && !/^gpt-image-2(?:-|$)/.test(model)) upstreamForm.append("input_fidelity", "high");
 
   try {
-    const result = await fetch("https://api.openai.com/v1/images/edits", {
+    const result = await fetch(endpoint, {
       method: "POST",
-      headers: { authorization: `Bearer ${apiKey}` },
+      headers: { authorization: `Bearer ${token}` },
       body: upstreamForm,
       redirect: "error",
       signal: AbortSignal.timeout(280_000),
     });
     if (!result.ok) {
       console.error("RedScore personalization upstream status", result.status, result.headers.get("x-request-id") || "no-request-id");
+      if (result.status === 402) return json(503, { error: "Das Bildbudget ist momentan ausgeschöpft. Bitte später erneut versuchen." });
       return json(result.status === 429 ? 429 : 502, { error: result.status === 429 ? "Die Bildgenerierung ist gerade ausgelastet. Bitte später erneut versuchen." : "Das personalisierte Motiv konnte nicht erzeugt werden." });
     }
 

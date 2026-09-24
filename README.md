@@ -29,9 +29,12 @@ konfigurierten Bilddienst. Dadurch befinden sich keine API-Schlüssel im Fronten
 ## Deployment
 
 Vercel liefert `dist/` über das Edge-CDN aus und betreibt die API-Endpunkte als
-serverseitige Functions. Das Projekt benötigt dort `SUPABASE_URL`,
-`SUPABASE_ANON_KEY` und für die optionale Bildpersonalisierung `OPENAI_API_KEY`,
-`OPENAI_IMAGE_MODEL` sowie `PERSONALIZATION_ENABLED=true`. Pushes auf `main` lösen nach aktivierter
+serverseitige Functions. Das Projekt benötigt dort `SUPABASE_URL` und
+`SUPABASE_ANON_KEY`. Die Bildpersonalisierung nutzt bevorzugt das projektgebundene
+Vercel AI Gateway über den automatisch bereitgestellten `VERCEL_OIDC_TOKEN`; als
+Modell dient standardmäßig `openai/gpt-image-2`. `AI_GATEWAY_IMAGE_MODEL` kann das
+Modell überschreiben. `OPENAI_API_KEY` und `OPENAI_IMAGE_MODEL` bleiben nur als
+optionaler lokaler Fallback erhalten. Pushes auf `main` lösen nach aktivierter
 GitHub-Integration automatisch ein Produktionsdeployment aus. Die kanonische Domain
 ist `https://www.redscore.de`; `redscore.de` wird auf diese Adresse umgeleitet.
 
@@ -54,8 +57,12 @@ Referenzfoto selbst als Katastrophenhintergrund.
 
 Der Endpunkt akzeptiert nur dieselben vier serverseitig definierten Szenarien, prüft
 Dateityp, Dateisignatur, Größe und Same-Origin und liefert WebP-Bilder ohne Cache aus.
-`PERSONALIZATION_ENABLED` bleibt absichtlich `false`, bis ein OpenAI-Projektschlüssel,
-Budgetgrenzen, echte Authentifizierung und ein belastbares Rate-Limit eingerichtet sind.
+Pro Anschluss sind in einer warmen Function-Instanz höchstens acht Bildaufträge pro
+Stunde zulässig. Auf Vercel aktiviert ein vorhandener OIDC-Zugang den Bilddienst
+automatisch; `PERSONALIZATION_ENABLED=false` kann ihn jederzeit vollständig sperren.
+Für eine öffentliche Mehrnutzer-Version muss dieses vorläufige Limit durch ein
+dauerhaftes, nutzerbezogenes Rate-Limit zusammen mit echter Authentifizierung ersetzt
+werden.
 
 ## Quellenbasis des MVP
 

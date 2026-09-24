@@ -132,7 +132,7 @@ async function serveStatic(response, requestUrl) {
 
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "127.0.0.1"}`);
-  if (requestUrl.pathname === "/api/health") return sendJson(response, 200, { ok: true, liveLageConfigured: Boolean(supabaseUrl && anonKey), personalizationConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.PERSONALIZATION_ENABLED === "true") });
+  if (requestUrl.pathname === "/api/health") return sendJson(response, 200, { ok: true, liveLageConfigured: Boolean(supabaseUrl && anonKey), personalizationConfigured: Boolean((process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.OPENAI_API_KEY) && process.env.PERSONALIZATION_ENABLED !== "false") });
   if (requestUrl.pathname === "/api/live-lage") return proxyLiveLage(request, response, requestUrl);
   if (requestUrl.pathname === "/api/personalize-image") return runPersonalizationHandler(request, response, requestUrl);
   return serveStatic(response, requestUrl);
