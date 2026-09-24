@@ -37,12 +37,11 @@ function json(status, payload, extraHeaders = {}) {
   });
 }
 
-function configuration() {
-  // Vercel exposes the project-scoped runtime identity through this environment
-  // variable. Never trust an incoming HTTP header as a Gateway credential: that
-  // header belongs to the client request and may contain a token for a different
-  // audience (or be supplied by the caller).
-  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || "";
+function configuration(request) {
+  // Vercel exposes the short-lived OIDC identity as an environment variable in
+  // builds/local development and as this protected header inside Functions.
+  const runtimeOidcToken = request?.headers?.get("x-vercel-oidc-token") || "";
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || runtimeOidcToken;
   const directToken = process.env.OPENAI_API_KEY || "";
   const useGateway = Boolean(gatewayToken);
   const enabledSetting = process.env.PERSONALIZATION_ENABLED;
@@ -111,8 +110,8 @@ function householdContext(raw) {
   }
 }
 
-export async function GET() {
-  const { token, enabled, provider } = configuration();
+export async function GET(request) {
+  const { token, enabled, provider } = configuration(request);
   const available = Boolean(token && enabled);
   return json(200, {
     available,
@@ -123,7 +122,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const { token, enabled, model, endpoint, provider } = configuration();
+  const { token, enabled, model, endpoint, provider } = configuration(request);
   if (!enabled || !token) return json(503, { error: "Die serverseitige Bildpersonalisierung ist noch nicht freigeschaltet." });
   if (!sameOrigin(request)) return json(403, { error: "Anfrage nicht zulässig." });
 

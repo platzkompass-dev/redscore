@@ -48,15 +48,15 @@ test("the Vercel runtime OIDC environment enables the project-scoped gateway aut
   assert.equal(payload.provider, "vercel-ai-gateway");
 });
 
-test("an incoming OIDC-looking header is never trusted as a Gateway credential", async () => {
+test("the Vercel Function OIDC header enables the project-scoped gateway", async () => {
   const request = new Request("https://www.redscore.de/api/personalize-image", {
-    headers: { "x-vercel-oidc-token": "caller-controlled-token" },
+    headers: { "x-vercel-oidc-token": "test-runtime-token" },
   });
   const response = await GET(request);
   const payload = await response.json();
 
-  assert.equal(payload.available, false);
-  assert.equal(payload.provider, null);
+  assert.equal(payload.available, true);
+  assert.equal(payload.provider, "vercel-ai-gateway");
 });
 
 test("a direct OpenAI key remains disabled without an explicit feature flag", async () => {
