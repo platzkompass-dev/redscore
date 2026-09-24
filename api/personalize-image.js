@@ -37,8 +37,9 @@ function json(status, payload, extraHeaders = {}) {
   });
 }
 
-function configuration() {
-  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || "";
+function configuration(request) {
+  const runtimeOidcToken = request?.headers?.get("x-vercel-oidc-token") || "";
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || runtimeOidcToken || process.env.VERCEL_OIDC_TOKEN || "";
   const directToken = process.env.OPENAI_API_KEY || "";
   const useGateway = Boolean(gatewayToken);
   const enabledSetting = process.env.PERSONALIZATION_ENABLED;
@@ -107,8 +108,8 @@ function householdContext(raw) {
   }
 }
 
-export async function GET() {
-  const { token, enabled, provider } = configuration();
+export async function GET(request) {
+  const { token, enabled, provider } = configuration(request);
   const available = Boolean(token && enabled);
   return json(200, {
     available,
@@ -119,7 +120,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const { token, enabled, model, endpoint, provider } = configuration();
+  const { token, enabled, model, endpoint, provider } = configuration(request);
   if (!enabled || !token) return json(503, { error: "Die serverseitige Bildpersonalisierung ist noch nicht freigeschaltet." });
   if (!sameOrigin(request)) return json(403, { error: "Anfrage nicht zulässig." });
 

@@ -31,7 +31,8 @@ konfigurierten Bilddienst. Dadurch befinden sich keine API-Schlüssel im Fronten
 Vercel liefert `dist/` über das Edge-CDN aus und betreibt die API-Endpunkte als
 serverseitige Functions. Das Projekt benötigt dort `SUPABASE_URL` und
 `SUPABASE_ANON_KEY`. Die Bildpersonalisierung nutzt bevorzugt das projektgebundene
-Vercel AI Gateway über den automatisch bereitgestellten `VERCEL_OIDC_TOKEN`; als
+Vercel AI Gateway über den automatisch bereitgestellten OIDC-Token (in Functions
+über den Header `x-vercel-oidc-token`); als
 Modell dient standardmäßig `openai/gpt-image-2`. `AI_GATEWAY_IMAGE_MODEL` kann das
 Modell überschreiben. `OPENAI_API_KEY` und `OPENAI_IMAGE_MODEL` bleiben nur als
 optionaler lokaler Fallback erhalten. Pushes auf `main` lösen nach aktivierter
