@@ -37,9 +37,12 @@ function json(status, payload, extraHeaders = {}) {
   });
 }
 
-function configuration(request) {
-  const runtimeOidcToken = request?.headers?.get("x-vercel-oidc-token") || "";
-  const gatewayToken = process.env.AI_GATEWAY_API_KEY || runtimeOidcToken || process.env.VERCEL_OIDC_TOKEN || "";
+function configuration() {
+  // Vercel exposes the project-scoped runtime identity through this environment
+  // variable. Never trust an incoming HTTP header as a Gateway credential: that
+  // header belongs to the client request and may contain a token for a different
+  // audience (or be supplied by the caller).
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || "";
   const directToken = process.env.OPENAI_API_KEY || "";
   const useGateway = Boolean(gatewayToken);
   const enabledSetting = process.env.PERSONALIZATION_ENABLED;
@@ -108,8 +111,8 @@ function householdContext(raw) {
   }
 }
 
-export async function GET(request) {
-  const { token, enabled, provider } = configuration(request);
+export async function GET() {
+  const { token, enabled, provider } = configuration();
   const available = Boolean(token && enabled);
   return json(200, {
     available,
@@ -120,7 +123,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const { token, enabled, model, endpoint, provider } = configuration(request);
+  const { token, enabled, model, endpoint, provider } = configuration();
   if (!enabled || !token) return json(503, { error: "Die serverseitige Bildpersonalisierung ist noch nicht freigeschaltet." });
   if (!sameOrigin(request)) return json(403, { error: "Anfrage nicht zulässig." });
 
@@ -165,8 +168,19 @@ export async function POST(request) {
       signal: AbortSignal.timeout(280_000),
     });
     if (!result.ok) {
-      console.error("RedScore personalization upstream status", result.status, result.headers.get("x-request-id") || "no-request-id");
+      const upstreamError = await result.json().catch(() => ({}));
+      const upstreamCode = String(upstreamError?.error?.code || upstreamError?.code || "unknown").slice(0, 80);
+      const upstreamType = String(upstreamError?.error?.type || upstreamError?.type || "unknown").slice(0, 80);
+      console.error("RedScore personalization upstream failure", {
+        status: result.status,
+        requestId: result.headers.get("x-request-id") || "no-request-id",
+        code: upstreamCode,
+        type: upstreamType,
+        provider,
+        model,
+      });
       if (result.status === 402) return json(503, { error: "Das Bildbudget ist momentan ausgeschöpft. Bitte später erneut versuchen." });
+      if (result.status === 401 || result.status === 403) return json(503, { error: "Der Bilddienst ist serverseitig noch nicht korrekt verbunden. Bitte später erneut versuchen." });
       return json(result.status === 429 ? 429 : 502, { error: result.status === 429 ? "Die Bildgenerierung ist gerade ausgelastet. Bitte später erneut versuchen." : "Das personalisierte Motiv konnte nicht erzeugt werden." });
     }
 
