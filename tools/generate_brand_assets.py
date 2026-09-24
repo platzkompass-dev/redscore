@@ -8,6 +8,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 BRANDING = ROOT / "assets" / "branding"
 SOURCE = BRANDING / "redscore-logo.png"
+SIGNAL_SOURCE = BRANDING / "redscore-signal.png"
 WEB = ROOT / "dist" / "assets"
 
 
@@ -16,10 +17,24 @@ def master_logo() -> Image.Image:
 
 
 def signal_mark() -> Image.Image:
+    source = Image.open(SIGNAL_SOURCE).convert("RGBA")
+    alpha_bounds = source.getchannel("A").getbbox()
+    return source.crop(alpha_bounds) if alpha_bounds else source
+
+
+def compose_master_logo() -> None:
+    """Replace the old pale-ring signal while preserving the approved wordmark."""
     source = master_logo()
-    mark_size = round(min(source.width, source.height) * 0.606)
-    left = (source.width - mark_size) // 2
-    return source.crop((left, 0, left + mark_size, mark_size))
+    clear_to = round(source.height * 0.595)
+    background = Image.new("RGBA", (source.width, clear_to), (255, 255, 255, 255))
+    source.alpha_composite(background, (0, 0))
+
+    signal = signal_mark()
+    target_size = round(min(source.width, source.height) * 0.53)
+    signal.thumbnail((target_size, target_size), Image.Resampling.LANCZOS)
+    position = ((source.width - signal.width) // 2, round(source.height * 0.025))
+    source.alpha_composite(signal, position)
+    source.save(SOURCE, optimize=True)
 
 
 def square_logo(size: int, *, padding: float, background=None, source=None) -> Image.Image:
@@ -46,7 +61,9 @@ def main() -> None:
     BRANDING.mkdir(parents=True, exist_ok=True)
     WEB.mkdir(parents=True, exist_ok=True)
     if len(sys.argv) > 1:
-        shutil.copyfile(Path(sys.argv[1]).resolve(), SOURCE)
+        shutil.copyfile(Path(sys.argv[1]).resolve(), SIGNAL_SOURCE)
+
+    compose_master_logo()
 
     # Browser assets: minimal padding keeps the detailed crest legible at small sizes.
     for size in (16, 32, 48):
