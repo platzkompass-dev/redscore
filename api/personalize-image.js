@@ -218,7 +218,14 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error("RedScore personalization failure", error instanceof Error ? error.message : "unknown error");
+    const message = error instanceof Error ? error.message : "unknown error";
+    console.error("RedScore personalization failure", message.slice(0, 240));
+    if (/free tier users|upgrade to paid credits|credits/i.test(message)) {
+      return json(503, { error: "Für personalisierte Bilder sind AI-Gateway-Credits erforderlich. Bitte im Vercel-AI-Gateway Guthaben freischalten." });
+    }
+    if (/no providers available/i.test(message)) {
+      return json(503, { error: "Für dieses Bildmodell ist aktuell kein Vercel-Anbieter verfügbar. Bitte später erneut versuchen." });
+    }
     return json(503, { error: "Die Bildgenerierung ist vorübergehend nicht erreichbar." });
   }
 }
