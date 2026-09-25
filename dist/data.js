@@ -1,6 +1,5 @@
 export const navItems = [
   { id: "home", icon: "home", label: "Start" },
-  { id: "plan", icon: "plan", label: "Mein Plan" },
   { id: "supplies", icon: "supplies", label: "Vorräte" },
   { id: "map", icon: "map", label: "Schutz in deiner Nähe" },
   { id: "warnschutz", icon: "radio", label: "Warnschutz" },
@@ -34,12 +33,12 @@ export const tasks = [
 ];
 
 export const supplyGroups = [
-  { id: "water", label: "Trinkwasser", icon: "water", unit: "Liter", target: 60, note: "3 Personen × 2 Liter × 10 Tage", source: "BBK", step: 1 },
-  { id: "food", label: "Haltbare Lebensmittel", icon: "food", unit: "Tage", target: 10, note: "Abwechslungsreich und zum Haushalt passend", source: "BBK", step: 1 },
-  { id: "pet", label: "Hundebedarf", icon: "special", unit: "Tage", target: 10, note: "Futter, Wasser und notwendige Medikamente", source: "BBK", step: 1 },
-  { id: "medicine", label: "Medikamente", icon: "medical", unit: "Tage", target: 10, note: "Individuell mit Arzt oder Apotheke abstimmen", source: "BBK", step: 1 },
-  { id: "power", label: "Licht & Energie", icon: "household", unit: "bereit", target: 1, note: "Taschenlampe, Batterien und Powerbank", source: "BBK", step: 1 },
-  { id: "hygiene", label: "Hygiene", icon: "health", unit: "bereit", target: 1, note: "Persönlichen Bedarf für zehn Tage prüfen", source: "BBK", step: 1 },
+  { id: "water", category: "Versorgung", label: "Trinkwasser", icon: "water", unit: "Liter", target: 60, note: "3 Personen × 2 Liter × 10 Tage", source: "BBK", inputMode: "packages", packageSizes: [0.5, 1, 1.5, 2, 5, 10], max: 500 },
+  { id: "food", category: "Versorgung", label: "Haltbare Lebensmittel", icon: "food", unit: "Tage", target: 10, note: "Abwechslungsreich und zum Haushalt passend", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14], max: 30 },
+  { id: "pet", category: "Haushalt", label: "Hundebedarf", icon: "special", unit: "Tage", target: 10, note: "Futter, Wasser und notwendige Medikamente", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14], max: 30 },
+  { id: "medicine", category: "Gesundheit", label: "Medikamente", icon: "medical", unit: "Tage", target: 10, note: "Individuell mit Arzt oder Apotheke abstimmen", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14, 30], max: 90 },
+  { id: "power", category: "Haushalt", label: "Licht & Energie", icon: "household", unit: "bereit", target: 1, note: "Taschenlampe, Batterien und Powerbank", source: "BBK", inputMode: "level" },
+  { id: "hygiene", category: "Gesundheit", label: "Hygiene", icon: "health", unit: "bereit", target: 1, note: "Persönlichen Bedarf für zehn Tage prüfen", source: "BBK", inputMode: "level" },
 ];
 
 export const verifiedPlaces = [
@@ -65,6 +64,7 @@ export const defaultState = {
   assessment: { answers: {}, completedAt: null },
   taskStatus: {},
   supplies: Object.fromEntries(supplyGroups.map(group => [group.id, null])),
+  supplyDetails: {},
   media: { familyPhoto: null },
   settings: { notifications: null, offlinePlacesSaved: false },
   ui: { planFilter: "Alle", supplyFilter: "Alle", mapFilter: "Alle", knowledgeSearch: "", knowledgeCategory: "Alle", modal: null, selectedTask: null },

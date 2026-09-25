@@ -22,6 +22,7 @@ function loadState() {
       household: { ...defaultState.household, ...saved.household },
       assessment: { ...defaultState.assessment, ...saved.assessment },
       supplies: { ...defaultState.supplies, ...saved.supplies },
+      supplyDetails: { ...defaultState.supplyDetails, ...saved.supplyDetails },
       media: { ...defaultState.media, ...saved.media },
       settings: { ...defaultState.settings, ...saved.settings },
       ui: { ...defaultState.ui, ...saved.ui },
@@ -130,6 +131,31 @@ function supplyPercent() {
   if (!recorded.length) return null;
   return Math.round(recorded.reduce((sum, group) => sum + clamp(state.supplies[group.id] / group.target, 0, 1), 0) / supplyGroups.length * 100);
 }
+
+function supplyTargetLabel(group) {
+  return group.inputMode === "level" ? "Vollständig" : `${fmt(group.target)} ${group.unit}`;
+}
+
+function supplyValueLabel(group, value) {
+  if (value === null) return "Nicht erfasst";
+  if (group.inputMode === "level") return value >= 1 ? "Vollständig" : value > 0 ? "Teilweise" : "Nicht vorhanden";
+  return `${fmt(value)} ${group.unit}`;
+}
+
+function supplyInput(group, value) {
+  if (group.inputMode === "packages") {
+    const details = state.supplyDetails[group.id] || {};
+    const containerSize = Number(details.containerSize) || 1.5;
+    const containerCount = Number.isFinite(Number(details.containerCount))
+      ? Number(details.containerCount)
+      : value === null ? "" : Math.max(0, Math.round(value / containerSize));
+    return `<fieldset class="quantity-fields"><legend>Wassergebinde erfassen</legend><label><span>Anzahl Gebinde</span><input type="number" name="containerCount" min="0" max="200" step="1" inputmode="numeric" value="${containerCount}" placeholder="z. B. 12" required></label><label><span>Liter je Gebinde</span><select name="containerSize">${group.packageSizes.map(size => `<option value="${size}" ${size===containerSize?"selected":""}>${fmt(size)} Liter</option>`).join("")}</select></label><output data-supply-total>${value === null ? "Gesamtmenge wird beim Speichern berechnet" : `Bisher erfasst: ${fmt(value)} Liter`}</output></fieldset>`;
+  }
+  if (group.inputMode === "level") {
+    return `<fieldset class="quantity-fields"><legend>Ausstattungsstand</legend><label><span>Status</span><select name="value" required><option value="" ${value===null?"selected":""} disabled>Bitte auswählen</option><option value="0" ${value===0?"selected":""}>Nicht vorhanden</option><option value="0.5" ${value===0.5?"selected":""}>Teilweise vorhanden</option><option value="1" ${value===1?"selected":""}>Vollständig und einsatzbereit</option></select></label></fieldset>`;
+  }
+  return `<fieldset class="quantity-fields"><legend>Reichweite in Tagen</legend><label><span>Für wie viele Tage reicht dein Bestand?</span><input type="number" name="value" min="0" max="${group.max}" step="1" inputmode="numeric" value="${value===null?"":value}" placeholder="z. B. 7" required></label><div class="quantity-suggestions" aria-label="Schnellauswahl">${group.suggestions.map(day => `<button type="button" data-supply-suggestion="${day}">${day} Tage</button>`).join("")}</div></fieldset>`;
+}
 function hashRoute() {
   const route = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
   return route || "home";
@@ -195,7 +221,7 @@ function renderPublic() {
 }
 
 function appHeader(active) {
-  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools"><button class="search-button">⌕</button><button class="bell" data-route="warnschutz">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile">NM</button><button class="user-name" data-route="profile">Nicole⌄</button></div></header>`;
+  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools"><button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">NM</button><button class="user-name" data-route="profile">Nicole⌄</button></div></header>`;
 }
 function familyUpload(className = "") {
   if (personalizationState.status === "processing") return `<div class="family-photo generation-card ${className}">${icon("profile", "generation-icon")}<div class="generation-status"><b>${esc(personalizationState.label)}</b><div class="generation-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${personalizationState.progress}"><i style="width:${personalizationState.progress}%"></i></div><small>${personalizationState.progress}% · Das Referenzfoto wird nicht als Seitenmotiv angezeigt.</small></div></div>`;
@@ -453,12 +479,13 @@ function renderPlan() {
 function renderSupplies() {
   const percent = supplyPercent();
   const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt"];
+  const shownGroups = supplyGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
   const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
     <div class="content-wrap supplies-layout"><aside class="side-card">${scoreRing(percent)}<p>${percent === null ? "Noch kein Bestand erfasst." : "Aus selbst eingetragenen Beständen berechnet."}</p><button class="outline" data-open-supply="water">Jetzt erfassen</button></aside>
     <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>2 Erwachsene · 1 Kind · 1 Hund</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b></p></div></article>
-      <div class="filter-row">${filters.map(f => `<button class="${f==="Alle"?"active":""}">${f}</button>`).join("")}</div>
+      <div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div>
       <div class="supply-table"><div class="table-head"><span>Bereich</span><span>BBK-orientiertes Ziel</span><span>Dein Bestand</span><span></span></div>
-        ${supplyGroups.map(group => { const val = state.supplies[group.id]; const complete = val !== null && val >= group.target; return `<article><div>${icon(group.icon,"row-icon")}<span><b>${group.label}</b><small>${group.note}</small></span></div><strong>${fmt(group.target)} ${group.unit}</strong><span class="${complete?"complete":val===null?"unknown":"partial"}">${val === null ? "Nicht erfasst" : `${fmt(val)} ${group.unit}`}</span><button data-open-supply="${group.id}">Bearbeiten</button></article>`; }).join("")}</div>
+        ${shownGroups.map(group => { const val = state.supplies[group.id]; const complete = val !== null && val >= group.target; return `<article><div>${icon(group.icon,"row-icon")}<span><b>${group.label}</b><small>${group.note}</small></span></div><strong>${supplyTargetLabel(group)}</strong><span class="${complete?"complete":val===null?"unknown":"partial"}">${supplyValueLabel(group,val)}</span><button data-open-supply="${group.id}">Bearbeiten</button></article>`; }).join("")}</div>
       <p class="source-note">Ziele sind Orientierung, kein amtliches Prüfsiegel. Medikamente und Sonderbedarf individuell abstimmen.</p>
     </section></div>`;
   app.innerHTML = loggedShell("supplies", content, "supplies-page");
@@ -512,7 +539,7 @@ function modal() {
   }
   if (state.ui.modal.startsWith("supply:")) {
     const id = state.ui.modal.split(":")[1], group = supplyGroups.find(g => g.id === id), value = state.supplies[id];
-    return `<div class="modal-backdrop"><section class="modal supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(group.icon,"modal-icon")}<small>ECHTEN BESTAND EINTRAGEN</small><h2>${group.label}</h2><p>Ziel: ${fmt(group.target)} ${group.unit}<br>${group.note}</p><form data-supply-form="${id}"><label>Vorhandener Bestand <input type="number" name="value" min="0" step="${group.step}" value="${value===null?"":value}" placeholder="Noch nicht erfasst" required> <span>${group.unit}</span></label><button class="green full">Speichern</button></form><em>Der Wert wird nur lokal auf diesem Gerät gespeichert.</em></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(group.icon,"modal-icon")}<small>ECHTEN BESTAND EINTRAGEN</small><h2>${group.label}</h2><p>Ziel: ${supplyTargetLabel(group)}<br>${group.note}</p><form data-supply-form="${id}">${supplyInput(group,value)}<button class="green full">Speichern</button></form><em>Der Wert wird nur lokal auf diesem Gerät gespeichert und kann jederzeit geändert werden.</em></section></div>`;
   }
   if (state.ui.modal.startsWith("task:")) {
     const id = state.ui.modal.split(":")[1], task = tasks.find(t => t.id === id);
@@ -634,6 +661,11 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.dataset.route) return navigate(button.dataset.route);
+  if (button.dataset.supplySuggestion) {
+    const input = button.closest("form")?.querySelector('input[name="value"]');
+    if (input) { input.value = button.dataset.supplySuggestion; input.focus(); }
+    return;
+  }
   if (button.dataset.liveScope) { liveState.scope = button.dataset.liveScope; liveState.events = []; render(); return requestLiveLage(true); }
   if (button.dataset.liveFilter) { liveState.filter = button.dataset.liveFilter; liveState.events = []; render(); return requestLiveLage(true); }
   if (button.matches("[data-live-refresh]")) return requestLiveLage(true);
@@ -649,6 +681,7 @@ app.addEventListener("click", async event => {
   if (button.dataset.taskDone) { state.taskStatus[button.dataset.taskDone] = !state.taskStatus[button.dataset.taskDone]; state.ui.modal = null; save(); toast("Aufgabenstatus gespeichert."); return render(); }
   if (button.dataset.taskDetail) { state.ui.modal = "task:"+button.dataset.taskDetail; return render(); }
   if (button.dataset.planFilter) { state.ui.planFilter = button.dataset.planFilter; save(); return render(); }
+  if (button.dataset.supplyFilter) { state.ui.supplyFilter = button.dataset.supplyFilter; save(); return render(); }
   if (button.dataset.openSupply) { state.ui.modal = "supply:"+button.dataset.openSupply; return render(); }
   if (button.dataset.mapFilter) { state.ui.mapFilter = button.dataset.mapFilter; save(); return render(); }
   if (button.dataset.article) { state.ui.modal = "article:"+button.dataset.article; return render(); }
@@ -675,12 +708,30 @@ app.addEventListener("submit", event => {
   event.preventDefault();
   const form = event.target;
   if (form.dataset.supplyForm) {
-    const value = Number(new FormData(form).get("value"));
+    const group = supplyGroups.find(item => item.id === form.dataset.supplyForm);
+    const formData = new FormData(form);
+    const value = group.inputMode === "packages"
+      ? Number(formData.get("containerCount")) * Number(formData.get("containerSize"))
+      : Number(formData.get("value"));
     if (!Number.isFinite(value) || value < 0) return;
     state.supplies[form.dataset.supplyForm] = value;
+    if (group.inputMode === "packages") state.supplyDetails[group.id] = { containerCount: Number(formData.get("containerCount")), containerSize: Number(formData.get("containerSize")) };
     state.ui.modal = null; save(); toast("Tatsächlicher Bestand gespeichert."); render();
   }
   if (form.matches("[data-knowledge-search]")) { state.ui.knowledgeSearch = new FormData(form).get("query").trim(); save(); render(); }
+});
+
+app.addEventListener("input", event => {
+  const form = event.target.closest('form[data-supply-form="water"]');
+  if (!form) return;
+  const count = Number(form.elements.containerCount?.value);
+  const size = Number(form.elements.containerSize?.value);
+  const output = form.querySelector("[data-supply-total]");
+  if (output) output.textContent = Number.isFinite(count) && Number.isFinite(size) ? `Gesamt: ${fmt(count * size)} Liter` : "Gesamtmenge wird beim Speichern berechnet";
+});
+
+app.addEventListener("change", event => {
+  if (event.target.matches('select[name="containerSize"]')) event.target.dispatchEvent(new Event("input", { bubbles: true }));
 });
 
 fileInput.addEventListener("change", async () => {
