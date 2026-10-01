@@ -7,8 +7,12 @@
       "maxDuration": 10,
       "supportsCancellation": true
     },
-    "api/personalize-image.js": {
-      "maxDuration": 300,
+    "api/account.js": {
+      "maxDuration": 10,
+      "supportsCancellation": true
+    },
+    "api/health.js": {
+      "maxDuration": 5,
       "supportsCancellation": true
     }
   },

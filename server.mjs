@@ -2,7 +2,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { GET as personalizationStatus, POST as personalizeImage } from "./api/personalize-image.js";
+import { POST as accountHandler } from "./api/account.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, "dist");
@@ -84,9 +84,7 @@ async function proxyLiveLage(request, response, requestUrl) {
   }
 }
 
-async function runPersonalizationHandler(request, response, requestUrl) {
-  const handler = request.method === "GET" ? personalizationStatus : request.method === "POST" ? personalizeImage : null;
-  if (!handler) return sendJson(response, 405, { error: "GET oder POST erforderlich" });
+async function runWebHandler(handler, request, response, requestUrl) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
   const body = chunks.length ? Buffer.concat(chunks) : undefined;
@@ -132,9 +130,12 @@ async function serveStatic(response, requestUrl) {
 
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "127.0.0.1"}`);
-  if (requestUrl.pathname === "/api/health") return sendJson(response, 200, { ok: true, liveLageConfigured: Boolean(supabaseUrl && anonKey), personalizationConfigured: Boolean((process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.OPENAI_API_KEY) && process.env.PERSONALIZATION_ENABLED !== "false") });
+  if (requestUrl.pathname === "/api/health") return sendJson(response, 200, { ok: true, liveLageConfigured: Boolean(supabaseUrl && anonKey), accountConfigured: Boolean(supabaseUrl && anonKey), checkedAt: new Date().toISOString() });
   if (requestUrl.pathname === "/api/live-lage") return proxyLiveLage(request, response, requestUrl);
-  if (requestUrl.pathname === "/api/personalize-image") return runPersonalizationHandler(request, response, requestUrl);
+  if (requestUrl.pathname === "/api/account") {
+    if (request.method !== "POST") return sendJson(response, 405, { error: "POST erforderlich" });
+    return runWebHandler(accountHandler, request, response, requestUrl);
+  }
   return serveStatic(response, requestUrl);
 });
 

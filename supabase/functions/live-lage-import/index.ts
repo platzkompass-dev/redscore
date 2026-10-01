@@ -13,6 +13,11 @@ function due(source: any): boolean {
   return Date.now() - new Date(source.last_successful_fetch).getTime() >= source.polling_interval_seconds * 1000;
 }
 
+function hasPlausiblePublishedAt(item: NormalizedNewsItem): boolean {
+  const published = Date.parse(item.publishedAt);
+  return Number.isFinite(published) && published <= Date.now() + 15 * 60 * 1000;
+}
+
 function eventRow(item: NormalizedNewsItem) {
   return {
     title: item.title,
@@ -105,7 +110,9 @@ Deno.serve(async request => {
     const [run] = await db.insert<any[]>("news_sync_runs", { source_id: source.id, execution_id: Deno.env.get("SB_EXECUTION_ID") || null });
     let inserted = 0, updated = 0, duplicates = 0;
     try {
-      const items = await adapterFor(source.adapter_key).fetch(source as SourceConfig);
+      const fetchedItems = await adapterFor(source.adapter_key).fetch(source as SourceConfig);
+      const items = fetchedItems.filter(hasPlausiblePublishedAt);
+      const rejected = fetchedItems.length - items.length;
       for (const item of items.slice(0, 300)) {
         const outcome = await ingest(source, item, candidates);
         if (outcome === "inserted") inserted++;
@@ -114,8 +121,8 @@ Deno.serve(async request => {
       }
       const finishedAt = new Date().toISOString();
       await db.update(`news_sources?id=eq.${source.id}`, { last_successful_fetch: finishedAt, last_error: null, last_error_at: null });
-      await db.update(`news_sync_runs?id=eq.${run.id}`, { finished_at: finishedAt, status: "success", fetched_count: items.length, inserted_count: inserted, updated_count: updated, duplicate_count: duplicates });
-      result.push({ source: source.slug, status: "success", fetched: items.length, inserted, updated, duplicates });
+      await db.update(`news_sync_runs?id=eq.${run.id}`, { finished_at: finishedAt, status: "success", fetched_count: fetchedItems.length, inserted_count: inserted, updated_count: updated, duplicate_count: duplicates });
+      result.push({ source: source.slug, status: "success", fetched: fetchedItems.length, rejected, inserted, updated, duplicates });
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 500) : "Unknown source error";
       const finishedAt = new Date().toISOString();

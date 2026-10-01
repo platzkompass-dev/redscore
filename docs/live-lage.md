@@ -82,8 +82,9 @@ fehlgeschlagene API-Aufrufe bewusst keine veraltete HTML- oder API-Antwort aus.
 - API- und Import-Rate-Limits, Observability, Alarmierung und Dead-Letter-Verarbeitung
   ergänzen.
 - Anon-Key rotieren und Produktions-Secrets ausschließlich im Hosting hinterlegen.
-- Authentifizierung und benutzerspezifische Profile serverseitig anbinden; derzeit ist
-  Nicole der einzige lokale Testuser.
+- Authentifizierung und benutzerspezifische Profile sind über Supabase Auth, RLS und
+  den RedScore-Konto-Endpunkt angebunden; produktive E-Mail-Flows und Wiederherstellung
+  müssen vor dem öffentlichen Start vollständig end-to-end geprüft werden.
 - Lokalen Cache je Benutzer verschlüsseln bzw. bei Abmeldung kontrolliert isolieren.
 - Redaktionelle Eskalations- und Korrekturprozesse für sensible Sicherheitsmeldungen
   definieren.

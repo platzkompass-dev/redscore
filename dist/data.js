@@ -9,7 +9,7 @@ export const navItems = [
 export const assessmentQuestions = [
   ["water", "Trinkwasser für mindestens drei Tage vorhanden", "BBK: möglichst zehn Tage; schon drei Tage helfen."],
   ["food", "Haltbare Lebensmittel für mindestens drei Tage vorhanden", "Bedarf, Unverträglichkeiten und Zubereitung ohne Strom berücksichtigen."],
-  ["pet", "Futter, Wasser und notwendige Mittel für den Hund eingeplant", "Tierbedarf gehört ausdrücklich in die persönliche Vorsorge."],
+  ["pet", "Futter, Wasser und notwendige Mittel für Haustiere eingeplant", "Tierbedarf gehört ausdrücklich in die persönliche Vorsorge."],
   ["radio", "Batterie-, Solar- oder Kurbelradio ist einsatzbereit", "Damit amtliche Informationen auch ohne Mobilfunk ankommen."],
   ["light", "Taschenlampen und passende Ersatzbatterien sind vorhanden", "Offenes Feuer möglichst vermeiden."],
   ["power", "Geladene Powerbanks oder eine alternative Stromquelle sind vorhanden", "Ladezustand regelmäßig prüfen."],
@@ -24,8 +24,8 @@ export const assessmentQuestions = [
 export const tasks = [
   { id: "water", title: "Trinkwasservorrat erfassen", priority: "Hoch", category: "Vorräte", icon: "water", description: "Erfasse den tatsächlichen Bestand. Das BBK empfiehlt zwei Liter pro Person und Tag und möglichst zehn Tage Vorsorge.", checklist: ["Vorhandene Liter zählen", "Haltbarkeit prüfen", "Fehlmenge ergänzen"] },
   { id: "food", title: "Lebensmittelvorrat prüfen", priority: "Hoch", category: "Vorräte", icon: "food", description: "Plane haltbare, alltagstaugliche Lebensmittel, die zu euch passen und notfalls ohne Strom zubereitet werden können.", checklist: ["Vorratstage erfassen", "Unverträglichkeiten beachten", "Alternative Kochmöglichkeit prüfen"] },
-  { id: "pet", title: "Vorrat für den Hund einplanen", priority: "Hoch", category: "Familie", icon: "special", description: "Plane Futter, Wasser, Medikamente, Leine und Transportmöglichkeit für den Hund ein.", checklist: ["Futtertage erfassen", "Wasserbedarf einplanen", "Leine und Unterlagen bereitlegen"] },
-  { id: "backpack", title: "Notgepäck zusammenstellen", priority: "Mittel", category: "Unterwegs", icon: "backpack", description: "Stelle tragbares Notgepäck für zwei Erwachsene und ein Kind zusammen.", checklist: ["Persönliche Medikamente", "Erste-Hilfe-Material", "Radio und Batterien", "Taschenlampe", "Wasserflasche und Verpflegung", "Kleidung und Decke", "Dokumentenkopien"] },
+  { id: "pet", title: "Haustiervorsorge einplanen", priority: "Hoch", category: "Familie", icon: "special", description: "Plane Futter, Wasser, Medikamente, Sicherung und Transportmöglichkeit für vorhandene Haustiere ein.", checklist: ["Futtertage erfassen", "Wasserbedarf einplanen", "Transport und Unterlagen bereitlegen"] },
+  { id: "backpack", title: "Notgepäck zusammenstellen", priority: "Mittel", category: "Unterwegs", icon: "backpack", description: "Stelle ein tragbares Notgepäck für alle Personen im Haushalt zusammen.", checklist: ["Persönliche Medikamente", "Erste-Hilfe-Material", "Radio und Batterien", "Taschenlampe", "Wasserflasche und Verpflegung", "Kleidung und Decke", "Dokumentenkopien"] },
   { id: "radio", title: "Notfallradio prüfen", priority: "Mittel", category: "Zuhause", icon: "radio", description: "Ein Batterie-, Solar- oder Kurbelradio kann auch bei Strom- und Internetausfall informieren.", checklist: ["Gerät vorhanden", "Empfang testen", "Energieversorgung prüfen"] },
   { id: "documents", title: "Dokumentenmappe anlegen", priority: "Mittel", category: "Zuhause", icon: "plan", description: "Sichere wichtige Dokumente geschützt und halte Kopien griffbereit.", checklist: ["Identitätsnachweise", "Versicherungen", "Medizinische Unterlagen", "Digitale Sicherung"] },
   { id: "contacts", title: "Notfallkontakte notieren", priority: "Mittel", category: "Familie", icon: "profile", description: "Halte wichtige Nummern zusätzlich auf Papier fest.", checklist: ["Familie", "Nachbarschaft", "Ärztliche Kontakte", "Versicherung"] },
@@ -33,9 +33,9 @@ export const tasks = [
 ];
 
 export const supplyGroups = [
-  { id: "water", category: "Versorgung", label: "Trinkwasser", icon: "water", unit: "Liter", target: 60, note: "3 Personen × 2 Liter × 10 Tage", source: "BBK", inputMode: "packages", packageSizes: [0.5, 1, 1.5, 2, 5, 10], max: 500 },
+  { id: "water", category: "Versorgung", label: "Trinkwasser", icon: "water", unit: "Liter", target: 20, note: "2 Liter je Person und Tag", source: "BBK", inputMode: "packages", packageSizes: [0.5, 1, 1.5, 2, 5, 10], max: 1000 },
   { id: "food", category: "Versorgung", label: "Haltbare Lebensmittel", icon: "food", unit: "Tage", target: 10, note: "Abwechslungsreich und zum Haushalt passend", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14], max: 30 },
-  { id: "pet", category: "Haushalt", label: "Hundebedarf", icon: "special", unit: "Tage", target: 10, note: "Futter, Wasser und notwendige Medikamente", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14], max: 30 },
+  { id: "pet", category: "Haushalt", label: "Haustierbedarf", icon: "special", unit: "Tage", target: 10, note: "Futter, Wasser, Medikamente und Transport je Tier", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14], max: 30 },
   { id: "medicine", category: "Gesundheit", label: "Medikamente", icon: "medical", unit: "Tage", target: 10, note: "Individuell mit Arzt oder Apotheke abstimmen", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14, 30], max: 90 },
   { id: "power", category: "Haushalt", label: "Licht & Energie", icon: "household", unit: "bereit", target: 1, note: "Taschenlampe, Batterien und Powerbank", source: "BBK", inputMode: "level" },
   { id: "hygiene", category: "Gesundheit", label: "Hygiene", icon: "health", unit: "bereit", target: 1, note: "Persönlichen Bedarf für zehn Tage prüfen", source: "BBK", inputMode: "level" },
@@ -59,13 +59,12 @@ export const knowledgeArticles = [
 
 export const defaultState = {
   authenticated: false,
-  profile: { name: "Nicole Mrozinski", initials: "NM" },
-  household: { adults: 2, children: 1, dogs: 1, location: "21729 Freiburg (Elbe)", municipality: "Freiburg (Elbe), Flecken", state: "Niedersachsen", district: "Landkreis Stade" },
+  profile: { id: null, email: "", name: "", initials: "RS", onboardingCompleted: false, selectedScene: "neutral-household" },
+  household: { adults: [], children: 0, pets: [], postalCode: "", city: "", state: "", district: "", location: "" },
   assessment: { answers: {}, completedAt: null },
   taskStatus: {},
   supplies: Object.fromEntries(supplyGroups.map(group => [group.id, null])),
   supplyDetails: {},
-  media: { familyPhoto: null },
   settings: { notifications: null, offlinePlacesSaved: false },
   ui: { planFilter: "Alle", supplyFilter: "Alle", mapFilter: "Alle", knowledgeSearch: "", knowledgeCategory: "Alle", modal: null, selectedTask: null },
 };

@@ -2,9 +2,8 @@ import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
-const fileInput = document.querySelector("#family-photo-input");
 const STORAGE_KEY = "redscore-state-v1";
-const LEGACY_STORAGE_KEY = "plans-state-v2";
+const SESSION_KEY = "redscore-session-v1";
 const CONTACT_EMAIL = "administration@redscore.de";
 const clone = value => JSON.parse(JSON.stringify(value));
 const esc = (value = "") => String(value).replace(/[&<>'"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]);
@@ -14,16 +13,17 @@ const fmt = n => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).fo
 
 function loadState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY));
+    localStorage.removeItem("plans-state-v2");
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (!saved) return clone(defaultState);
     return {
       ...clone(defaultState), ...saved,
+      authenticated: false,
       profile: { ...defaultState.profile, ...saved.profile },
       household: { ...defaultState.household, ...saved.household },
       assessment: { ...defaultState.assessment, ...saved.assessment },
       supplies: { ...defaultState.supplies, ...saved.supplies },
       supplyDetails: { ...defaultState.supplyDetails, ...saved.supplyDetails },
-      media: { ...defaultState.media, ...saved.media },
       settings: { ...defaultState.settings, ...saved.settings },
       ui: { ...defaultState.ui, ...saved.ui },
     };
@@ -51,69 +51,121 @@ let liveState = {
 let liveRequest = null;
 let liveRefreshTimer = null;
 let liveClockTimer = null;
-const MEDIA_DB_NAME = "redscore-private-media-v1";
-const MEDIA_STORE_NAME = "personalized-scenes";
-const PERSONALIZATION_SCENARIOS = [
-  ["dashboard", "Dashboard-Motiv"],
-  ["supplies", "Vorrats-Motiv"],
-  ["warning", "Warnschutz-Motiv"],
-  ["knowledge", "Wissens-Motiv"],
-];
-let personalizedImages = {};
-let personalizationState = { status: "idle", progress: 0, label: "", error: null };
-let personalizationAvailability = { checked: false, available: false, reason: "" };
+let session = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; } })();
+let syncTimer = null;
+let accountBusy = false;
+const householdScenes = {
+  "solo-woman": "assets/households/solo-woman.png",
+  "solo-man": "assets/households/solo-man.png",
+  "couple-woman-man": "assets/households/couple-woman-man.png",
+  "couple-two-women": "assets/households/couple-two-women.png",
+  "couple-two-men": "assets/households/couple-two-men.png",
+  "family-woman-man": "assets/households/family-woman-man.png",
+  "family-two-women": "assets/households/family-two-women.png",
+  "family-two-men": "assets/households/family-two-men.png",
+  "single-parent": "assets/households/single-parent.png",
+  "family-neutral": "assets/households/family-neutral.png",
+  "neutral-household": "assets/pantry.png",
+};
 
-function openMediaDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(MEDIA_DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(MEDIA_STORE_NAME);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+function selectedScene() { return householdScenes[state.profile.selectedScene] || householdScenes["neutral-household"]; }
+function sceneStyle(_key, property = "--scene-image") { return `style="${property}:url('${selectedScene()}')"`; }
+function initials(name = "") { return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "RS"; }
+function householdPeople() { return (state.household.adults?.length || 0) + Number(state.household.children || 0); }
+function petCount() { return (state.household.pets || []).reduce((sum, pet) => sum + Number(pet.count || 0), 0); }
+function petLabel(type) { return ({ dog: "Hund", cat: "Katze", bird: "Vogel", small_animal: "Kleintier", fish: "Fische", reptile: "Reptil", other: "Tier" })[type] || "Tier"; }
+function householdSummary() {
+  const adults = state.household.adults?.length || 0, children = Number(state.household.children || 0), pets = petCount();
+  return [`${adults} ${adults === 1 ? "erwachsene Person" : "Erwachsene"}`, children ? `${children} ${children === 1 ? "Kind" : "Kinder"}` : null, pets ? `${pets} ${pets === 1 ? "Haustier" : "Haustiere"}` : null].filter(Boolean).join(" · ");
 }
-
-async function mediaStore(mode, action) {
-  const database = await openMediaDatabase();
-  try {
-    return await new Promise((resolve, reject) => {
-      const transaction = database.transaction(MEDIA_STORE_NAME, mode);
-      const request = action(transaction.objectStore(MEDIA_STORE_NAME));
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } finally { database.close(); }
-}
-
-async function loadPersonalizedImages() {
-  if (!state.media.familyPhoto) return;
-  const keys = await mediaStore("readonly", store => store.getAllKeys());
-  for (const key of keys) {
-    const blob = await mediaStore("readonly", store => store.get(key));
-    if (blob instanceof Blob && blob.type.startsWith("image/")) personalizedImages[key] = URL.createObjectURL(blob);
+function chooseScene(adults, children) {
+  const genders = adults.map(item => item.gender).sort();
+  if (children > 0 && adults.length === 1) return "single-parent";
+  if (children > 0 && adults.length === 2) {
+    if (genders.join("|") === "man|woman") return "family-woman-man";
+    if (genders.every(value => value === "woman")) return "family-two-women";
+    if (genders.every(value => value === "man")) return "family-two-men";
+    return "family-neutral";
   }
-  if (Object.keys(personalizedImages).length) personalizationState = { status: "complete", progress: 100, label: "Personalisierte Motive sind bereit.", error: null };
-}
-
-async function storePersonalizedImage(key, blob) {
-  await mediaStore("readwrite", store => store.put(blob, key));
-  if (personalizedImages[key]) URL.revokeObjectURL(personalizedImages[key]);
-  personalizedImages[key] = URL.createObjectURL(blob);
-}
-
-async function clearPersonalizedImages() {
-  Object.values(personalizedImages).forEach(url => URL.revokeObjectURL(url));
-  personalizedImages = {};
-  await mediaStore("readwrite", store => store.clear());
-}
-
-function sceneStyle(key, property = "--scene-image") {
-  const url = personalizedImages[key];
-  return url ? `style="${property}:url('${esc(url)}')"` : "";
+  if (children > 0 || adults.length > 2 || adults.some(item => ["diverse", "unspecified"].includes(item.gender))) return "family-neutral";
+  if (adults.length === 1) return adults[0].gender === "woman" ? "solo-woman" : adults[0].gender === "man" ? "solo-man" : "neutral-household";
+  if (adults.length === 2) {
+    if (genders.join("|") === "man|woman") return "couple-woman-man";
+    if (genders.every(value => value === "woman")) return "couple-two-women";
+    if (genders.every(value => value === "man")) return "couple-two-men";
+  }
+  return "neutral-household";
 }
 const save = () => {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch { toast("Diese Änderung konnte lokal nicht gespeichert werden."); }
+  if (state.authenticated && session?.access_token) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => syncAccount().catch(() => {}), 900);
+  }
 };
+
+async function accountRequest(action, payload = {}, accessToken = session?.access_token) {
+  const response = await fetch("/api/account", {
+    method: "POST", cache: "no-store", headers: { "content-type": "application/json", ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Kontodienst nicht erreichbar.");
+  return result;
+}
+
+function persistSession(value) {
+  session = value;
+  if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value)); else localStorage.removeItem(SESSION_KEY);
+}
+
+async function refreshSessionIfNeeded() {
+  if (!session?.refresh_token) return false;
+  const expiresAt = Number(session.expires_at || 0) * 1000;
+  if (session.access_token && expiresAt > Date.now() + 60_000) return true;
+  try { const result = await accountRequest("refresh", { refreshToken: session.refresh_token }, ""); persistSession(result.session); return true; }
+  catch { persistSession(null); return false; }
+}
+
+async function loadAccount() {
+  if (!(await refreshSessionIfNeeded())) return false;
+  const result = await accountRequest("load");
+  const profile = result.profile;
+  state.authenticated = true;
+  state.profile = {
+    id: result.user.id, email: result.user.email || "", name: profile?.display_name || session.user?.user_metadata?.display_name || "",
+    initials: initials(profile?.display_name || session.user?.user_metadata?.display_name), onboardingCompleted: Boolean(profile?.onboarding_completed),
+    selectedScene: profile?.selected_scene || "neutral-household",
+  };
+  if (profile) state.household = {
+    adults: Array.isArray(profile.adults) ? profile.adults : [], children: Number(profile.children_count || 0), pets: Array.isArray(profile.pets) ? profile.pets : [],
+    postalCode: profile.postal_code || "", city: profile.city || "", state: profile.state || "", district: profile.district || "",
+    location: [profile.postal_code, profile.city].filter(Boolean).join(" "),
+  };
+  if (result.appState) {
+    state.assessment = { ...state.assessment, ...(result.appState.assessment || {}) };
+    state.taskStatus = result.appState.task_status || {};
+    state.supplies = { ...state.supplies, ...(result.appState.supplies || {}) };
+    state.supplyDetails = result.appState.supply_details || {};
+    state.settings = { ...state.settings, ...(result.appState.settings || {}) };
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  return true;
+}
+
+async function syncAccount() {
+  if (!state.authenticated || !session?.access_token || !navigator.onLine) return;
+  await refreshSessionIfNeeded();
+  await accountRequest("save", {
+    profile: {
+      display_name: state.profile.name, adults: state.household.adults, children_count: state.household.children, pets: state.household.pets,
+      postal_code: state.household.postalCode, city: state.household.city, state: state.household.state, district: state.household.district,
+      onboarding_completed: state.profile.onboardingCompleted, selected_scene: state.profile.selectedScene,
+    },
+    appState: { assessment: state.assessment, task_status: state.taskStatus, supplies: state.supplies, supply_details: state.supplyDetails, settings: state.settings },
+  });
+}
 function toast(message) {
   const node = document.createElement("div");
   node.className = "toast";
@@ -122,18 +174,35 @@ function toast(message) {
   setTimeout(() => node.remove(), 3200);
 }
 
+function relevantAssessmentQuestions() {
+  return assessmentQuestions.filter(([id]) => id !== "pet" || petCount() > 0);
+}
+
+function relevantTasks() {
+  return tasks.filter(task => task.id !== "pet" || petCount() > 0);
+}
+
 function score() {
-  if (!state.assessment.completedAt || assessmentQuestions.some(([id]) => typeof state.assessment.answers[id] !== "boolean")) return null;
-  return Math.round(assessmentQuestions.filter(([id]) => state.assessment.answers[id]).length / assessmentQuestions.length * 100);
+  const questions = relevantAssessmentQuestions();
+  if (!state.assessment.completedAt || questions.some(([id]) => typeof state.assessment.answers[id] !== "boolean")) return null;
+  return Math.round(questions.filter(([id]) => state.assessment.answers[id]).length / questions.length * 100);
 }
 function supplyPercent() {
-  const recorded = supplyGroups.filter(group => state.supplies[group.id] !== null);
+  const relevant = supplyGroups.filter(group => group.id !== "pet" || petCount() > 0);
+  const recorded = relevant.filter(group => state.supplies[group.id] !== null);
   if (!recorded.length) return null;
-  return Math.round(recorded.reduce((sum, group) => sum + clamp(state.supplies[group.id] / group.target, 0, 1), 0) / supplyGroups.length * 100);
+  return Math.round(recorded.reduce((sum, group) => sum + clamp(state.supplies[group.id] / supplyTarget(group), 0, 1), 0) / relevant.length * 100);
+}
+
+function supplyTarget(group) { return group.id === "water" ? Math.max(1, householdPeople()) * 2 * 10 : group.target; }
+function supplyNote(group) {
+  if (group.id === "water") return `${Math.max(1, householdPeople())} ${householdPeople() === 1 ? "Person" : "Personen"} × 2 Liter × 10 Tage`;
+  if (group.id === "pet") return petCount() ? `${petCount()} ${petCount() === 1 ? "Haustier" : "Haustiere"}: Futter, Wasser, Medikamente und Transport` : "Nur relevant, wenn Haustiere im Haushalt leben";
+  return group.note;
 }
 
 function supplyTargetLabel(group) {
-  return group.inputMode === "level" ? "Vollständig" : `${fmt(group.target)} ${group.unit}`;
+  return group.inputMode === "level" ? "Vollständig" : `${fmt(supplyTarget(group))} ${group.unit}`;
 }
 
 function supplyValueLabel(group, value) {
@@ -177,15 +246,15 @@ function brand(light = false) {
 function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
     ${brand(false)}
-    <nav><a href="#about">Über RedScore</a><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><a href="mailto:${CONTACT_EMAIL}?subject=Datenschutz%20bei%20RedScore">Datenschutz</a><a href="mailto:${CONTACT_EMAIL}?subject=Impressum%20RedScore">Impressum</a><a href="mailto:${CONTACT_EMAIL}">Kontakt</a></nav>
-    <p>Orientiert an offiziellen Empfehlungen des BBK. · <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></p>
+    <nav><button data-legal="about">Über RedScore</button><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button><a href="mailto:${CONTACT_EMAIL}">Kontakt</a></nav>
+    <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe">${icon("knowledge", "bbk-source-icon")}<span><b>BBK</b><small>Orientiert an Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe</small></span></a><p><a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></p>
   </footer>`;
 }
 
 function publicHeader() {
   return `<header class="public-header">${brand(true)}<nav>
     <button data-scroll="top" class="active">⌂ Start</button><button data-scroll="how">▣ So funktioniert’s</button><button data-route="knowledge">▰ Wissen</button><button data-scroll="about">⌖ Über RedScore</button>
-  </nav><div class="public-actions"><button class="search-button" aria-label="Suche">⌕</button><button class="outline" data-open-login>Einloggen</button><button class="green" data-open-login>Kostenlos registrieren</button><span>DE⌄</span></div></header>`;
+  </nav><div class="public-actions"><button class="search-button" aria-label="Suche">⌕</button><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button><span>DE⌄</span></div></header>`;
 }
 function categoryCard(iconName, title, copy, route) {
   return `<button class="public-category" data-route="${route}">${icon(iconName, "public-icon")}<strong>${title}</strong><span>${copy}</span></button>`;
@@ -203,7 +272,7 @@ function renderPublic() {
   app.innerHTML = `<div id="top" class="public-page">${publicHeader()}
     <section class="public-hero">
       <div class="public-hero-copy"><h1>Wie gut bist du<br>wirklich <em>vorbereitet?</em></h1><p>RedScore zeigt dir auf einen Blick, welche Bereiche du für Katastrophen und Versorgungsausfälle bereits geprüft hast – und was du noch verbessern kannst.</p>
-        <div class="cta-row"><button class="green large" data-open-login>Jetzt kostenlos prüfen <span>→</span></button><button class="outline large" data-scroll="how">So funktioniert’s</button></div>
+        <div class="cta-row"><button class="green large" data-open-auth="register">Jetzt kostenlos prüfen <span>→</span></button><button class="outline large" data-scroll="how">So funktioniert’s</button></div>
         <div class="trust-row"><span>✓ Kostenlos</span><span>✓ Unverbindlich</span><span>✓ Datenschutzfreundlich</span></div>
       </div>
       <aside class="public-score-card"><small>Dein Vorsorgestand</small><div class="empty-score">–</div><strong>Noch nicht berechnet</strong><p>Erst deine vollständigen Antworten ergeben einen Wert.</p></aside>
@@ -211,23 +280,20 @@ function renderPublic() {
     </section>
     <section class="public-categories">${categories.map(item => categoryCard(...item)).join("")}</section>
     <section class="public-info" id="about">
-      <article class="lighthouse-card"><div><small>DEIN REDSCORE</small><h2>Ein Check. Mehr Klarheit.</h2><p>RedScore ordnet persönliche Katastrophenvorbereitung übersichtlich nach offiziellen Empfehlungen. Es gibt keinen Beispielwert: Erst vollständig beantwortete Fragen erzeugen deinen eigenen Stand.</p><ul><li>✓ Individuelle Auswertung</li><li>✓ Konkrete Handlungsschritte</li><li>✓ Orientierung an offiziellen Quellen</li><li>✓ Für Bürgerinnen und Bürger in jeder Lebenslage</li><li>✓ Lokal und datensparsam</li></ul><button class="green large" data-open-login>Jetzt Prüfung starten →</button></div></article>
+      <article class="lighthouse-card"><div><small>DEIN REDSCORE</small><h2>Ein Check. Mehr Klarheit.</h2><p>RedScore ordnet persönliche Katastrophenvorbereitung übersichtlich nach offiziellen Empfehlungen. Es gibt keinen Beispielwert: Erst vollständig beantwortete Fragen erzeugen deinen eigenen Stand.</p><ul><li>✓ Individuelle Auswertung</li><li>✓ Konkrete Handlungsschritte</li><li>✓ Orientierung an offiziellen Quellen</li><li>✓ Für Bürgerinnen und Bürger in jeder Lebenslage</li><li>✓ Offline nutzbar und kontogebunden</li></ul><button class="green large" data-open-auth="register">Jetzt Prüfung starten →</button></div></article>
       <article class="why-card"><small>WARUM VORSORGEN?</small><h2>Krisen kommen<br>meist ungeplant.</h2><p>Ob Stromausfall, Unwetter oder eine andere Notlage: Vorbereitung schützt Handlungsspielraum und reduziert Risiken.</p><div class="benefits"><span>🛡️ <b>Mehr Sicherheit</b></span><span>🌱 <b>Weniger Abhängigkeit</b></span><span>🤝 <b>Ruhe und Klarheit</b></span><span>▥ <b>Schritt für Schritt</b></span></div></article>
     </section>
-    <section class="how-strip" id="how"><h2>So einfach geht’s</h2><div><article><b>1</b><span><strong>Testzugang öffnen</strong><small>Nicole ist der einzige eingerichtete Testuser.</small></span></article><i>›</i><article><b>2</b><span><strong>Angaben machen</strong><small>Bestände und Vorsorge ehrlich erfassen.</small></span></article><i>›</i><article><b>3</b><span><strong>Stand erhalten</strong><small>Auswertung ansehen und Maßnahmen umsetzen.</small></span></article></div></section>
-    <section class="public-band"><article>👥<span><b>Für alle Lebenslagen</b><small>Haushaltsabhängig geplant.</small></span></article><article>🛡️<span><b>Offizielle Grundlagen</b><small>BBK und DWD als Quellen.</small></span></article><article>🔒<span><b>Datensparsam</b><small>Vorsorgedaten lokal; Fotos nur mit Einwilligung verarbeitet.</small></span></article><article>🍃<span><b>Mehr Resilienz</b><small>Praktisch statt alarmistisch.</small></span></article></section>
+    <section class="how-strip" id="how"><h2>So einfach geht’s</h2><div><article><b>1</b><span><strong>Konto anlegen</strong><small>E-Mail bestätigen und sicher anmelden.</small></span></article><i>›</i><article><b>2</b><span><strong>Haushalt einrichten</strong><small>Personen, Kinder, Haustiere und Standort erfassen.</small></span></article><i>›</i><article><b>3</b><span><strong>Vorsorge starten</strong><small>Passende Mengen, Aufgaben und Lagehinweise erhalten.</small></span></article></div></section>
+    <section class="public-band"><article>👥<span><b>Für alle Lebenslagen</b><small>Inklusive Haushaltsmodelle ohne Annahmen.</small></span></article><article>🛡️<span><b>Offizielle Grundlagen</b><small>BBK und DWD als Quellen.</small></span></article><article>🔒<span><b>Datensparsam</b><small>Keine privaten Fotos und keine Gesichtsanalyse.</small></span></article><article>🍃<span><b>Mehr Resilienz</b><small>Praktisch statt alarmistisch.</small></span></article></section>
     ${footer()}
   </div>${modal()}`;
 }
 
 function appHeader(active) {
-  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools"><button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">NM</button><button class="user-name" data-route="profile">Nicole⌄</button></div></header>`;
+  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools"><button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">${esc(state.profile.initials || initials(state.profile.name))}</button><button class="user-name" data-route="profile">${esc((state.profile.name || "Profil").split(" ")[0])}⌄</button></div></header>`;
 }
-function familyUpload(className = "") {
-  if (personalizationState.status === "processing") return `<div class="family-photo generation-card ${className}">${icon("profile", "generation-icon")}<div class="generation-status"><b>${esc(personalizationState.label)}</b><div class="generation-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${personalizationState.progress}"><i style="width:${personalizationState.progress}%"></i></div><small>${personalizationState.progress}% · Das Referenzfoto wird nicht als Seitenmotiv angezeigt.</small></div></div>`;
-  if (personalizationState.status === "error") return `<div class="family-photo generation-card error ${className}">${icon("profile", "generation-icon")}<div class="generation-status"><b>${state.media.familyPhoto ? "Generierung unterbrochen" : "Bilddienst nicht verfügbar"}</b><small>${esc(personalizationState.error || "Bitte erneut versuchen.")}</small><span>${state.media.familyPhoto ? `<button data-retry-generation>Erneut versuchen</button><button data-upload-photo>Foto ändern</button>` : `<button data-upload-photo>Verfügbarkeit erneut prüfen</button>`}</span></div></div>`;
-  if (state.media.familyPhoto) return `<div class="family-photo generation-card complete ${className}">${icon("profile", "generation-icon")}<div class="generation-status"><b>${Object.keys(personalizedImages).length ? `${Object.keys(personalizedImages).length} persönliche Motive bereit` : "Referenzfoto sicher vorgemerkt"}</b><small>${Object.keys(personalizedImages).length ? "Das Originalfoto bleibt verborgen; angezeigt werden nur die erzeugten RedScore-Szenen." : "Sobald der Bilddienst verfügbar ist, werden daraus die persönlichen Vorsorge-Szenen erzeugt."}</small><span><button data-upload-photo>Foto ändern</button></span></div></div>`;
-  return `<button class="family-upload ${className}" data-upload-photo>${icon("profile", "upload-icon")}<span><b>Eigenes Foto hochladen</b><small>Danach erzeugt der Bilddienst vier persönliche Vorsorge-Motive. Das Original wird von RedScore nicht serverseitig gespeichert.</small></span><strong>＋</strong></button>`;
+function householdVisual(className = "") {
+  return `<button class="household-visual ${className}" data-edit-household style="--household-image:url('${selectedScene()}')"><span><b>${esc(householdSummary() || "Haushalt einrichten")}</b><small>Passendes RedScore-Motiv aus dem geschützten Bildportfolio · keine privaten Fotos</small></span><strong>Angaben ändern →</strong></button>`;
 }
 function loggedShell(active, content, pageClass = "") {
   document.body.className = "logged-mode";
@@ -238,10 +304,11 @@ function scoreRing(value, red = false) {
   return `<div class="score-ring ${red ? "danger" : ""}" style="--score:${value}"><div><small>DEIN STAND</small><strong>${value}</strong><span>von 100</span></div></div>`;
 }
 function warningSummary(compact = false) {
-  if (warningState.status === "loading") return `<span><b>DWD-Live-Abfrage läuft</b><small>Für Landkreis Stade</small></span>`;
-  if (warningState.status === "fallback") return `<span><b>Keine DWD-Wetterwarnung beim letzten Abruf</b><small>Landkreis Stade · Stand 12.09.2026</small></span>`;
+  const region = state.household.district || state.household.state || state.household.city || "deinen Standort";
+  if (warningState.status === "loading") return `<span><b>DWD-Live-Abfrage läuft</b><small>Für ${esc(region)}</small></span>`;
+  if (warningState.status === "fallback") return `<span><b>Keine DWD-Wetterwarnung beim letzten Abruf</b><small>${esc(region)} · gespeicherter Stand</small></span>`;
   if (warningState.status === "error") return `<span><b>Warnstatus nicht verfügbar</b><small>Bitte direkt beim DWD prüfen.</small></span>`;
-  if (!warningState.warnings.length) return `<span><b>Keine DWD-Wetterwarnung</b><small>Landkreis Stade · zuletzt live geprüft</small></span>`;
+  if (!warningState.warnings.length) return `<span><b>Keine DWD-Wetterwarnung</b><small>${esc(region)} · zuletzt live geprüft</small></span>`;
   const first = warningState.warnings[0];
   return `<span><b>${esc(first.headline || first.event || "DWD-Wetterwarnung")}</b><small>${esc(first.regionName || "Landkreis Stade")}</small></span>`;
 }
@@ -361,10 +428,10 @@ async function requestLiveLage(force = false) {
   const received = liveState.receivedAt ? new Date(liveState.receivedAt).getTime() : 0;
   if (!force && received && Date.now() - received < 30_000) return;
   liveState.status = liveState.events.length ? "refreshing" : "loading";
-  const params = new URLSearchParams({
-    scope: liveState.scope, filter: liveState.filter, limit: "30", country: "Deutschland",
-    region: "Niedersachsen", district: "Stade", lat: "53.823008", lon: "9.285572",
-  });
+  const params = new URLSearchParams({ scope: liveState.scope, filter: liveState.filter, limit: "30", country: "Deutschland" });
+  if (state.household.state) params.set("region", state.household.state);
+  if (state.household.district) params.set("district", state.household.district.replace(/^Landkreis\s+/i, ""));
+  if (/freiburg/i.test(state.household.city || "")) { params.set("lat", "53.823008"); params.set("lon", "9.285572"); }
   liveRequest = fetch(`/api/live-lage?${params}`, { cache: "no-store", headers: { accept: "application/json" } })
     .then(async response => {
       if (!response.ok) throw new Error("Live-Lage API unavailable");
@@ -376,8 +443,9 @@ async function requestLiveLage(force = false) {
       liveState.status = "live";
       liveState.error = null;
       storeLiveCache();
-      const regionalWarnings = liveState.events.filter(event => ["official_warning","storm","heavy_rain","flood","severe_weather","extreme_heat"].includes(event.category) && /stade|niedersachsen/i.test(`${event.region || ""} ${event.city || ""}`));
-      warningState = { status: "ok", warnings: regionalWarnings.map(event => ({ headline: event.title, regionName: event.region || event.city || "Niedersachsen" })), checkedAt: liveState.receivedAt, fallback: false };
+      const regionTerms = [state.household.city, state.household.district, state.household.state].filter(Boolean).map(value => value.replace(/^Landkreis\s+/i, "").toLowerCase());
+      const regionalWarnings = liveState.events.filter(event => ["official_warning","storm","heavy_rain","flood","severe_weather","extreme_heat"].includes(event.category) && regionTerms.some(term => `${event.region || ""} ${event.city || ""}`.toLowerCase().includes(term)));
+      warningState = { status: "ok", warnings: regionalWarnings.map(event => ({ headline: event.title, regionName: event.region || event.city || state.household.state })), checkedAt: liveState.receivedAt, fallback: false };
     })
     .catch(() => {
       liveState.status = liveState.events.length ? "offline" : "error";
@@ -423,39 +491,37 @@ function liveLagePanel() {
     <footer><span>${liveState.sources.length} strukturierte Quellen aktiv${hiddenDuplicates ? ` · ${hiddenDuplicates} Wiederholungen gebündelt` : ""}</span><small>Keine Boulevard- oder allgemeinen Politikmeldungen.</small></footer>
   </aside>`;
 }
-function nextTask() { return tasks.find(task => !state.taskStatus[task.id]) || null; }
+function nextTask() { return relevantTasks().find(task => !state.taskStatus[task.id]) || null; }
 function renderHome() {
   const value = score();
-  const open = tasks.filter(task => !state.taskStatus[task.id]).length;
+  const householdTasks = relevantTasks();
+  const open = householdTasks.filter(task => !state.taskStatus[task.id]).length;
   const next = nextTask();
   const water = state.supplies.water;
-  const waterDays = water === null ? null : Math.floor(water / 6);
+  const dailyWater = Math.max(1, householdPeople()) * 2;
+  const waterDays = water === null ? null : Math.floor(water / dailyWater);
   const statusTone = warningState.status === "ok" && !warningState.warnings.length ? "safe" : ["loading", "fallback"].includes(warningState.status) ? "neutral" : "danger";
   const heroPhoto = sceneStyle("dashboard", "--hero-photo");
   const content = `<div class="home-live-layout"><div class="home-core"><section class="dashboard-hero" ${heroPhoto}>
     <div class="dashboard-copy"><h1>Heute vorsorgen.<br><em>Morgen sicherer.</em></h1><p>Krisen kommen oft unerwartet.<br>Sei vorbereitet – für deine Familie,<br>dein Zuhause und deine Zukunft.</p><blockquote>„Sicherheit ist planbar – Schritt für Schritt.“</blockquote></div>
-    <div class="dashboard-score">${scoreRing(value, value !== null && value < 50)}<div class="score-message"><strong>${value === null ? "Noch nicht bewertet." : value >= 70 ? "Gut vorbereitet." : "Es gibt wichtige Lücken."}</strong><p>${value === null ? "Beantworte zuerst alle zwölf Fragen. Wir zeigen niemals einen erfundenen Beispielwert." : "Der Wert basiert ausschließlich auf deinen Antworten."}</p><button class="${value !== null && value < 50 ? "red" : "green"}" data-open-assessment>${value === null ? "Jetzt ehrlich prüfen" : "Angaben aktualisieren"} →</button></div></div>
-    <div class="dashboard-family">${familyUpload("hero-family")}</div>
+    <div class="dashboard-score">${scoreRing(value, value !== null && value < 50)}<div class="score-message"><strong>${value === null ? "Noch nicht bewertet." : value >= 70 ? "Gut vorbereitet." : "Es gibt wichtige Lücken."}</strong><p>${value === null ? `Beantworte zuerst alle ${relevantAssessmentQuestions().length} Fragen. Wir zeigen niemals einen erfundenen Beispielwert.` : "Der Wert basiert ausschließlich auf deinen Antworten."}</p><button class="${value !== null && value < 50 ? "red" : "green"}" data-open-assessment>${value === null ? "Jetzt ehrlich prüfen" : "Angaben aktualisieren"} →</button></div></div>
+    <div class="dashboard-family">${householdVisual("hero-family")}</div>
   </section>
   <section class="status-grid">
     <button class="status-card ${statusTone}" data-route="warnschutz">${icon("weather-warning", "status-icon")}${warningSummary(true)}<b>›</b></button>
-    <button class="status-card blue" data-route="supplies">${icon("water", "status-icon")}<span><b>${waterDays === null ? "Trinkwasser nicht erfasst" : `Trinkwasser für ${waterDays} Tage`}</b><small>BBK-Ziel: 10 Tage / 60 Liter</small></span><b>›</b></button>
+    <button class="status-card blue" data-route="supplies">${icon("water", "status-icon")}<span><b>${waterDays === null ? "Trinkwasser nicht erfasst" : `Trinkwasser für ${waterDays} Tage`}</b><small>10-Tage-Ziel: ${fmt(dailyWater * 10)} Liter für deinen Haushalt</small></span><b>›</b></button>
     <button class="status-card amber" data-route="plan">${icon("plan", "status-icon")}<span><b>${open} Aufgaben offen</b><small>Nur selbst bestätigte Aufgaben zählen.</small></span><b>›</b></button>
     <button class="status-card safe" data-route="map">${icon("home", "status-icon")}<span><b>Verifizierte Orte</b><small>Keine bestätigten Schutzraumdaten im Datensatz.</small></span><b>›</b></button>
   </section>
   <section class="next-step"><div class="section-title"><div><h2>Dein nächster Schritt</h2><p>Eine kleine Maßnahme – große Wirkung.</p></div><button data-route="plan">Alle Aufgaben anzeigen →</button></div>
-    ${next ? `<article class="next-task">${icon(next.icon, "task-image")}<div><span>${next.priority.toUpperCase()} · BBK-ORIENTIERT</span><h3>${next.title}</h3><p>${next.description}</p></div><button class="green" data-task-done="${next.id}">Als erledigt markieren →</button></article>` : `<article class="all-done">Alle Aufgaben wurden von Nicole bestätigt.</article>`}
+    ${next ? `<article class="next-task">${icon(next.icon, "task-image")}<div><span>${next.priority.toUpperCase()} · BBK-ORIENTIERT</span><h3>${next.title}</h3><p>${next.description}</p></div><button class="green" data-task-done="${next.id}">Als erledigt markieren →</button></article>` : `<article class="all-done">Alle Aufgaben wurden von dir bestätigt.</article>`}
   </section>
   <section class="feature-row">${[
     ["pantry.png","Vorräte","Bestände selbst erfassen.","supplies"],
     ["shelter.png","Schutz in deiner Nähe","Verifizierte Anlaufstellen.","map"],
     ["warning-storm.png","Warnschutz","DWD-Status und Warnwege.","warnschutz"],
     ["knowledge.png","Wissen","Offizielle Hinweise verständlich.","knowledge"],
-  ].map(([img,title,copy,route]) => {
-    const generatedKey = route === "supplies" ? "supplies" : route === "warnschutz" ? "warning" : route === "knowledge" ? "knowledge" : null;
-    const featureImage = generatedKey && personalizedImages[generatedKey] ? personalizedImages[generatedKey] : `assets/${img}`;
-    return `<button data-route="${route}" style="--feature:url('${esc(featureImage)}')"><span><b>${title}</b><small>${copy}</small></span><strong>›</strong></button>`;
-  }).join("")}</section></div>${liveLagePanel()}</div>`;
+  ].map(([img,title,copy,route]) => `<button data-route="${route}" style="--feature:url('assets/${img}')"><span><b>${title}</b><small>${copy}</small></span><strong>›</strong></button>`).join("")}</section></div>${liveLagePanel()}</div>`;
   app.innerHTML = loggedShell("home", content, "home-page");
   requestLiveLage();
 }
@@ -466,10 +532,11 @@ function taskRow(task) {
 }
 function renderPlan() {
   const filters = ["Alle", "Vorräte", "Zuhause", "Unterwegs", "Familie"];
-  const shown = tasks.filter(task => state.ui.planFilter === "Alle" || task.category === state.ui.planFilter);
-  const done = tasks.filter(task => state.taskStatus[task.id]).length;
+  const householdTasks = relevantTasks();
+  const shown = householdTasks.filter(task => state.ui.planFilter === "Alle" || task.category === state.ui.planFilter);
+  const done = householdTasks.filter(task => state.taskStatus[task.id]).length;
   const content = `<section class="subhero compact"><div><h1>Mein Plan</h1><h2>Schritt für Schritt mehr Sicherheit.</h2><p>Dein Fortschritt enthält nur Aufgaben, die du selbst bestätigt hast.</p></div></section>
-    <div class="content-wrap two-column"><aside class="side-card"><small>DEIN FORTSCHRITT</small><strong>${done} / ${tasks.length}</strong><div class="bar"><i style="width:${done/tasks.length*100}%"></i></div><p>${done ? "Bestätigte Maßnahmen" : "Noch nichts als erledigt markiert"}</p></aside><section>
+    <div class="content-wrap two-column"><aside class="side-card"><small>DEIN FORTSCHRITT</small><strong>${done} / ${householdTasks.length}</strong><div class="bar"><i style="width:${done/householdTasks.length*100}%"></i></div><p>${done ? "Bestätigte Maßnahmen" : "Noch nichts als erledigt markiert"}</p></aside><section>
       <div class="filter-row">${filters.map(f => `<button data-plan-filter="${f}" class="${f===state.ui.planFilter?"active":""}">${f}</button>`).join("")}</div>
       <div class="task-list">${shown.map(taskRow).join("")}</div>
     </section></div>`;
@@ -479,13 +546,14 @@ function renderPlan() {
 function renderSupplies() {
   const percent = supplyPercent();
   const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt"];
-  const shownGroups = supplyGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
+  const relevantGroups = supplyGroups.filter(group => group.id !== "pet" || petCount() > 0);
+  const shownGroups = relevantGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
   const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
     <div class="content-wrap supplies-layout"><aside class="side-card">${scoreRing(percent)}<p>${percent === null ? "Noch kein Bestand erfasst." : "Aus selbst eingetragenen Beständen berechnet."}</p><button class="outline" data-open-supply="water">Jetzt erfassen</button></aside>
-    <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>2 Erwachsene · 1 Kind · 1 Hund</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b></p></div></article>
+    <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>${esc(householdSummary())}</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b> · <button data-edit-household>Angaben ändern</button></p></div></article>
       <div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div>
       <div class="supply-table"><div class="table-head"><span>Bereich</span><span>BBK-orientiertes Ziel</span><span>Dein Bestand</span><span></span></div>
-        ${shownGroups.map(group => { const val = state.supplies[group.id]; const complete = val !== null && val >= group.target; return `<article><div>${icon(group.icon,"row-icon")}<span><b>${group.label}</b><small>${group.note}</small></span></div><strong>${supplyTargetLabel(group)}</strong><span class="${complete?"complete":val===null?"unknown":"partial"}">${supplyValueLabel(group,val)}</span><button data-open-supply="${group.id}">Bearbeiten</button></article>`; }).join("")}</div>
+        ${shownGroups.map(group => { const val = state.supplies[group.id]; const complete = val !== null && val >= supplyTarget(group); return `<article><div>${icon(group.icon,"row-icon")}<span><b>${group.label}</b><small>${supplyNote(group)}</small></span></div><strong>${supplyTargetLabel(group)}</strong><span class="${complete?"complete":val===null?"unknown":"partial"}">${supplyValueLabel(group,val)}</span><button data-open-supply="${group.id}">Bearbeiten</button></article>`; }).join("")}</div>
       <p class="source-note">Ziele sind Orientierung, kein amtliches Prüfsiegel. Medikamente und Sonderbedarf individuell abstimmen.</p>
     </section></div>`;
   app.innerHTML = loggedShell("supplies", content, "supplies-page");
@@ -493,19 +561,21 @@ function renderSupplies() {
 
 function renderMap() {
   const categories = ["Alle", "Behörden", "Versorgung", "Gesundheit", "Schutzräume"];
-  const shown = state.ui.mapFilter === "Schutzräume" ? [] : verifiedPlaces.filter(p => state.ui.mapFilter === "Alle" || p.category === state.ui.mapFilter);
-  const content = `<section class="image-hero shelter-hero"><div><h1>Schutz in deiner Nähe</h1><h2>Verifizierte Orte für den Ernstfall.</h2><p>Nur nachvollziehbare Adressen werden angezeigt. Für Freiburg (Elbe) liegen uns derzeit keine verifizierten öffentlichen Schutzraumdaten vor.</p></div></section>
-    <div class="map-controls"><div>⌖ <b>21729 Freiburg (Elbe)</b></div><button data-save-offline>${state.settings.offlinePlacesSaved ? "Offline-Liste aktualisieren" : "Offline-Liste speichern"}</button></div>
+  const supportsLocalPlaces = /freiburg/i.test(state.household.city || "");
+  const shown = !supportsLocalPlaces || state.ui.mapFilter === "Schutzräume" ? [] : verifiedPlaces.filter(p => state.ui.mapFilter === "Alle" || p.category === state.ui.mapFilter);
+  const location = state.household.location || state.household.city || "Standort nicht eingerichtet";
+  const content = `<section class="image-hero shelter-hero"><div><h1>Schutz in deiner Nähe</h1><h2>Verifizierte Orte für den Ernstfall.</h2><p>Nur nachvollziehbare Adressen werden angezeigt. Unbestätigte Schutzraumstandorte erfindet RedScore nicht.</p></div></section>
+    <div class="map-controls"><div>⌖ <b>${esc(location)}</b></div><button data-edit-household>Standort ändern</button><button data-save-offline>${state.settings.offlinePlacesSaved ? "Offline-Liste aktualisieren" : "Offline-Liste speichern"}</button></div>
     <div class="filter-row wide">${categories.map(f => `<button data-map-filter="${f}" class="${f===state.ui.mapFilter?"active":""}">${f}</button>`).join("")}</div>
     <div class="map-layout"><section class="place-list"><h2>Ergebnisse (${shown.length})</h2>${shown.length ? shown.map(place => `<article>${icon(place.icon,"place-icon")}<div><b>${place.name}</b><small>${place.address}</small><em>Quelle: ${place.source}</em></div><a href="https://www.openstreetmap.org/search?query=${encodeURIComponent(place.address)}" target="_blank" rel="noreferrer">Route ↗</a></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>Keine verifizierten öffentlichen Schutzräume</h3><p>Im Ernstfall gelten die Anweisungen der Behörden. Wir erfinden keine Standorte.</p></div>`}</section>
-      <section class="real-map offline-preview" aria-label="Schematische Offline-Übersicht für Freiburg (Elbe)"><svg viewBox="0 0 900 520" aria-hidden="true"><rect width="900" height="520" fill="#173b3b"/><path d="M-50 110 C170 190 315 65 505 145 S730 340 960 250" fill="none" stroke="#285f71" stroke-width="125"/><path d="M-30 92 C170 165 310 48 515 132 S745 326 950 236" fill="none" stroke="#3d8395" stroke-width="6"/><g fill="none" stroke="#51634e" stroke-width="18" opacity=".8"><path d="M40 430 C250 300 330 370 520 265 S740 160 900 175"/><path d="M80 15 C130 175 230 220 380 292 S670 410 845 540"/></g><g fill="none" stroke="#d9c785" stroke-width="5"><path d="M20 430 C260 320 340 350 520 270 S720 180 930 175"/><path d="M90 -20 C155 185 260 228 390 290 S680 410 840 535"/></g><circle cx="520" cy="270" r="62" fill="#22a7ea18" stroke="#38b9f2" stroke-width="3"/><circle cx="520" cy="270" r="11" fill="#1eaef1" stroke="#fff" stroke-width="4"/></svg><div class="map-city-label">Freiburg (Elbe)</div><div class="map-water-label">Elbe</div><div class="offline-caption"><b>Offline-Übersicht</b><small>Schematisch · keine Navigation</small></div><a href="https://www.openstreetmap.org/?mlat=53.823008&amp;mlon=9.285572#map=13/53.823008/9.285572" target="_blank" rel="noreferrer">OpenStreetMap online öffnen ↗</a></section>
+      <section class="real-map offline-preview" aria-label="Schematische Offline-Übersicht"><svg viewBox="0 0 900 520" aria-hidden="true"><rect width="900" height="520" fill="#173b3b"/><path d="M-50 110 C170 190 315 65 505 145 S730 340 960 250" fill="none" stroke="#285f71" stroke-width="125"/><path d="M-30 92 C170 165 310 48 515 132 S745 326 950 236" fill="none" stroke="#3d8395" stroke-width="6"/><g fill="none" stroke="#51634e" stroke-width="18" opacity=".8"><path d="M40 430 C250 300 330 370 520 265 S740 160 900 175"/><path d="M80 15 C130 175 230 220 380 292 S670 410 845 540"/></g><g fill="none" stroke="#d9c785" stroke-width="5"><path d="M20 430 C260 320 340 350 520 270 S720 180 930 175"/><path d="M90 -20 C155 185 260 228 390 290 S680 410 840 535"/></g><circle cx="520" cy="270" r="62" fill="#22a7ea18" stroke="#38b9f2" stroke-width="3"/><circle cx="520" cy="270" r="11" fill="#1eaef1" stroke="#fff" stroke-width="4"/></svg><div class="map-city-label">${esc(state.household.city || "Dein Standort")}</div><div class="offline-caption"><b>Offline-Übersicht</b><small>Gespeicherte Orte · keine Navigation</small></div>${supportsLocalPlaces ? `<a href="https://www.openstreetmap.org/search?query=${encodeURIComponent(location)}" target="_blank" rel="noreferrer">OpenStreetMap online öffnen ↗</a>` : ""}</section>
     </div><div class="emergency-bar">⚠ <b>Im Ernstfall:</b> Aktuelle Warnmeldungen und behördliche Anweisungen haben Vorrang. <button data-route="warnschutz">Warnstatus prüfen →</button></div>`;
   app.innerHTML = loggedShell("map", content, "map-page");
 }
 
 function renderWarnschutz() {
   const checked = warningState.checkedAt ? new Date(warningState.checkedAt).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) : "–";
-  const content = `<section class="image-hero warning-hero" ${sceneStyle("warning")}><div><h1>Früh informiert.<br><em>Besser vorbereitet.</em></h1><p>Amtliche Wetterwarnungen und belastbare Warnwege für Nicole in Freiburg (Elbe).</p></div></section>
+  const content = `<section class="image-hero warning-hero"><div><h1>Früh informiert.<br><em>Besser vorbereitet.</em></h1><p>Amtliche Wetterwarnungen und belastbare Warnwege für ${esc(state.household.city || "deinen Standort")}.</p></div></section>
     <div class="warning-layout"><section><article class="current-warning ${warningState.status==="ok"&&!warningState.warnings.length?"safe":warningState.status==="fallback"?"neutral":""}">${icon(warningState.warnings.length?"weather-warning":"health","warning-large")}${warningSummary()}<span>Live-Prüfung: ${checked}</span><a href="${sources.dwd}" target="_blank" rel="noreferrer">Beim DWD öffnen ↗</a></article>
       <div class="warning-cards"><article>${icon("bell","big-icon")}<h3>Cell Broadcast</h3><p>Warnungen werden auf kompatiblen, eingeschalteten Mobiltelefonen ohne App ausgesendet.</p></article><article>${icon("weather-warning","big-icon")}<h3>NINA</h3><p>Die offizielle Warn-App des BBK bündelt Zivil-, Polizei-, Wetter- und Hochwasserwarnungen.</p><a href="${sources.nina}" target="_blank">NINA beim BBK ↗</a></article><article>${icon("radio","big-icon")}<h3>Radio</h3><p>Ein Batterie-, Solar- oder Kurbelradio bleibt bei Strom- und Internetausfall wichtig.</p></article></div>
     </section><aside><h3>Benachrichtigungen</h3><p>RedScore kann den Browserzugriff anfragen. Eine Freigabe ersetzt keine Warn-App.</p><button class="green" data-notifications>${"Notification" in window && Notification.permission === "granted" ? "Browser-Mitteilungen erlaubt" : "Berechtigung prüfen"}</button><h3>Verhalten bei Unwetter</h3><ul><li>Amtliche Meldungen verfolgen</li><li>Fenster und Türen schließen</li><li>Lose Gegenstände sichern</li><li>Überflutete Bereiche meiden</li></ul></aside></div>`;
@@ -523,23 +593,43 @@ function renderKnowledge() {
 }
 
 function renderProfile() {
-  const content = `<div class="content-wrap profile-layout"><section><h1>Profil</h1><article class="profile-card"><div class="avatar large">NM</div><div><h2>Nicole Mrozinski</h2><p>2 Erwachsene · 1 Kind · 1 Hund</p><small>Freiburg (Elbe), Flecken · Niedersachsen</small></div></article>
-    <div class="profile-photo-panel">${familyUpload()}</div>
-    <div class="settings-list"><article>${icon("map","row-icon")}<span><b>Standort</b><small>21729 Freiburg (Elbe) · Landkreis Stade</small></span></article><article>${icon("profile","row-icon")}<span><b>Haushalt</b><small>2 Erwachsene · 1 Kind · 1 Hund</small></span></article><article>${icon("settings","row-icon")}<span><b>Datenschutz</b><small>Antworten und Bestände bleiben lokal. Das Referenzfoto wird nur zur angeforderten Bildgenerierung verschlüsselt übertragen; RedScore speichert es nicht serverseitig.</small></span></article></div>
-  </section><aside class="profile-actions"><button class="outline" data-open-assessment>Vorsorgestand neu prüfen</button><button class="outline" data-remove-photo ${state.media.familyPhoto?"":"disabled"}>Foto entfernen</button><button class="red" data-logout>Abmelden</button></aside></div>`;
+  const petSummary = (state.household.pets || []).map(pet => `${pet.count}× ${pet.label || petLabel(pet.type)}`).join(", ") || "Keine Haustiere";
+  const content = `<div class="content-wrap profile-layout"><section><h1>Profil</h1><article class="profile-card"><div class="avatar large">${esc(state.profile.initials)}</div><div><h2>${esc(state.profile.name)}</h2><p>${esc(householdSummary())}</p><small>${esc([state.household.location, state.household.state].filter(Boolean).join(" · "))}</small></div></article>
+    <div class="profile-photo-panel">${householdVisual()}</div>
+    <div class="settings-list"><article>${icon("map","row-icon")}<span><b>Standort</b><small>${esc([state.household.location, state.household.district, state.household.state].filter(Boolean).join(" · "))}</small></span></article><article>${icon("profile","row-icon")}<span><b>Haushalt</b><small>${esc(householdSummary())} · ${esc(petSummary)}</small></span></article><article>${icon("settings","row-icon")}<span><b>Datenschutz</b><small>Vorsorgedaten werden kontogebunden gespeichert und bleiben auf diesem Gerät offline verfügbar. RedScore lädt keine privaten Fotos hoch und führt keine Gesichtsanalyse durch.</small></span></article></div>
+  </section><aside class="profile-actions"><button class="outline" data-edit-household>Haushalt bearbeiten</button><button class="outline" data-open-assessment>Vorsorgestand neu prüfen</button><button class="red" data-logout>Abmelden</button></aside></div>`;
   app.innerHTML = loggedShell("profile", content, "profile-page");
 }
 
 function modal() {
   if (!state.ui.modal) return "";
-  if (state.ui.modal === "login") return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>LOKALER TESTZUGANG</small><h2>Nicole Mrozinski</h2><p>2 Erwachsene, 1 Kind, 1 Hund<br>21729 Freiburg (Elbe), Flecken</p><button class="green full" data-login>Testzugang öffnen →</button><em>Keine Demo-Werte: Antworten und Bestände beginnen leer.</em></section></div>`;
+  if (state.ui.modal.startsWith("legal:")) {
+    const page = state.ui.modal.slice(6);
+    const contents = {
+      about: ["Über RedScore", `<p>RedScore ist ein bürgerfreundliches Katastrophenvorbereitungssystem. Es verbindet persönliche Vorsorge, Vorratsplanung, verifizierte Anlaufstellen, Warnwege und eine strukturierte Lageübersicht.</p><p>RedScore ersetzt keine amtliche Warnung oder fachliche Beratung. Im Ereignisfall gelten die Anweisungen der zuständigen Behörden.</p>`],
+      privacy: ["Datenschutzhinweise", `<h3>Welche Daten verarbeitet werden</h3><p>Für das Konto werden E-Mail-Adresse, Anzeigename, freiwillige Haushaltsangaben, Standortangaben, Vorsorgeantworten und Bestände verarbeitet. Private Fotos werden weder angefordert noch verarbeitet.</p><h3>Zweck und Speicherung</h3><p>Die Daten dienen ausschließlich der personalisierten Vorsorgeplanung, Synchronisierung und Offline-Nutzung. Kontodaten werden bei Supabase in der EU gespeichert; die Webanwendung wird über Vercel bereitgestellt. Zusätzlich hält das Endgerät eine Offline-Kopie.</p><h3>Deine Rechte</h3><p>Du kannst Auskunft, Berichtigung, Löschung, Einschränkung oder Datenübertragbarkeit anfragen. Kontakt: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p><p>Die Live-Lage speichert keine privaten Profile in externen Feeds. Browser-Mitteilungen werden nur nach ausdrücklicher Freigabe aktiviert.</p>`],
+      imprint: ["Impressum", `<p><b>RedScore</b><br>Katastrophenvorbereitung für Bürgerinnen und Bürger<br>Web: <a href="https://www.redscore.de">www.redscore.de</a><br>E-Mail: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></p><h3>Verantwortung und Haftung</h3><p>RedScore bereitet öffentlich zugängliche Vorsorgeinformationen auf. Trotz sorgfältiger Prüfung besteht kein Anspruch auf Vollständigkeit oder ständige Aktualität. Amtliche Warnungen und behördliche Anweisungen haben Vorrang.</p><p class="legal-warning">Vor einem öffentlichen geschäftlichen Betrieb müssen Name und ladungsfähige Anschrift des verantwortlichen Anbieters ergänzt werden. RedScore erfindet diese Pflichtangaben nicht.</p>`],
+    };
+    const [title, content] = contents[page] || contents.about;
+    return `<div class="modal-backdrop"><section class="modal legal-modal"><button class="modal-close" data-close-modal>×</button><small>REDSCORE</small><h2>${title}</h2>${content}<small>Stand: 1. Oktober 2026</small></section></div>`;
+  }
+  if (["login", "register"].includes(state.ui.modal)) {
+    const register = state.ui.modal === "register";
+    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>SICHERES REDSCORE-KONTO</small><h2>${register ? "Kostenlos registrieren" : "Einloggen"}</h2><div class="auth-tabs"><button data-open-auth="login" class="${register ? "" : "active"}">Einloggen</button><button data-open-auth="register" class="${register ? "active" : ""}">Registrieren</button></div><form data-auth-form="${register ? "register" : "login"}">${register ? `<label><span>Name</span><input name="displayName" autocomplete="name" maxlength="80" required></label>` : ""}<label><span>E-Mail</span><input name="email" type="email" autocomplete="email" required></label><label><span>Passwort</span><input name="password" type="password" autocomplete="${register ? "new-password" : "current-password"}" minlength="8" required></label><button class="green full" ${accountBusy ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : register ? "Konto anlegen →" : "Einloggen →"}</button></form><em>${register ? "Nach der Registrierung richtest du deinen Haushalt inklusiv ein. Private Fotos werden nicht benötigt." : "Deine Daten werden zwischen deinen Geräten synchronisiert und bleiben offline verfügbar."}</em></section></div>`;
+  }
+  if (state.ui.modal === "onboarding") {
+    const adults = state.household.adults?.length || 1;
+    const petAmount = type => state.household.pets?.find(pet => pet.type === type)?.count || 0;
+    return `<div class="modal-backdrop"><section class="modal onboarding-modal"><small>ERSTEINRICHTUNG · DEIN HAUSHALT</small><h2>Damit RedScore wirklich zu euch passt</h2><p>Wir fragen nur die Angaben ab, die Mengen, Aufgaben und das passende Haushaltsmotiv beeinflussen. Beziehungsstatus oder sexuelle Orientierung werden nicht erfasst.</p><form data-onboarding-form><div class="onboarding-grid"><label><span>Dein Anzeigename</span><input name="displayName" value="${esc(state.profile.name)}" maxlength="80" autocomplete="name" required></label><label><span>Erwachsene Personen</span><input name="adultCount" type="number" min="1" max="8" value="${adults}" required></label><div class="adult-identities" data-adult-identities>${Array.from({ length: 8 }, (_, index) => `<label class="adult-identity" data-adult-index="${index}" ${index >= adults ? "hidden" : ""}><span>Person ${index + 1} – freiwillige Selbstbezeichnung</span><select name="adultGender${index}" ${index < adults ? "required" : ""}><option value="unspecified">Keine Angabe</option><option value="woman" ${state.household.adults?.[index]?.gender === "woman" ? "selected" : ""}>Frau</option><option value="man" ${state.household.adults?.[index]?.gender === "man" ? "selected" : ""}>Mann</option><option value="diverse" ${state.household.adults?.[index]?.gender === "diverse" ? "selected" : ""}>Divers / nichtbinär</option></select></label>`).join("")}</div><label><span>Kinder im Haushalt</span><input name="children" type="number" min="0" max="12" value="${state.household.children || 0}" required></label><fieldset class="pet-fields"><legend>Haustiere – Anzahl je Art</legend>${[["dog","Hunde"],["cat","Katzen"],["bird","Vögel"],["small_animal","Kleintiere"],["fish","Fische / Aquarien"],["reptile","Reptilien"],["other","Andere Tiere"]].map(([type,label]) => `<label><span>${label}</span><input name="pet_${type}" type="number" min="0" max="20" value="${petAmount(type)}"></label>`).join("")}</fieldset><label><span>Postleitzahl</span><input name="postalCode" inputmode="numeric" pattern="[0-9]{5}" value="${esc(state.household.postalCode)}" required></label><label><span>Ort</span><input name="city" value="${esc(state.household.city)}" maxlength="80" required></label><label><span>Bundesland</span><input name="state" value="${esc(state.household.state)}" maxlength="80" required></label><label><span>Landkreis / Region (optional)</span><input name="district" value="${esc(state.household.district)}" maxlength="100"></label></div><div class="privacy-note">🔒 Keine privaten Fotos. Das angezeigte Motiv stammt aus einem vorab geprüften RedScore-Bildportfolio und wird nur nach Haushaltskonstellation ausgewählt.</div><button class="green full">Haushalt speichern und starten →</button></form></section></div>`;
+  }
   if (state.ui.modal === "assessment") {
-    const answered = assessmentQuestions.filter(([id]) => typeof state.assessment.answers[id] === "boolean").length;
-    return `<div class="modal-backdrop"><section class="modal assessment-modal"><button class="modal-close" data-close-modal>×</button><small>TRANSPARENTE EIGENE AUSWERTUNG</small><h2>RedScore Vorsorge-Check</h2><p>Beantworte alle Fragen ehrlich. Jede Ja-Antwort zählt gleich; unbeantwortete Fragen erzeugen keinen Score.</p><div class="assessment-progress">${answered} von ${assessmentQuestions.length} beantwortet</div><div class="question-list">${assessmentQuestions.map(([id,q,hint],i) => `<article><b>${i+1}</b><div><strong>${q}</strong><small>${hint}</small></div><div><button data-answer="${id}:true" class="${state.assessment.answers[id]===true?"yes":""}">Ja</button><button data-answer="${id}:false" class="${state.assessment.answers[id]===false?"no":""}">Nein</button></div></article>`).join("")}</div><button class="green full" data-finish-assessment ${answered < assessmentQuestions.length ? "disabled" : ""}>Auswertung berechnen</button><a href="${sources.bbkChecklist}" target="_blank">Grundlage: BBK-Ratgeber und Checkliste ↗</a></section></div>`;
+    const questions = relevantAssessmentQuestions();
+    const answered = questions.filter(([id]) => typeof state.assessment.answers[id] === "boolean").length;
+    return `<div class="modal-backdrop"><section class="modal assessment-modal"><button class="modal-close" data-close-modal>×</button><small>TRANSPARENTE EIGENE AUSWERTUNG</small><h2>RedScore Vorsorge-Check</h2><p>Beantworte alle Fragen ehrlich. Jede Ja-Antwort zählt gleich; unbeantwortete Fragen erzeugen keinen Score.</p><div class="assessment-progress">${answered} von ${questions.length} beantwortet</div><div class="question-list">${questions.map(([id,q,hint],i) => `<article><b>${i+1}</b><div><strong>${q}</strong><small>${hint}</small></div><div><button data-answer="${id}:true" class="${state.assessment.answers[id]===true?"yes":""}">Ja</button><button data-answer="${id}:false" class="${state.assessment.answers[id]===false?"no":""}">Nein</button></div></article>`).join("")}</div><button class="green full" data-finish-assessment ${answered < questions.length ? "disabled" : ""}>Auswertung berechnen</button><a href="${sources.bbkChecklist}" target="_blank">Grundlage: BBK-Ratgeber und Checkliste ↗</a></section></div>`;
   }
   if (state.ui.modal.startsWith("supply:")) {
     const id = state.ui.modal.split(":")[1], group = supplyGroups.find(g => g.id === id), value = state.supplies[id];
-    return `<div class="modal-backdrop"><section class="modal supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(group.icon,"modal-icon")}<small>ECHTEN BESTAND EINTRAGEN</small><h2>${group.label}</h2><p>Ziel: ${supplyTargetLabel(group)}<br>${group.note}</p><form data-supply-form="${id}">${supplyInput(group,value)}<button class="green full">Speichern</button></form><em>Der Wert wird nur lokal auf diesem Gerät gespeichert und kann jederzeit geändert werden.</em></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(group.icon,"modal-icon")}<small>ECHTEN BESTAND EINTRAGEN</small><h2>${group.label}</h2><p>Ziel: ${supplyTargetLabel(group)}<br>${supplyNote(group)}</p><form data-supply-form="${id}">${supplyInput(group,value)}<button class="green full">Speichern</button></form><em>Der Wert wird lokal offline gespeichert und mit deinem RedScore-Konto synchronisiert.</em></section></div>`;
   }
   if (state.ui.modal.startsWith("task:")) {
     const id = state.ui.modal.split(":")[1], task = tasks.find(t => t.id === id);
@@ -574,92 +664,13 @@ async function requestWarnings() {
   warningRequested = false;
 }
 
-function dataUrlToBlob(dataUrl) {
-  const [metadata, encoded] = dataUrl.split(",");
-  const mimeType = metadata.match(/^data:([^;]+)/)?.[1] || "image/jpeg";
-  const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
-  return new Blob([bytes], { type: mimeType });
-}
-
-async function checkPersonalizationAvailability(force = false) {
-  if (!navigator.onLine) return { available: false, reason: "Für die Bildgenerierung wird einmalig eine Internetverbindung benötigt." };
-  if (personalizationAvailability.checked && !force) return personalizationAvailability;
-  try {
-    const response = await fetch("/api/personalize-image", { cache: "no-store", headers: { accept: "application/json" } });
-    const payload = await response.json().catch(() => ({}));
-    personalizationAvailability = { checked: true, available: response.ok && payload.available === true, reason: payload.available === true ? "" : (payload.message || "Der persönliche Bilddienst ist noch nicht freigeschaltet.") };
-  } catch {
-    personalizationAvailability = { checked: true, available: false, reason: "Der persönliche Bilddienst ist momentan nicht erreichbar." };
-  }
-  return personalizationAvailability;
-}
-
-async function generatePersonalizedImages(referenceBlob) {
-  if (!navigator.onLine) {
-    personalizationState = { status: "error", progress: 0, label: "", error: "Für die Bildgenerierung wird einmalig eine Internetverbindung benötigt." };
-    return render();
-  }
-
-  personalizationState = { status: "processing", progress: 5, label: "Referenzfoto wird sicher vorbereitet …", error: null };
-  await clearPersonalizedImages();
-  render();
-
-  try {
-    for (let index = 0; index < PERSONALIZATION_SCENARIOS.length; index += 1) {
-      const [scenario, label] = PERSONALIZATION_SCENARIOS[index];
-      personalizationState.label = `${label} wird im Backend generiert …`;
-      personalizationState.progress = 8 + Math.round(index / PERSONALIZATION_SCENARIOS.length * 84);
-      render();
-
-      const form = new FormData();
-      form.append("image", referenceBlob, "redscore-reference.jpg");
-      form.append("scenario", scenario);
-      form.append("household", JSON.stringify({ adults: state.household.adults, children: state.household.children, dogs: state.household.dogs }));
-      const response = await fetch("/api/personalize-image", { method: "POST", body: form, credentials: "same-origin" });
-      if (!response.ok) {
-        const payload = await response.clone().json().catch(() => ({}));
-        throw new Error(payload.error || "Das Motiv konnte nicht erzeugt werden.");
-      }
-      const blob = await response.blob();
-      if (!blob.type.startsWith("image/") || !blob.size) throw new Error("Der Bilddienst hat kein gültiges Motiv geliefert.");
-      await storePersonalizedImage(scenario, blob);
-      personalizationState.progress = 8 + Math.round((index + 1) / PERSONALIZATION_SCENARIOS.length * 84);
-      render();
-    }
-
-    personalizationState = { status: "complete", progress: 100, label: "Vier persönliche Motive sind bereit.", error: null };
-    toast("Vier personalisierte RedScore-Motive wurden erstellt.");
-    render();
-  } catch (error) {
-    personalizationState = { status: "error", progress: personalizationState.progress, label: "", error: error instanceof Error ? error.message : "Die Bildgenerierung wurde unterbrochen." };
-    render();
-  }
-}
-
-function prepareReferenceImage(file) {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      canvas.getContext("2d", { alpha: false }).drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => blob ? resolve({ blob, dataUrl: canvas.toDataURL("image/jpeg", .86) }) : reject(new Error("Das Foto konnte nicht vorbereitet werden.")), "image/jpeg", .86);
-    };
-    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Das Foto konnte nicht gelesen werden.")); };
-    image.src = objectUrl;
-  });
-}
-
 app.addEventListener("click", async event => {
   const button = event.target.closest("button");
   if (!button) {
     if (event.target.classList.contains("modal-backdrop")) { state.ui.modal = null; render(); }
     return;
   }
+  if (button.dataset.legal) { state.ui.modal = `legal:${button.dataset.legal}`; return render(); }
   if (button.dataset.route) return navigate(button.dataset.route);
   if (button.dataset.supplySuggestion) {
     const input = button.closest("form")?.querySelector('input[name="value"]');
@@ -671,13 +682,16 @@ app.addEventListener("click", async event => {
   if (button.matches("[data-live-refresh]")) return requestLiveLage(true);
   if (button.dataset.liveDetail) { state.ui.modal = `live:${button.dataset.liveDetail}`; return render(); }
   if (button.dataset.scroll) return document.querySelector("#"+button.dataset.scroll)?.scrollIntoView({ behavior: "smooth" });
-  if (button.matches("[data-open-login]")) { state.ui.modal = "login"; return render(); }
-  if (button.matches("[data-login]")) { state.authenticated = true; state.ui.modal = null; save(); location.hash = "#/home"; return render(); }
-  if (button.matches("[data-logout]")) { state.authenticated = false; state.ui.modal = null; save(); location.hash = ""; return render(); }
+  if (button.dataset.openAuth) { state.ui.modal = button.dataset.openAuth; return render(); }
+  if (button.matches("[data-edit-household]")) { state.ui.modal = "onboarding"; return render(); }
+  if (button.matches("[data-logout]")) {
+    try { if (session?.access_token) await accountRequest("sign_out"); } catch { /* local logout still succeeds */ }
+    persistSession(null); state = clone(defaultState); localStorage.removeItem(STORAGE_KEY); location.hash = ""; return render();
+  }
   if (button.matches("[data-close-modal]") || event.target.classList.contains("modal-backdrop")) { state.ui.modal = null; return render(); }
   if (button.matches("[data-open-assessment]")) { state.ui.modal = "assessment"; return render(); }
   if (button.dataset.answer) { const [id,val] = button.dataset.answer.split(":"); state.assessment.answers[id] = val === "true"; save(); return render(); }
-  if (button.matches("[data-finish-assessment]")) { if (assessmentQuestions.every(([id]) => typeof state.assessment.answers[id] === "boolean")) { state.assessment.completedAt = new Date().toISOString(); state.ui.modal = null; save(); toast("Dein eigener Vorsorgestand wurde berechnet."); render(); } return; }
+  if (button.matches("[data-finish-assessment]")) { if (relevantAssessmentQuestions().every(([id]) => typeof state.assessment.answers[id] === "boolean")) { state.assessment.completedAt = new Date().toISOString(); state.ui.modal = null; save(); toast("Dein eigener Vorsorgestand wurde berechnet."); render(); } return; }
   if (button.dataset.taskDone) { state.taskStatus[button.dataset.taskDone] = !state.taskStatus[button.dataset.taskDone]; state.ui.modal = null; save(); toast("Aufgabenstatus gespeichert."); return render(); }
   if (button.dataset.taskDetail) { state.ui.modal = "task:"+button.dataset.taskDetail; return render(); }
   if (button.dataset.planFilter) { state.ui.planFilter = button.dataset.planFilter; save(); return render(); }
@@ -685,17 +699,6 @@ app.addEventListener("click", async event => {
   if (button.dataset.openSupply) { state.ui.modal = "supply:"+button.dataset.openSupply; return render(); }
   if (button.dataset.mapFilter) { state.ui.mapFilter = button.dataset.mapFilter; save(); return render(); }
   if (button.dataset.article) { state.ui.modal = "article:"+button.dataset.article; return render(); }
-  if (button.matches("[data-upload-photo]")) {
-    const availability = await checkPersonalizationAvailability(true);
-    if (!availability.available) { personalizationState = { status: "error", progress: 0, label: "", error: availability.reason }; toast(availability.reason); return render(); }
-    return fileInput.click();
-  }
-  if (button.matches("[data-retry-generation]")) {
-    const availability = await checkPersonalizationAvailability(true);
-    if (!availability.available) { personalizationState = { status: "error", progress: 0, label: "", error: availability.reason }; return render(); }
-    return generatePersonalizedImages(dataUrlToBlob(state.media.familyPhoto));
-  }
-  if (button.matches("[data-remove-photo]")) { state.media.familyPhoto = null; personalizationState = { status: "idle", progress: 0, label: "", error: null }; await clearPersonalizedImages(); save(); toast("Referenzfoto und personalisierte Motive wurden lokal entfernt."); return render(); }
   if (button.matches("[data-save-offline]")) { state.settings.offlinePlacesSaved = true; save(); toast("Die verifizierte Ortsliste ist lokal gespeichert. Die Kartenkacheln bleiben online."); return render(); }
   if (button.matches("[data-notifications]")) {
     if (!("Notification" in window)) return toast("Dieser Browser unterstützt keine Web-Mitteilungen.");
@@ -704,9 +707,45 @@ app.addEventListener("click", async event => {
   }
 });
 
-app.addEventListener("submit", event => {
+app.addEventListener("submit", async event => {
   event.preventDefault();
   const form = event.target;
+  if (form.dataset.authForm) {
+    if (accountBusy) return;
+    const formData = new FormData(form);
+    accountBusy = true; render();
+    try {
+      const result = await accountRequest(form.dataset.authForm === "register" ? "sign_up" : "sign_in", { email: formData.get("email"), password: formData.get("password"), displayName: formData.get("displayName") });
+      if (result.confirmationRequired) { state.ui.modal = "login"; toast("Bitte bestätige zuerst die E-Mail und melde dich danach an."); return render(); }
+      persistSession(result.session);
+      await loadAccount();
+      state.ui.modal = state.profile.onboardingCompleted ? null : "onboarding";
+      location.hash = "#/home"; render();
+    } catch (error) { toast(error instanceof Error ? error.message : "Anmeldung nicht möglich."); }
+    finally { accountBusy = false; render(); }
+    return;
+  }
+  if (form.matches("[data-onboarding-form]")) {
+    const formData = new FormData(form);
+    const adultCount = clamp(Number(formData.get("adultCount")) || 1, 1, 8);
+    const adults = Array.from({ length: adultCount }, (_, index) => ({ gender: String(formData.get(`adultGender${index}`) || "unspecified") }));
+    const petTypes = ["dog", "cat", "bird", "small_animal", "fish", "reptile", "other"];
+    const pets = petTypes.map(type => ({ type, count: clamp(Number(formData.get(`pet_${type}`)) || 0, 0, 20), label: "" })).filter(pet => pet.count > 0);
+    const children = clamp(Number(formData.get("children")) || 0, 0, 12);
+    state.profile.name = String(formData.get("displayName") || "").trim();
+    state.profile.initials = initials(state.profile.name);
+    state.profile.onboardingCompleted = true;
+    state.profile.selectedScene = chooseScene(adults, children);
+    state.household = {
+      adults, children, pets, postalCode: String(formData.get("postalCode") || "").trim(), city: String(formData.get("city") || "").trim(),
+      state: String(formData.get("state") || "").trim(), district: String(formData.get("district") || "").trim(),
+      location: `${String(formData.get("postalCode") || "").trim()} ${String(formData.get("city") || "").trim()}`.trim(),
+    };
+    state.ui.modal = null; save();
+    try { await syncAccount(); toast("Haushalt gespeichert. Empfehlungen und Motiv wurden angepasst."); }
+    catch { toast("Lokal gespeichert. Die Kontosynchronisierung wird bei Verbindung nachgeholt."); }
+    return render();
+  }
   if (form.dataset.supplyForm) {
     const group = supplyGroups.find(item => item.id === form.dataset.supplyForm);
     const formData = new FormData(form);
@@ -722,6 +761,14 @@ app.addEventListener("submit", event => {
 });
 
 app.addEventListener("input", event => {
+  if (event.target.matches('input[name="adultCount"]')) {
+    const count = clamp(Number(event.target.value) || 1, 1, 8);
+    event.target.closest("form")?.querySelectorAll("[data-adult-index]").forEach((label, index) => {
+      label.hidden = index >= count;
+      const select = label.querySelector("select");
+      if (select) select.required = index < count;
+    });
+  }
   const form = event.target.closest('form[data-supply-form="water"]');
   if (!form) return;
   const count = Number(form.elements.containerCount?.value);
@@ -734,31 +781,21 @@ app.addEventListener("change", event => {
   if (event.target.matches('select[name="containerSize"]')) event.target.dispatchEvent(new Event("input", { bubbles: true }));
 });
 
-fileInput.addEventListener("change", async () => {
-  const file = fileInput.files?.[0];
-  if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) return toast("Bitte ein JPEG-, PNG- oder WebP-Foto auswählen.");
-  try {
-    const prepared = await prepareReferenceImage(file);
-    state.media.familyPhoto = prepared.dataUrl;
-    save();
-    fileInput.value = "";
-    await generatePersonalizedImages(prepared.blob);
-  } catch (error) {
-    fileInput.value = "";
-    personalizationState = { status: "error", progress: 0, label: "", error: error instanceof Error ? error.message : "Das Foto konnte nicht verarbeitet werden." };
-    render();
-  }
-});
-
 window.addEventListener("hashchange", render);
 window.addEventListener("offline", () => { liveState.status = "offline"; if (state.authenticated && hashRoute() === "home") render(); });
-window.addEventListener("online", () => { if (state.authenticated) requestLiveLage(true); });
+window.addEventListener("online", () => { if (state.authenticated) { requestLiveLage(true); syncAccount().catch(() => {}); } });
 liveClockTimer = setInterval(updateLiveClock, 1000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
-render();
-loadPersonalizedImages().then(() => render()).catch(() => {});
+async function initialize() {
+  if (session) {
+    try { await loadAccount(); if (!state.profile.onboardingCompleted) state.ui.modal = "onboarding"; }
+    catch { persistSession(null); state.authenticated = false; }
+  }
+  render();
+}
+initialize();
 
 if (navigator.modelContext?.registerTool) {
-  navigator.modelContext.registerTool({ name: "get_redscore_status", description: "Returns Nicole's entered RedScore state without inventing data.", inputSchema: { type: "object", properties: {} }, execute: async () => ({ score: score(), supplies: state.supplies, completedTasks: Object.keys(state.taskStatus).filter(id => state.taskStatus[id]), household: state.household }) });
+  navigator.modelContext.registerTool({ name: "get_redscore_status", description: "Returns the signed-in household's entered RedScore state without inventing data.", inputSchema: { type: "object", properties: {} }, execute: async () => ({ score: score(), supplies: state.supplies, completedTasks: Object.keys(state.taskStatus).filter(id => state.taskStatus[id]), household: state.household }) });
   navigator.modelContext.registerTool({ name: "open_redscore_assessment", description: "Opens the transparent RedScore assessment.", inputSchema: { type: "object", properties: {} }, execute: async () => { state.ui.modal = "assessment"; render(); return { opened: true }; } });
 }
