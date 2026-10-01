@@ -1,4 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks, verifiedPlaces } from "./data.js";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=1";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -9,7 +10,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const esc = (value = "") => String(value).replace(/[&<>'"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]);
 const icon = (name, className = "icon3d") => `<img class="${className}" src="assets/icons-3d/${name}.png" alt="" />`;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
-const fmt = n => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 }).format(n);
+const fmt = n => new Intl.NumberFormat(getLanguage() === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 1 }).format(n);
 
 function loadState() {
   try {
@@ -54,6 +55,7 @@ let liveClockTimer = null;
 let session = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; } })();
 let syncTimer = null;
 let accountBusy = false;
+let languageMenuOpen = false;
 const householdScenes = {
   "solo-woman": "assets/households/solo-woman.png",
   "solo-man": "assets/households/solo-man.png",
@@ -73,7 +75,7 @@ function sceneStyle(_key, property = "--scene-image") { return `style="${propert
 function initials(name = "") { return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "RS"; }
 function householdPeople() { return (state.household.adults?.length || 0) + Number(state.household.children || 0); }
 function petCount() { return (state.household.pets || []).reduce((sum, pet) => sum + Number(pet.count || 0), 0); }
-function petLabel(type) { return ({ dog: "Hund", cat: "Katze", bird: "Vogel", small_animal: "Kleintier", fish: "Fische", reptile: "Reptil", other: "Tier" })[type] || "Tier"; }
+function petLabel(type) { return translateText(({ dog: "Hund", cat: "Katze", bird: "Vogel", small_animal: "Kleintier", fish: "Fische", reptile: "Reptil", other: "Tier" })[type] || "Tier"); }
 function householdSummary() {
   const adults = state.household.adults?.length || 0, children = Number(state.household.children || 0), pets = petCount();
   return [`${adults} ${adults === 1 ? "erwachsene Person" : "Erwachsene"}`, children ? `${children} ${children === 1 ? "Kind" : "Kinder"}` : null, pets ? `${pets} ${pets === 1 ? "Haustier" : "Haustiere"}` : null].filter(Boolean).join(" · ");
@@ -169,7 +171,7 @@ async function syncAccount() {
 function toast(message) {
   const node = document.createElement("div");
   node.className = "toast";
-  node.textContent = message;
+  node.textContent = translateText(message);
   toastRegion.append(node);
   setTimeout(() => node.remove(), 3200);
 }
@@ -240,6 +242,10 @@ function navigate(route) {
 }
 
 const routeLabel = route => ({ home: "Start", plan: "Mein Plan", supplies: "Vorräte", map: "Schutz in deiner Nähe", warnschutz: "Warnschutz", knowledge: "Wissen", profile: "Profil" })[route] || "Start";
+function languageControl() {
+  const language = getLanguage();
+  return `<div class="language-switcher"><button class="language-flag" data-language-toggle aria-label="${language === "de" ? "Sprache auswählen" : "Select language"}" aria-expanded="${languageMenuOpen}"><span class="flag-icon flag-${language}" aria-hidden="true"></span></button><div class="language-menu" ${languageMenuOpen ? "" : "hidden"}><button data-language="de" class="${language === "de" ? "active" : ""}"><span class="flag-icon flag-de" aria-hidden="true"></span> Deutsch</button><button data-language="en" class="${language === "en" ? "active" : ""}"><span class="flag-icon flag-en" aria-hidden="true"></span> English</button></div></div>`;
+}
 function brand(light = false) {
   return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png" alt="" /><span><em>Red</em>Score</span><small>DEIN VORSPRUNG IM ERNSTFALL</small></button>`;
 }
@@ -254,7 +260,7 @@ function footer(dark = false) {
 function publicHeader() {
   return `<header class="public-header">${brand(true)}<nav>
     <button data-scroll="top" class="active">⌂ Start</button><button data-scroll="how">▣ So funktioniert’s</button><button data-route="knowledge">▰ Wissen</button><button data-scroll="about">⌖ Über RedScore</button>
-  </nav><div class="public-actions"><button class="search-button" aria-label="Suche">⌕</button><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button><span>DE⌄</span></div></header>`;
+  </nav><div class="public-actions"><button class="search-button" aria-label="Suche">⌕</button><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button>${languageControl()}</div></header>`;
 }
 function categoryCard(iconName, title, copy, route) {
   return `<button class="public-category" data-route="${route}">${icon(iconName, "public-icon")}<strong>${title}</strong><span>${copy}</span></button>`;
@@ -290,7 +296,7 @@ function renderPublic() {
 }
 
 function appHeader(active) {
-  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools"><button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">${esc(state.profile.initials || initials(state.profile.name))}</button><button class="user-name" data-route="profile">${esc((state.profile.name || "Profil").split(" ")[0])}⌄</button></div></header>`;
+  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools">${languageControl()}<button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">${esc(state.profile.initials || initials(state.profile.name))}</button><button class="user-name" data-route="profile">${esc((state.profile.name || "Profil").split(" ")[0])}⌄</button></div></header>`;
 }
 function householdVisual(className = "") {
   return `<button class="household-visual ${className}" data-edit-household style="--household-image:url('${selectedScene()}')"><span><b>${esc(householdSummary() || "Haushalt einrichten")}</b><small>Passendes RedScore-Motiv aus dem geschützten Bildportfolio · keine privaten Fotos</small></span><strong>Angaben ändern →</strong></button>`;
@@ -331,16 +337,17 @@ const liveVerificationLabels = {
 };
 
 function relativeTime(value) {
-  if (!value) return "noch nie";
+  const english = getLanguage() === "en";
+  if (!value) return english ? "never" : "noch nie";
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  if (!Number.isFinite(seconds)) return "unbekannt";
-  if (seconds < 60) return `vor ${seconds} Sek.${seconds === 1 ? "" : ""}`;
+  if (!Number.isFinite(seconds)) return english ? "unknown" : "unbekannt";
+  if (seconds < 60) return english ? `${seconds} sec. ago` : `vor ${seconds} Sek.`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `vor ${minutes} Min.`;
+  if (minutes < 60) return english ? `${minutes} min. ago` : `vor ${minutes} Min.`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `vor ${hours} Std.`;
+  if (hours < 24) return english ? `${hours} hr. ago` : `vor ${hours} Std.`;
   const days = Math.floor(hours / 24);
-  return `vor ${days} Tag${days === 1 ? "" : "en"}`;
+  return english ? `${days} day${days === 1 ? "" : "s"} ago` : `vor ${days} Tag${days === 1 ? "" : "en"}`;
 }
 
 function safeExternalUrl(value) {
@@ -405,7 +412,7 @@ function updateLiveClock() {
   if (!label) return;
   const online = liveConnectionIsFresh();
   const stamp = online ? liveState.receivedAt : (liveState.lastSyncAt || liveState.receivedAt);
-  label.textContent = online ? `Zuletzt aktualisiert ${relativeTime(stamp)}` : `Letzter Lageabgleich ${relativeTime(stamp)}`;
+  label.textContent = `${translateText(online ? "Zuletzt aktualisiert" : "Letzter Lageabgleich")} ${relativeTime(stamp)}`;
 }
 
 function storeLiveCache() {
@@ -574,7 +581,7 @@ function renderMap() {
 }
 
 function renderWarnschutz() {
-  const checked = warningState.checkedAt ? new Date(warningState.checkedAt).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) : "–";
+  const checked = warningState.checkedAt ? new Date(warningState.checkedAt).toLocaleTimeString(getLanguage() === "en" ? "en-GB" : "de-DE",{hour:"2-digit",minute:"2-digit"}) : "–";
   const content = `<section class="image-hero warning-hero"><div><h1>Früh informiert.<br><em>Besser vorbereitet.</em></h1><p>Amtliche Wetterwarnungen und belastbare Warnwege für ${esc(state.household.city || "deinen Standort")}.</p></div></section>
     <div class="warning-layout"><section><article class="current-warning ${warningState.status==="ok"&&!warningState.warnings.length?"safe":warningState.status==="fallback"?"neutral":""}">${icon(warningState.warnings.length?"weather-warning":"health","warning-large")}${warningSummary()}<span>Live-Prüfung: ${checked}</span><a href="${sources.dwd}" target="_blank" rel="noreferrer">Beim DWD öffnen ↗</a></article>
       <div class="warning-cards"><article>${icon("bell","big-icon")}<h3>Cell Broadcast</h3><p>Warnungen werden auf kompatiblen, eingeschalteten Mobiltelefonen ohne App ausgesendet.</p></article><article>${icon("weather-warning","big-icon")}<h3>NINA</h3><p>Die offizielle Warn-App des BBK bündelt Zivil-, Polizei-, Wetter- und Hochwasserwarnungen.</p><a href="${sources.nina}" target="_blank">NINA beim BBK ↗</a></article><article>${icon("radio","big-icon")}<h3>Radio</h3><p>Ein Batterie-, Solar- oder Kurbelradio bleibt bei Strom- und Internetausfall wichtig.</p></article></div>
@@ -585,7 +592,7 @@ function renderWarnschutz() {
 
 function renderKnowledge() {
   const query = state.ui.knowledgeSearch.toLowerCase();
-  const shown = knowledgeArticles.filter(a => !query || (a.title+" "+a.summary).toLowerCase().includes(query));
+  const shown = knowledgeArticles.filter(a => !query || `${a.title} ${a.summary} ${translateText(a.title)} ${translateText(a.summary)}`.toLowerCase().includes(query));
   const content = `<section class="image-hero knowledge-hero" ${sceneStyle("knowledge")}><div><h1>Wissen <em>schützt.</em></h1><h2>Verstehen. Vorbereiten. Handeln.</h2><p>Verständliche Hinweise und offizielle Quellen für mehr Sicherheit in allen Lebenslagen.</p><form data-knowledge-search><input name="query" value="${esc(state.ui.knowledgeSearch)}" placeholder="Thema suchen …"><button>⌕</button></form></div><span class="sign-copy">WISSEN<br>VON HEUTE.<br>SICHERHEIT<br>VON MORGEN.</span></section>
     <div class="content-wrap knowledge-content"><section><h2>Empfehlungen für dich</h2><div class="article-grid">${shown.map(article => `<article><div class="article-visual">${icon(article.icon,"article-icon")}</div><small>${article.category} · ${article.minutes} Min.</small><h3>${article.title}</h3><p>${article.summary}</p><button data-article="${article.id}">Ansehen →</button></article>`).join("")}</div></section>
       <aside class="knowledge-side"><h3>Offizielle Ressourcen</h3><a href="${sources.bbkGuide}" target="_blank">BBK-Ratgeber ↗</a><a href="${sources.bbkBag}" target="_blank">Notgepäck ↗</a><a href="${sources.bbkDocuments}" target="_blank">Dokumente sichern ↗</a><a href="${sources.nina}" target="_blank">Warn-App NINA ↗</a></aside></div>`;
@@ -646,15 +653,19 @@ function modal() {
     const originals = (Array.isArray(event.sources) ? event.sources : []).filter(source => safeExternalUrl(source.url));
     const originalUrl = safeExternalUrl(event.canonical_url);
     const affected = Array.isArray(event.affected_regions) ? event.affected_regions : [];
-    return `<div class="modal-backdrop"><section class="modal live-detail-modal"><button class="modal-close" data-close-modal>×</button>${icon(liveEventIcon(event.category),"modal-icon")}<small>${esc(liveCategoryLabels[event.category] || "LAGEEREIGNIS")} · ${esc(liveVerificationLabels[event.verification_status] || liveVerificationLabels.unknown)}</small><h2>${esc(event.title)}</h2><p>${esc(event.summary)}</p>${Number(event.cluster_count) > 1 ? `<div class="cluster-explanation"><b>${Number(event.cluster_count)} gleichartige Regionalmeldungen zusammengefasst</b><span>RedScore zeigt sie als ein Lageereignis, die einzelnen betroffenen Gebiete bleiben nachvollziehbar.</span></div>` : ""}<dl><div><dt>Veröffentlicht</dt><dd>${new Date(event.published_at).toLocaleString("de-DE")}</dd></div><div><dt>Von RedScore gefunden</dt><dd>${new Date(event.first_seen_at).toLocaleString("de-DE")}</dd></div><div><dt>Region</dt><dd>${esc([event.city,event.region,event.country].filter(Boolean).join(" · ") || "nicht ermittelt")}</dd></div><div><dt>Relevanz</dt><dd>${esc(liveSeverityLabels[event.relevance?.level] || "GERING")}</dd></div></dl>${affected.length ? `<h3>Betroffene Gebiete (${affected.length})</h3><div class="live-region-list">${affected.map(region => `<span>${esc(region)}</span>`).join("")}</div>` : ""}<h3>Nachvollziehbare Quellen (${originals.length})</h3><div class="live-source-list">${originals.map(source => `<a href="${safeExternalUrl(source.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(source.name)}</b><small>${esc(source.title || "Originalmeldung")} · ${relativeTime(source.published_at)}</small></a>`).join("") || "<p>Keine veröffentlichte Original-URL verfügbar.</p>"}</div>${originalUrl ? `<a class="green link-button" href="${originalUrl}" target="_blank" rel="noopener noreferrer">Originalmeldung öffnen ↗</a>` : ""}<em>Diese Lageübersicht ersetzt keine amtliche Warnung. Folge im Ereignisfall den Anweisungen der Behörden.</em></section></div>`;
+    const locale = getLanguage() === "en" ? "en-GB" : "de-DE";
+    return `<div class="modal-backdrop"><section class="modal live-detail-modal"><button class="modal-close" data-close-modal>×</button>${icon(liveEventIcon(event.category),"modal-icon")}<small>${esc(liveCategoryLabels[event.category] || "LAGEEREIGNIS")} · ${esc(liveVerificationLabels[event.verification_status] || liveVerificationLabels.unknown)}</small><h2>${esc(event.title)}</h2><p>${esc(event.summary)}</p>${Number(event.cluster_count) > 1 ? `<div class="cluster-explanation"><b>${Number(event.cluster_count)} gleichartige Regionalmeldungen zusammengefasst</b><span>RedScore zeigt sie als ein Lageereignis, die einzelnen betroffenen Gebiete bleiben nachvollziehbar.</span></div>` : ""}<dl><div><dt>Veröffentlicht</dt><dd>${new Date(event.published_at).toLocaleString(locale)}</dd></div><div><dt>Von RedScore gefunden</dt><dd>${new Date(event.first_seen_at).toLocaleString(locale)}</dd></div><div><dt>Region</dt><dd>${esc([event.city,event.region,event.country].filter(Boolean).join(" · ") || "nicht ermittelt")}</dd></div><div><dt>Relevanz</dt><dd>${esc(liveSeverityLabels[event.relevance?.level] || "GERING")}</dd></div></dl>${affected.length ? `<h3>Betroffene Gebiete (${affected.length})</h3><div class="live-region-list">${affected.map(region => `<span>${esc(region)}</span>`).join("")}</div>` : ""}<h3>Nachvollziehbare Quellen (${originals.length})</h3><div class="live-source-list">${originals.map(source => `<a href="${safeExternalUrl(source.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(source.name)}</b><small>${esc(source.title || "Originalmeldung")} · ${relativeTime(source.published_at)}</small></a>`).join("") || "<p>Keine veröffentlichte Original-URL verfügbar.</p>"}</div>${originalUrl ? `<a class="green link-button" href="${originalUrl}" target="_blank" rel="noopener noreferrer">Originalmeldung öffnen ↗</a>` : ""}<em>Diese Lageübersicht ersetzt keine amtliche Warnung. Folge im Ereignisfall den Anweisungen der Behörden.</em></section></div>`;
   }
   return "";
 }
 
 function render() {
-  if (!state.authenticated) return renderPublic();
-  const route = hashRoute();
-  ({ home: renderHome, plan: renderPlan, supplies: renderSupplies, map: renderMap, warnschutz: renderWarnschutz, knowledge: renderKnowledge, profile: renderProfile }[route] || renderHome)();
+  if (!state.authenticated) renderPublic();
+  else {
+    const route = hashRoute();
+    ({ home: renderHome, plan: renderPlan, supplies: renderSupplies, map: renderMap, warnschutz: renderWarnschutz, knowledge: renderKnowledge, profile: renderProfile }[route] || renderHome)();
+  }
+  applyLanguage(app);
 }
 
 async function requestWarnings() {
@@ -670,6 +681,8 @@ app.addEventListener("click", async event => {
     if (event.target.classList.contains("modal-backdrop")) { state.ui.modal = null; render(); }
     return;
   }
+  if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
+  if (button.dataset.language) { setLanguage(button.dataset.language); languageMenuOpen = false; return render(); }
   if (button.dataset.legal) { state.ui.modal = `legal:${button.dataset.legal}`; return render(); }
   if (button.dataset.route) return navigate(button.dataset.route);
   if (button.dataset.supplySuggestion) {
@@ -774,7 +787,7 @@ app.addEventListener("input", event => {
   const count = Number(form.elements.containerCount?.value);
   const size = Number(form.elements.containerSize?.value);
   const output = form.querySelector("[data-supply-total]");
-  if (output) output.textContent = Number.isFinite(count) && Number.isFinite(size) ? `Gesamt: ${fmt(count * size)} Liter` : "Gesamtmenge wird beim Speichern berechnet";
+  if (output) output.textContent = translateText(Number.isFinite(count) && Number.isFinite(size) ? `Gesamt: ${fmt(count * size)} Liter` : "Gesamtmenge wird beim Speichern berechnet");
 });
 
 app.addEventListener("change", event => {

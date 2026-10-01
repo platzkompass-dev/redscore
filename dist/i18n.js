@@ -1,0 +1,517 @@
+const STORAGE_KEY = "redscore-language-v1";
+
+const EN = new Map(Object.entries({
+  "DEIN VORSPRUNG IM ERNSTFALL": "YOUR EDGE IN AN EMERGENCY",
+  "Start": "Home",
+  "Mein Plan": "My plan",
+  "Vorräte": "Supplies",
+  "Schutz in deiner Nähe": "Protection near you",
+  "Warnschutz": "Alerts",
+  "Wissen": "Knowledge",
+  "Profil": "Profile",
+  "Über RedScore": "About RedScore",
+  "BBK-Quellen": "BBK sources",
+  "Datenschutz": "Privacy",
+  "Impressum": "Legal notice",
+  "Kontakt": "Contact",
+  "Orientiert an Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe": "Based on recommendations from Germany's Federal Office of Civil Protection and Disaster Assistance",
+  "So funktioniert’s": "How it works",
+  "Einloggen": "Sign in",
+  "Kostenlos registrieren": "Register for free",
+  "Wie gut bist du": "How well are you",
+  "wirklich": "really",
+  "vorbereitet?": "prepared?",
+  "RedScore zeigt dir auf einen Blick, welche Bereiche du für Katastrophen und Versorgungsausfälle bereits geprüft hast – und was du noch verbessern kannst.": "RedScore shows at a glance which areas you have already checked for disasters and supply outages—and what you can still improve.",
+  "Jetzt kostenlos prüfen": "Check for free now",
+  "✓ Kostenlos": "✓ Free",
+  "✓ Unverbindlich": "✓ No obligation",
+  "✓ Datenschutzfreundlich": "✓ Privacy-friendly",
+  "Dein Vorsorgestand": "Your preparedness status",
+  "Noch nicht berechnet": "Not calculated yet",
+  "Erst deine vollständigen Antworten ergeben einen Wert.": "A result is calculated only after you complete all answers.",
+  "Heute vorbereiten.": "Prepare today.",
+  "Morgen sicherer leben.": "Live more safely tomorrow.",
+  "Reichen deine Vorräte für den Ernstfall?": "Will your supplies last in an emergency?",
+  "Zuhause & Notfall": "Home & emergency",
+  "Wie sicher ist dein Zuhause?": "How safe is your home?",
+  "Kennst du wichtige Orte in deiner Umgebung?": "Do you know important places nearby?",
+  "Erhältst du rechtzeitig Warnungen?": "Will you receive warnings in time?",
+  "Weißt du, was im Ernstfall zu tun ist?": "Do you know what to do in an emergency?",
+  "Familie": "Family",
+  "Ist deine Familie eingebunden und vorbereitet?": "Is your household involved and prepared?",
+  "DEIN REDSCORE": "YOUR REDSCORE",
+  "Ein Check. Mehr Klarheit.": "One check. More clarity.",
+  "RedScore ordnet persönliche Katastrophenvorbereitung übersichtlich nach offiziellen Empfehlungen. Es gibt keinen Beispielwert: Erst vollständig beantwortete Fragen erzeugen deinen eigenen Stand.": "RedScore organizes personal disaster preparedness clearly, based on official recommendations. There is no sample score: only your completed answers create your personal status.",
+  "✓ Individuelle Auswertung": "✓ Individual assessment",
+  "✓ Konkrete Handlungsschritte": "✓ Practical next steps",
+  "✓ Orientierung an offiziellen Quellen": "✓ Guidance from official sources",
+  "✓ Für Bürgerinnen und Bürger in jeder Lebenslage": "✓ For people in every stage of life",
+  "✓ Offline nutzbar und kontogebunden": "✓ Available offline and linked to your account",
+  "Jetzt Prüfung starten": "Start the check",
+  "WARUM VORSORGEN?": "WHY PREPARE?",
+  "Krisen kommen": "Crises are usually",
+  "meist ungeplant.": "unplanned.",
+  "Ob Stromausfall, Unwetter oder eine andere Notlage: Vorbereitung schützt Handlungsspielraum und reduziert Risiken.": "Whether it is a power outage, severe weather or another emergency, preparation preserves your ability to act and reduces risks.",
+  "Mehr Sicherheit": "More safety",
+  "Weniger Abhängigkeit": "Less dependency",
+  "Ruhe und Klarheit": "Calm and clarity",
+  "Schritt für Schritt": "Step by step",
+  "So einfach geht’s": "It is this simple",
+  "Konto anlegen": "Create an account",
+  "E-Mail bestätigen und sicher anmelden.": "Confirm your email and sign in securely.",
+  "Haushalt einrichten": "Set up your household",
+  "Personen, Kinder, Haustiere und Standort erfassen.": "Enter adults, children, pets and location.",
+  "Vorsorge starten": "Start preparing",
+  "Passende Mengen, Aufgaben und Lagehinweise erhalten.": "Receive suitable quantities, tasks and situation updates.",
+  "Für alle Lebenslagen": "For every stage of life",
+  "Inklusive Haushaltsmodelle ohne Annahmen.": "Inclusive household models without assumptions.",
+  "Offizielle Grundlagen": "Official foundations",
+  "BBK und DWD als Quellen.": "BBK and DWD as sources.",
+  "Datensparsam": "Data-minimizing",
+  "Keine privaten Fotos und keine Gesichtsanalyse.": "No private photos and no facial analysis.",
+  "Mehr Resilienz": "More resilience",
+  "Praktisch statt alarmistisch.": "Practical, not alarmist.",
+  "Haushalt einrichten": "Set up household",
+  "Passendes RedScore-Motiv aus dem geschützten Bildportfolio · keine privaten Fotos": "Suitable RedScore image from the protected portfolio · no private photos",
+  "Angaben ändern": "Edit details",
+  "DEIN STAND": "YOUR STATUS",
+  "nicht berechnet": "not calculated",
+  "von 100": "out of 100",
+  "DWD-Live-Abfrage läuft": "DWD live check in progress",
+  "Keine DWD-Wetterwarnung beim letzten Abruf": "No DWD weather warning at the last check",
+  "gespeicherter Stand": "saved status",
+  "Warnstatus nicht verfügbar": "Alert status unavailable",
+  "Bitte direkt beim DWD prüfen.": "Please check directly with DWD.",
+  "Keine DWD-Wetterwarnung": "No DWD weather warning",
+  "zuletzt live geprüft": "last checked live",
+  "Für dich": "For you",
+  "Deutschland": "Germany",
+  "Weltlage": "Global situation",
+  "Alle": "All",
+  "Drohnen": "Drones",
+  "Katastrophen": "Disasters",
+  "Wetter": "Weather",
+  "Infrastruktur": "Infrastructure",
+  "Versorgung": "Supply",
+  "Sicherheit": "Security",
+  "IT-Ausfall": "IT outage",
+  "Kritische Infrastruktur": "Critical infrastructure",
+  "Stromausfall": "Power outage",
+  "Telekommunikation": "Telecommunications",
+  "Trinkwasser": "Drinking water",
+  "Hochwasser": "Flood",
+  "Starkregen": "Heavy rain",
+  "Sturm": "Storm",
+  "Hitze": "Extreme heat",
+  "Waldbrand": "Wildfire",
+  "Erdbeben": "Earthquake",
+  "Vulkan": "Volcano",
+  "Unwetter": "Severe weather",
+  "Evakuierung": "Evacuation",
+  "Großbrand": "Major fire",
+  "Chemieunfall": "Chemical incident",
+  "Gefahrstoff": "Hazardous material",
+  "Radiologisch": "Radiological",
+  "Verkehr": "Transport",
+  "Katastrophenschutz": "Civil protection",
+  "Amtliche Warnung": "Official warning",
+  "KRITISCH": "CRITICAL",
+  "HOCH": "HIGH",
+  "MITTEL": "MEDIUM",
+  "GERING": "LOW",
+  "HINWEIS": "NOTICE",
+  "OFFIZIELL": "OFFICIAL",
+  "BESTÄTIGTE QUELLE": "VERIFIED SOURCE",
+  "MEHRFACH BESTÄTIGT": "CONFIRMED BY MULTIPLE SOURCES",
+  "OSINT – NOCH NICHT OFFIZIELL BESTÄTIGT": "OSINT – NOT YET OFFICIALLY CONFIRMED",
+  "UNBESTÄTIGT": "UNCONFIRMED",
+  "LIVE-LAGE": "LIVE SITUATION",
+  "OFFLINE": "OFFLINE",
+  "Zuletzt aktualisiert": "Last updated",
+  "Letzter Lageabgleich": "Last situation sync",
+  "Lageabgleich läuft …": "Situation sync in progress …",
+  "Lage-Dienst nicht erreichbar": "Situation service unavailable",
+  "Keine aktiven Meldungen in dieser Auswahl": "No active reports in this selection",
+  "Gespeicherte Meldungen würden hier offline weiter angezeigt. Bitte später erneut versuchen.": "Saved reports remain available here offline. Please try again later.",
+  "Das ist kein Entwarnungssignal. Im Ereignisfall gelten amtliche Warnungen und Anweisungen.": "This is not an all-clear. In an emergency, official warnings and instructions apply.",
+  "Keine Boulevard- oder allgemeinen Politikmeldungen.": "No tabloid or general political news.",
+  "Details öffnen": "Open details",
+  "Ort nicht ermittelt": "Location not determined",
+  "Quelle nicht benannt": "Source not named",
+  "Für diese strukturierte Meldung liegt keine weitere Kurzbeschreibung vor.": "No additional summary is available for this structured report.",
+  "Heute vorsorgen.": "Prepare today.",
+  "Morgen sicherer.": "Safer tomorrow.",
+  "Krisen kommen oft unerwartet.": "Crises often arrive unexpectedly.",
+  "Sei vorbereitet – für deine Familie,": "Be prepared—for your family,",
+  "dein Zuhause und deine Zukunft.": "your home and your future.",
+  "„Sicherheit ist planbar – Schritt für Schritt.“": "“Safety can be planned—step by step.”",
+  "Noch nicht bewertet.": "Not assessed yet.",
+  "Gut vorbereitet.": "Well prepared.",
+  "Es gibt wichtige Lücken.": "Important gaps remain.",
+  "Der Wert basiert ausschließlich auf deinen Antworten.": "The result is based solely on your answers.",
+  "Jetzt ehrlich prüfen": "Start an honest check",
+  "Angaben aktualisieren": "Update answers",
+  "Trinkwasser nicht erfasst": "Drinking water not recorded",
+  "Nur selbst bestätigte Aufgaben zählen.": "Only tasks you confirm yourself count.",
+  "Verifizierte Orte": "Verified places",
+  "Keine bestätigten Schutzraumdaten im Datensatz.": "No confirmed public shelter data in the dataset.",
+  "Dein nächster Schritt": "Your next step",
+  "Eine kleine Maßnahme – große Wirkung.": "One small action—great impact.",
+  "Alle Aufgaben anzeigen": "Show all tasks",
+  "Als erledigt markieren": "Mark as completed",
+  "Alle Aufgaben wurden von dir bestätigt.": "You have confirmed all tasks.",
+  "Bestände selbst erfassen.": "Record supplies yourself.",
+  "Verifizierte Anlaufstellen.": "Verified contact points.",
+  "DWD-Status und Warnwege.": "DWD status and alert channels.",
+  "Offizielle Hinweise verständlich.": "Official guidance made clear.",
+  "Status ändern": "Change status",
+  "Schritt für Schritt mehr Sicherheit.": "More safety, step by step.",
+  "Dein Fortschritt enthält nur Aufgaben, die du selbst bestätigt hast.": "Your progress includes only tasks you have confirmed yourself.",
+  "DEIN FORTSCHRITT": "YOUR PROGRESS",
+  "Bestätigte Maßnahmen": "Confirmed measures",
+  "Noch nichts als erledigt markiert": "Nothing marked as completed yet",
+  "Zuhause": "At home",
+  "Unterwegs": "Away from home",
+  "Heute vorsorgen. Morgen sicher.": "Prepare today. Safer tomorrow.",
+  "Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.": "Practical supplies preserve your ability to act when utilities or power fail.",
+  "Empfehlungen des BBK öffnen": "Open BBK recommendations",
+  "Noch kein Bestand erfasst.": "No supplies recorded yet.",
+  "Aus selbst eingetragenen Beständen berechnet.": "Calculated from the supplies you entered.",
+  "Jetzt erfassen": "Record now",
+  "HAUSHALT": "HOUSEHOLD",
+  "Empfohlener Betrachtungszeitraum:": "Recommended planning period:",
+  "Bereich": "Area",
+  "BBK-orientiertes Ziel": "BBK-based target",
+  "Dein Bestand": "Your supplies",
+  "Bearbeiten": "Edit",
+  "Ziele sind Orientierung, kein amtliches Prüfsiegel. Medikamente und Sonderbedarf individuell abstimmen.": "Targets are guidance, not an official certification. Coordinate medication and special needs individually.",
+  "Gesundheit": "Health",
+  "Haushalt": "Household",
+  "Verifizierte Orte für den Ernstfall.": "Verified places for emergencies.",
+  "Nur nachvollziehbare Adressen werden angezeigt. Unbestätigte Schutzraumstandorte erfindet RedScore nicht.": "Only traceable addresses are shown. RedScore does not invent unconfirmed shelter locations.",
+  "Standort ändern": "Change location",
+  "Offline-Liste aktualisieren": "Update offline list",
+  "Offline-Liste speichern": "Save offline list",
+  "Behörden": "Authorities",
+  "Schutzräume": "Shelters",
+  "Keine verifizierten öffentlichen Schutzräume": "No verified public shelters",
+  "Im Ernstfall gelten die Anweisungen der Behörden. Wir erfinden keine Standorte.": "In an emergency, follow the authorities' instructions. We do not invent locations.",
+  "Route": "Directions",
+  "Offline-Übersicht": "Offline overview",
+  "Gespeicherte Orte · keine Navigation": "Saved places · no navigation",
+  "OpenStreetMap online öffnen": "Open OpenStreetMap online",
+  "Im Ernstfall:": "In an emergency:",
+  "Aktuelle Warnmeldungen und behördliche Anweisungen haben Vorrang.": "Current warnings and official instructions take priority.",
+  "Warnstatus prüfen": "Check alert status",
+  "Früh informiert.": "Informed early.",
+  "Besser vorbereitet.": "Better prepared.",
+  "Benachrichtigungen": "Notifications",
+  "RedScore kann den Browserzugriff anfragen. Eine Freigabe ersetzt keine Warn-App.": "RedScore can request browser permission. Permission does not replace an official warning app.",
+  "Browser-Mitteilungen erlaubt": "Browser notifications enabled",
+  "Berechtigung prüfen": "Check permission",
+  "Verhalten bei Unwetter": "What to do in severe weather",
+  "Amtliche Meldungen verfolgen": "Follow official reports",
+  "Fenster und Türen schließen": "Close windows and doors",
+  "Lose Gegenstände sichern": "Secure loose objects",
+  "Überflutete Bereiche meiden": "Avoid flooded areas",
+  "Warnungen werden auf kompatiblen, eingeschalteten Mobiltelefonen ohne App ausgesendet.": "Warnings are broadcast to compatible switched-on mobile phones without an app.",
+  "Die offizielle Warn-App des BBK bündelt Zivil-, Polizei-, Wetter- und Hochwasserwarnungen.": "The official BBK warning app combines civil protection, police, weather and flood warnings.",
+  "Ein Batterie-, Solar- oder Kurbelradio bleibt bei Strom- und Internetausfall wichtig.": "A battery, solar or hand-crank radio remains important during power and internet outages.",
+  "Wissen schützt.": "Knowledge protects.",
+  "Verstehen. Vorbereiten. Handeln.": "Understand. Prepare. Act.",
+  "Verständliche Hinweise und offizielle Quellen für mehr Sicherheit in allen Lebenslagen.": "Clear guidance and official sources for greater safety in every situation.",
+  "Thema suchen …": "Search topics …",
+  "WISSEN": "KNOWLEDGE",
+  "VON HEUTE.": "FOR TODAY.",
+  "SICHERHEIT": "SAFETY",
+  "VON MORGEN.": "FOR TOMORROW.",
+  "Empfehlungen für dich": "Recommendations for you",
+  "Ansehen": "View",
+  "Offizielle Ressourcen": "Official resources",
+  "BBK-Ratgeber": "BBK guide",
+  "Notgepäck": "Emergency bag",
+  "Dokumente sichern": "Secure documents",
+  "Warn-App NINA": "NINA warning app",
+  "Keine Haustiere": "No pets",
+  "Standort": "Location",
+  "Vorsorgedaten werden kontogebunden gespeichert und bleiben auf diesem Gerät offline verfügbar. RedScore lädt keine privaten Fotos hoch und führt keine Gesichtsanalyse durch.": "Preparedness data is stored with your account and remains available offline on this device. RedScore does not upload private photos or perform facial analysis.",
+  "Haushalt bearbeiten": "Edit household",
+  "Vorsorgestand neu prüfen": "Reassess preparedness",
+  "Abmelden": "Sign out",
+  "SICHERES REDSCORE-KONTO": "SECURE REDSCORE ACCOUNT",
+  "Registrieren": "Register",
+  "Name": "Name",
+  "E-Mail": "Email",
+  "Passwort": "Password",
+  "Bitte warten …": "Please wait …",
+  "Konto anlegen": "Create account",
+  "Nach der Registrierung richtest du deinen Haushalt inklusiv ein. Private Fotos werden nicht benötigt.": "After registering, you will set up your household inclusively. Private photos are not required.",
+  "Deine Daten werden zwischen deinen Geräten synchronisiert und bleiben offline verfügbar.": "Your data is synchronized across your devices and remains available offline.",
+  "ERSTEINRICHTUNG · DEIN HAUSHALT": "INITIAL SETUP · YOUR HOUSEHOLD",
+  "Damit RedScore wirklich zu euch passt": "So RedScore truly fits your household",
+  "Wir fragen nur die Angaben ab, die Mengen, Aufgaben und das passende Haushaltsmotiv beeinflussen. Beziehungsstatus oder sexuelle Orientierung werden nicht erfasst.": "We only ask for details that affect quantities, tasks and the suitable household image. Relationship status and sexual orientation are not collected.",
+  "Dein Anzeigename": "Your display name",
+  "Erwachsene Personen": "Adults",
+  "Keine Angabe": "Prefer not to say",
+  "Frau": "Woman",
+  "Mann": "Man",
+  "Divers / nichtbinär": "Diverse / non-binary",
+  "Kinder im Haushalt": "Children in the household",
+  "Haustiere – Anzahl je Art": "Pets – number by type",
+  "Hunde": "Dogs",
+  "Katzen": "Cats",
+  "Vögel": "Birds",
+  "Kleintiere": "Small animals",
+  "Fische / Aquarien": "Fish / aquariums",
+  "Reptilien": "Reptiles",
+  "Andere Tiere": "Other animals",
+  "Postleitzahl": "Postal code",
+  "Ort": "City",
+  "Bundesland": "State / region",
+  "Landkreis / Region (optional)": "District / region (optional)",
+  "🔒 Keine privaten Fotos. Das angezeigte Motiv stammt aus einem vorab geprüften RedScore-Bildportfolio und wird nur nach Haushaltskonstellation ausgewählt.": "🔒 No private photos. The displayed image comes from a pre-reviewed RedScore portfolio and is selected only from the household composition.",
+  "Haushalt speichern und starten": "Save household and start",
+  "TRANSPARENTE EIGENE AUSWERTUNG": "TRANSPARENT PERSONAL ASSESSMENT",
+  "RedScore Vorsorge-Check": "RedScore preparedness check",
+  "Beantworte alle Fragen ehrlich. Jede Ja-Antwort zählt gleich; unbeantwortete Fragen erzeugen keinen Score.": "Answer every question honestly. Each yes answer counts equally; unanswered questions do not create a score.",
+  "Ja": "Yes",
+  "Nein": "No",
+  "Auswertung berechnen": "Calculate assessment",
+  "Grundlage: BBK-Ratgeber und Checkliste": "Basis: BBK guide and checklist",
+  "ECHTEN BESTAND EINTRAGEN": "ENTER ACTUAL SUPPLIES",
+  "Ziel:": "Target:",
+  "Speichern": "Save",
+  "Der Wert wird lokal offline gespeichert und mit deinem RedScore-Konto synchronisiert.": "The value is stored locally for offline use and synchronized with your RedScore account.",
+  "Wieder öffnen": "Reopen",
+  "BBK-Ratgeber öffnen": "Open BBK guide",
+  "Angaben gemäß § 5 DDG": "Information pursuant to Section 5 DDG",
+  "Geschäftsanschrift:": "Business address:",
+  "Gerichtsstand": "Place of jurisdiction",
+  "Für Rechtsverhältnisse, bei denen eine Gerichtsstandsvereinbarung gesetzlich zulässig ist, ist die Hansestadt Stade als Gerichtsstand vereinbart. Gesetzlich zwingende Gerichtsstände bleiben unberührt.": "For legal relationships in which a jurisdiction agreement is permitted by law, the Hanseatic City of Stade is agreed as the place of jurisdiction. Mandatory statutory jurisdictions remain unaffected.",
+  "Verantwortung und Haftung": "Responsibility and liability",
+  "RedScore bereitet öffentlich zugängliche Vorsorgeinformationen auf. Trotz sorgfältiger Prüfung besteht kein Anspruch auf Vollständigkeit oder ständige Aktualität. Amtliche Warnungen und behördliche Anweisungen haben Vorrang.": "RedScore presents publicly available preparedness information. Despite careful review, completeness and continuous currency cannot be guaranteed. Official warnings and instructions take priority.",
+  "Datenschutzhinweise": "Privacy notice",
+  "Welche Daten verarbeitet werden": "Data we process",
+  "Für das Konto werden E-Mail-Adresse, Anzeigename, freiwillige Haushaltsangaben, Standortangaben, Vorsorgeantworten und Bestände verarbeitet. Private Fotos werden weder angefordert noch verarbeitet.": "For your account, we process your email address, display name, voluntary household details, location details, preparedness answers and supplies. Private photos are neither requested nor processed.",
+  "Zweck und Speicherung": "Purpose and storage",
+  "Die Daten dienen ausschließlich der personalisierten Vorsorgeplanung, Synchronisierung und Offline-Nutzung. Kontodaten werden bei Supabase in der EU gespeichert; die Webanwendung wird über Vercel bereitgestellt. Zusätzlich hält das Endgerät eine Offline-Kopie.": "The data is used solely for personalized preparedness planning, synchronization and offline use. Account data is stored with Supabase in the EU; the web application is delivered through Vercel. The device also keeps an offline copy.",
+  "Deine Rechte": "Your rights",
+  "Du kannst Auskunft, Berichtigung, Löschung, Einschränkung oder Datenübertragbarkeit anfragen. Kontakt:": "You may request access, correction, deletion, restriction or data portability. Contact:",
+  "Die Live-Lage speichert keine privaten Profile in externen Feeds. Browser-Mitteilungen werden nur nach ausdrücklicher Freigabe aktiviert.": "The live situation feed does not store private profiles in external feeds. Browser notifications are enabled only after explicit permission.",
+  "RedScore ist ein bürgerfreundliches Katastrophenvorbereitungssystem. Es verbindet persönliche Vorsorge, Vorratsplanung, verifizierte Anlaufstellen, Warnwege und eine strukturierte Lageübersicht.": "RedScore is a citizen-friendly disaster preparedness system. It combines personal preparedness, supply planning, verified contact points, warning channels and a structured situation overview.",
+  "RedScore ersetzt keine amtliche Warnung oder fachliche Beratung. Im Ereignisfall gelten die Anweisungen der zuständigen Behörden.": "RedScore does not replace official warnings or professional advice. In an emergency, follow the instructions of the responsible authorities.",
+  "Trinkwasservorrat erfassen": "Record drinking-water supplies",
+  "Erfasse den tatsächlichen Bestand. Das BBK empfiehlt zwei Liter pro Person und Tag und möglichst zehn Tage Vorsorge.": "Record your actual supplies. The BBK recommends two liters per person per day and, where possible, supplies for ten days.",
+  "Vorhandene Liter zählen": "Count available liters",
+  "Haltbarkeit prüfen": "Check expiry dates",
+  "Fehlmenge ergänzen": "Add the missing quantity",
+  "Lebensmittelvorrat prüfen": "Check food supplies",
+  "Plane haltbare, alltagstaugliche Lebensmittel, die zu euch passen und notfalls ohne Strom zubereitet werden können.": "Plan durable, everyday foods that suit your household and can be prepared without electricity if necessary.",
+  "Vorratstage erfassen": "Record days of supplies",
+  "Unverträglichkeiten beachten": "Consider intolerances",
+  "Alternative Kochmöglichkeit prüfen": "Check an alternative cooking method",
+  "Haustiervorsorge einplanen": "Plan for pets",
+  "Plane Futter, Wasser, Medikamente, Sicherung und Transportmöglichkeit für vorhandene Haustiere ein.": "Plan food, water, medication, safety and transport for your pets.",
+  "Futtertage erfassen": "Record days of pet food",
+  "Wasserbedarf einplanen": "Plan water needs",
+  "Transport und Unterlagen bereitlegen": "Prepare transport and documents",
+  "Notgepäck zusammenstellen": "Pack an emergency bag",
+  "Stelle ein tragbares Notgepäck für alle Personen im Haushalt zusammen.": "Pack a portable emergency bag for everyone in the household.",
+  "Persönliche Medikamente": "Personal medication",
+  "Erste-Hilfe-Material": "First-aid supplies",
+  "Radio und Batterien": "Radio and batteries",
+  "Taschenlampe": "Flashlight",
+  "Wasserflasche und Verpflegung": "Water bottle and food",
+  "Kleidung und Decke": "Clothing and blanket",
+  "Dokumentenkopien": "Document copies",
+  "Notfallradio prüfen": "Check emergency radio",
+  "Ein Batterie-, Solar- oder Kurbelradio kann auch bei Strom- und Internetausfall informieren.": "A battery, solar or hand-crank radio can provide information during power and internet outages.",
+  "Gerät vorhanden": "Device available",
+  "Empfang testen": "Test reception",
+  "Energieversorgung prüfen": "Check power supply",
+  "Dokumentenmappe anlegen": "Create a document folder",
+  "Sichere wichtige Dokumente geschützt und halte Kopien griffbereit.": "Store important documents securely and keep copies within reach.",
+  "Identitätsnachweise": "Identity documents",
+  "Versicherungen": "Insurance documents",
+  "Medizinische Unterlagen": "Medical records",
+  "Digitale Sicherung": "Digital backup",
+  "Notfallkontakte notieren": "Write down emergency contacts",
+  "Halte wichtige Nummern zusätzlich auf Papier fest.": "Keep important phone numbers on paper as well.",
+  "Nachbarschaft": "Neighbors",
+  "Ärztliche Kontakte": "Medical contacts",
+  "Versicherung": "Insurance",
+  "Treffpunkt festlegen": "Agree on a meeting point",
+  "Bestimmt einen erreichbaren Treffpunkt, falls Telefonnetze ausfallen.": "Agree on an accessible meeting point in case phone networks fail.",
+  "Ort bestimmen": "Choose a location",
+  "Route besprechen": "Discuss the route",
+  "Adresse verteilen": "Share the address",
+  "Haltbare Lebensmittel": "Shelf-stable food",
+  "Abwechslungsreich und zum Haushalt passend": "Varied and suitable for the household",
+  "Haustierbedarf": "Pet supplies",
+  "Medikamente": "Medication",
+  "Individuell mit Arzt oder Apotheke abstimmen": "Coordinate individually with a doctor or pharmacy",
+  "Licht & Energie": "Light & energy",
+  "Taschenlampe, Batterien und Powerbank": "Flashlight, batteries and power bank",
+  "Hygiene": "Hygiene",
+  "Persönlichen Bedarf für zehn Tage prüfen": "Check personal needs for ten days",
+  "Vollständig": "Complete",
+  "Teilweise": "Partial",
+  "Nicht vorhanden": "Not available",
+  "Nicht erfasst": "Not recorded",
+  "Teilweise vorhanden": "Partially available",
+  "Vollständig und einsatzbereit": "Complete and ready for use",
+  "Bitte auswählen": "Please select",
+  "Wassergebinde erfassen": "Record water containers",
+  "Anzahl Gebinde": "Number of containers",
+  "Liter je Gebinde": "Liters per container",
+  "Gesamtmenge wird beim Speichern berechnet": "The total quantity is calculated when saving",
+  "Ausstattungsstand": "Equipment status",
+  "Status": "Status",
+  "Reichweite in Tagen": "Coverage in days",
+  "Für wie viele Tage reicht dein Bestand?": "For how many days will your supplies last?",
+  "Trinkwasser für mindestens drei Tage vorhanden": "Drinking water available for at least three days",
+  "BBK: möglichst zehn Tage; schon drei Tage helfen.": "BBK: aim for ten days; even three days help.",
+  "Haltbare Lebensmittel für mindestens drei Tage vorhanden": "Shelf-stable food available for at least three days",
+  "Bedarf, Unverträglichkeiten und Zubereitung ohne Strom berücksichtigen.": "Consider needs, intolerances and preparation without electricity.",
+  "Futter, Wasser und notwendige Mittel für Haustiere eingeplant": "Food, water and necessary supplies planned for pets",
+  "Tierbedarf gehört ausdrücklich in die persönliche Vorsorge.": "Pet needs are an explicit part of personal preparedness.",
+  "Batterie-, Solar- oder Kurbelradio ist einsatzbereit": "Battery, solar or hand-crank radio is ready",
+  "Damit amtliche Informationen auch ohne Mobilfunk ankommen.": "So official information remains available without mobile service.",
+  "Taschenlampen und passende Ersatzbatterien sind vorhanden": "Flashlights and suitable spare batteries are available",
+  "Offenes Feuer möglichst vermeiden.": "Avoid open flames where possible.",
+  "Geladene Powerbanks oder eine alternative Stromquelle sind vorhanden": "Charged power banks or an alternative power source are available",
+  "Ladezustand regelmäßig prüfen.": "Check charge levels regularly.",
+  "Persönliche Medikamente und Erste-Hilfe-Material sind vorhanden": "Personal medication and first-aid supplies are available",
+  "Verfallsdaten und individuellen Bedarf prüfen.": "Check expiry dates and individual needs.",
+  "Wichtige Dokumente sind griffbereit und gesichert": "Important documents are accessible and secured",
+  "Dokumentenmappe und digitale Sicherung aktuell halten.": "Keep document folder and digital backup up to date.",
+  "Ein Notgepäck für alle Haushaltsmitglieder ist vorbereitet": "An emergency bag is prepared for everyone in the household",
+  "Nur so viel einpacken, wie selbst getragen werden kann.": "Pack only as much as you can carry yourself.",
+  "NINA oder ein anderer amtlicher Warnweg ist eingerichtet": "NINA or another official warning channel is set up",
+  "Standortfreigabe und Push-Mitteilungen prüfen.": "Check location access and push notifications.",
+  "Notfallkontakte und wichtige Nummern liegen auch auf Papier vor": "Emergency contacts and important numbers are also available on paper",
+  "Falls das Smartphone nicht verfügbar ist.": "In case the smartphone is unavailable.",
+  "Die Familie kennt einen Treffpunkt und Kommunikationsplan": "The household knows a meeting point and communication plan",
+  "Plan gemeinsam besprechen und regelmäßig aktualisieren.": "Discuss the plan together and update it regularly.",
+  "Veröffentlicht": "Published",
+  "Von RedScore gefunden": "Found by RedScore",
+  "Region": "Region",
+  "Relevanz": "Relevance",
+  "nicht ermittelt": "not determined",
+  "Originalmeldung": "Original report",
+  "Keine veröffentlichte Original-URL verfügbar.": "No published original URL is available.",
+  "Originalmeldung öffnen": "Open original report",
+  "Diese Lageübersicht ersetzt keine amtliche Warnung. Folge im Ereignisfall den Anweisungen der Behörden.": "This situation overview does not replace an official warning. In an emergency, follow the authorities' instructions.",
+  "RedScore zeigt sie als ein Lageereignis, die einzelnen betroffenen Gebiete bleiben nachvollziehbar.": "RedScore displays them as one situation event while keeping each affected area traceable.",
+  "LAGEEREIGNIS": "SITUATION EVENT",
+  "Stand: 1. Oktober 2026": "Updated: 1 October 2026",
+  "Suche": "Search",
+  "Wissen durchsuchen": "Search knowledge",
+  "Warnschutz öffnen": "Open alerts",
+  "Profil öffnen": "Open profile",
+  "RedScore Startseite": "RedScore home",
+  "Live-Lage aktualisieren": "Refresh live situation",
+  "Aktuelle Sicherheits- und Krisenlage": "Current safety and crisis situation",
+  "E-Mail:": "Email:",
+  "Web:": "Website:",
+  "Sprache auswählen": "Select language",
+  "Zu den offiziellen Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe": "Open the official recommendations from Germany's Federal Office of Civil Protection and Disaster Assistance"
+}));
+
+const ATTRIBUTES = ["aria-label", "placeholder", "title"];
+
+export function getLanguage() {
+  return localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "de";
+}
+
+export function setLanguage(language) {
+  localStorage.setItem(STORAGE_KEY, language === "en" ? "en" : "de");
+}
+
+export function translateText(value) {
+  if (getLanguage() !== "en") return value;
+  const source = String(value);
+  const trimmed = source.trim();
+  const exact = EN.get(trimmed);
+  if (exact) return exact;
+  const decorated = trimmed.match(/^([⌂▣▰⌖]\s*)?(.+?)(\s*[→›])?$/);
+  if (decorated && (decorated[1] || decorated[3])) {
+    const translatedCore = EN.get(decorated[2]);
+    if (translatedCore) return `${decorated[1] || ""}${translatedCore}${decorated[3] || ""}`;
+  }
+  return source
+    .replace(/(\d+) erwachsene Person/g, "$1 adult")
+    .replace(/(\d+) Erwachsene/g, "$1 adults")
+    .replace(/(\d+) Kind(?!er)/g, "$1 child")
+    .replace(/(\d+) Kinder/g, "$1 children")
+    .replace(/(\d+) Haustier(?!e)/g, "$1 pet")
+    .replace(/(\d+) Haustiere/g, "$1 pets")
+    .replace(/(\d+) Personen/g, "$1 people")
+    .replace(/(\d+) Person(?!en)/g, "$1 person")
+    .replace(/× Hund/g, "× dog")
+    .replace(/× Katze/g, "× cat")
+    .replace(/× Vogel/g, "× bird")
+    .replace(/× Kleintier/g, "× small animal")
+    .replace(/× Fische/g, "× fish")
+    .replace(/× Reptil/g, "× reptile")
+    .replace(/× Tier/g, "× animal")
+    .replace(/^Person (\d+) – freiwillige Selbstbezeichnung$/, "Person $1 – voluntary self-identification")
+    .replace(/^(\d+) von (\d+) beantwortet$/, "$1 of $2 answered")
+    .replace(/^(\d+) Aufgaben offen$/, "$1 open tasks")
+    .replace(/^Trinkwasser für (\d+) Tage$/, "Drinking water for $1 days")
+    .replace(/^10-Tage-Ziel: ([\d,.]+) Liter für deinen Haushalt$/, "10-day target: $1 liters for your household")
+    .replace(/^Für (.+)$/, "For $1")
+    .replace(/^Quelle: (.+)$/, "Source: $1")
+    .replace(/^Relevanz für dich: (.+)$/, "Relevance to you: $1")
+    .replace(/^(\d+) regionale Meldungen gebündelt$/, "$1 regional reports grouped")
+    .replace(/^Bestätigt durch (\d+) Quellen$/, "Confirmed by $1 sources")
+    .replace(/^(\d+) strukturierte Quellen aktiv$/, "$1 structured sources active")
+    .replace(/^(\d+) Wiederholungen gebündelt$/, "$1 duplicates grouped")
+    .replace(/^Ergebnisse \((\d+)\)$/, "Results ($1)")
+    .replace(/^Zuletzt aktualisiert /, "Last updated ")
+    .replace(/^Letzter Lageabgleich /, "Last situation sync ")
+    .replace(/vor (\d+) Sek\.$/, "$1 sec. ago")
+    .replace(/vor (\d+) Min\.$/, "$1 min. ago")
+    .replace(/vor (\d+) Std\.$/, "$1 hr. ago")
+    .replace(/vor (\d+) Tagen?$/, "$1 days ago")
+    .replace(/^([\d,.]+) Liter$/, "$1 liters")
+    .replace(/^([\d,.]+) Tage$/, "$1 days")
+    .replace(/(\d+) Tage/g, "$1 days")
+    .replace(/(\d+) Liter/g, "$1 liters")
+    .replace(/^Gesamt: ([\d,.]+) Liter$/, "Total: $1 liters")
+    .replace(/^(\d+) gleichartige Regionalmeldungen zusammengefasst$/, "$1 similar regional reports grouped")
+    .replace(/^Betroffene Gebiete \((\d+)\)$/, "Affected areas ($1)")
+    .replace(/^Nachvollziehbare Quellen \((\d+)\)$/, "Traceable sources ($1)")
+    .replace(/^Noch nie$/, "never")
+    .replace(/^noch nie$/, "never")
+    .replace(/^unbekannt$/, "unknown");
+}
+
+function replaceNodeText(node) {
+  const value = node.nodeValue || "";
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  const translated = translateText(trimmed);
+  if (translated === trimmed) return;
+  node.nodeValue = value.replace(trimmed, translated);
+}
+
+export function applyLanguage(root = document) {
+  const language = getLanguage();
+  document.documentElement.lang = language;
+  document.title = language === "en" ? "RedScore – Prepared for emergencies" : "RedScore – Sicher vorbereitet";
+  const description = document.querySelector('meta[name="description"]');
+  if (description) description.content = language === "en"
+    ? "RedScore helps people prepare for disasters, supply disruptions and emergencies."
+    : "RedScore hilft Bürgerinnen und Bürgern bei der Vorbereitung auf Katastrophen, Versorgungsausfälle und Notlagen.";
+  if (language !== "en") return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) replaceNodeText(node);
+  root.querySelectorAll?.("[aria-label],[placeholder],[title]").forEach(element => {
+    for (const attribute of ATTRIBUTES) {
+      const value = element.getAttribute(attribute);
+      if (value) element.setAttribute(attribute, translateText(value));
+    }
+  });
+}
