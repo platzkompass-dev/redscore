@@ -1,7 +1,7 @@
 # RedScore-Branding
 
 `redscore-logo.png` ist die verbindliche Masterdatei mit RedScore-Wortmarke und dem
-Zusatz „Katastrophenvorbereitung für Bürger“. `redscore-signal.png` enthält das
+Zusatz „Dein Vorsprung im Ernstfall“. `redscore-signal.png` enthält das
 kompakte Signalzeichen: dunkler Mittelpunkt und drei kräftige dunkelrote Ringe ohne
 helle Außenbahnen. Beide Dateien bilden gemeinsam das verbindliche Branding.
 
