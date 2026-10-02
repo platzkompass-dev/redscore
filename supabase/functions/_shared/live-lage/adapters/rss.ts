@@ -29,11 +29,21 @@ function categoryFor(value: string): NewsCategory | null {
   if (/chemieunfall|gefahrstoff|chemical|hazmat/.test(text)) return "chemical_incident";
   if (/radioaktiv|radiologisch|nuklear|nuclear/.test(text)) return "radiological";
   if (/kritische infrastr|critical infrastr|sabotage|angriff auf/.test(text)) return "critical_infrastructure";
-  if (/ausfall|störung|unterbrech|disruption|outage/.test(text)) return "it_outage";
-  if (/versorgung|engpass|supply/.test(text)) return "supply_disruption";
-  if (/verkehr|bahnstrecke|flughafen|airport|verkehrsinfrastr/.test(text)) return "transport_outage";
-  if (/warnung|warnmeldung|warnsystem|warning|katastrophenschutz|bevölkerungsschutz/.test(text)) return "official_warning";
+  if (/it.?ausfall|systemausfall|serverausfall|dienste? (?:nicht erreichbar|ausgefallen)|systeme? (?:nicht erreichbar|ausgefallen)|network outage/.test(text)) return "it_outage";
+  if (/versorgungs(?:störung|ausfall|engpass)|lieferengpass|supply disruption/.test(text)) return "supply_disruption";
+  if (/(?:bahnstrecke|flughafen|airport|verkehrsinfrastr).*(?:gesperrt|geschlossen|ausfall|eingestellt|unterbrochen)|(?:gesperrt|geschlossen|ausfall).*(?:bahnstrecke|flughafen|airport)/.test(text)) return "transport_outage";
+  if (/amtliche (?:unwetter)?warnung|warnmeldung (?:ausgegeben|aktualisiert)|gefahreninformation|akute gefahr/.test(text)) return "official_warning";
   return null;
+}
+
+function isCurrentIncident(category: NewsCategory, value: string): boolean {
+  const text = value.toLowerCase();
+  if (/ratgeber|gebärdensprache|\bdgs\b|warntag|bilanz|veranstaltung|projekt|forschung|fähigkeitsmanagement|publikation|interview|erklärvideo|tipps? (?:für|zur)|wie (?:kann|können|funktioniert)|vorsorge(?:n|tipps|ratgeber)/.test(text)) return false;
+  const active = /aktuell|heute|gestern|meldet|gemeldet|ereignis|vorfall|alarm|warnung|gefahr|ausgefallen|beeinträchtigt|unterbrochen|gesperrt|evakuiert|ausgetreten|brennt|überschwemmt|überflutet|tritt auf|erwartet|angriff|attacke|sichtung|gesichtet|explosion/.test(text);
+  if (!active) return false;
+  if (category === "drones") return /sichtung|gesichtet|alarm|vorfall|gesperrt/.test(text) && /flughafen|airport|militär|bundeswehr|kritische infrastr|kraftwerk|hafen|bahn|polizei/.test(text);
+  if (category === "cyber") return /angriff|attacke|ransomware|ausfall|beeinträchtigt|störung/.test(text);
+  return true;
 }
 
 function severityFor(category: NewsCategory, value: string): Severity {
@@ -47,14 +57,20 @@ function severityFor(category: NewsCategory, value: string): Severity {
 function locationFor(value: string): { country: string; region?: string; city?: string } {
   const text = value.toLowerCase();
   const regions: Array<[RegExp, string, string?]> = [
-    [/berlin|schönefeld|ber/, "Berlin", "Berlin"], [/brandenburg|potsdam/, "Brandenburg"],
-    [/niedersachsen|hannover|hamburg|stade/, "Niedersachsen"], [/bayern|münchen|munich/, "Bayern"],
+    [/\bschönefeld\b|flughafen ber|airport ber|berlin brandenburg airport/, "Brandenburg", "Schönefeld"],
+    [/\bberlin\b/, "Berlin", "Berlin"], [/brandenburg|potsdam/, "Brandenburg"],
+    [/niedersachsen|hannover|stade/, "Niedersachsen"], [/\bhamburg\b/, "Hamburg", "Hamburg"], [/bayern|münchen|munich/, "Bayern"],
     [/sachsen|dresden|leipzig/, "Sachsen"], [/hessen|frankfurt/, "Hessen"],
     [/nordrhein.?westfalen|köln|cologne|düsseldorf/, "Nordrhein-Westfalen"],
     [/schleswig.?holstein|kiel|lübeck/, "Schleswig-Holstein"],
+    [/baden.?württemberg|stuttgart|karlsruhe|freiburg im breisgau/, "Baden-Württemberg"],
+    [/rheinland.?pfalz|mainz|koblenz/, "Rheinland-Pfalz"], [/saarland|saarbrücken/, "Saarland"],
+    [/mecklenburg.?vorpommern|schwerin|rostock/, "Mecklenburg-Vorpommern"],
+    [/sachsen.?anhalt|magdeburg|halle \(saale\)/, "Sachsen-Anhalt"], [/thüringen|erfurt|jena/, "Thüringen"],
+    [/bremen|bremerhaven/, "Bremen"],
   ];
   const hit = regions.find(([pattern]) => pattern.test(text));
-  return { country: /deutschland|germany|berlin|brandenburg|niedersachsen|hamburg|bayern|sachsen|hessen/.test(text) ? "Deutschland" : "International", region: hit?.[1], city: hit?.[2] };
+  return { country: hit || /deutschland|germany/.test(text) ? "Deutschland" : "International", region: hit?.[1], city: hit?.[2] };
 }
 
 export const rssAdapter: NewsSourceAdapter = {
@@ -70,7 +86,7 @@ export const rssAdapter: NewsSourceAdapter = {
       const summary = field(block, ["description", "summary", "content"]);
       const combined = `${title} ${summary}`;
       const category = categoryFor(combined);
-      if (title.length < 8 || !category || (configuredTerms.length && !configuredTerms.some(term => combined.toLowerCase().includes(term)))) return [];
+      if (title.length < 8 || !category || !isCurrentIncident(category, combined) || (configuredTerms.length && !configuredTerms.some(term => combined.toLowerCase().includes(term)))) return [];
       const linkRaw = field(block, ["link", "guid", "id"]);
       let sourceUrl: string;
       try { sourceUrl = safePublicUrl(linkRaw || String(source.config.canonical_url || endpoint), source.allowed_hosts); }
@@ -82,11 +98,11 @@ export const rssAdapter: NewsSourceAdapter = {
       return [{
         externalId: field(block, ["guid", "id"]) || sourceUrl,
         title,
-        summary: summary || `Amtliche sicherheitsrelevante Meldung von ${source.name}.`,
+        summary: summary || `${source.trust_level === "official" ? "Amtliche sicherheitsrelevante Meldung" : "Sicherheitsrelevante Meldung"} von ${source.name}.`,
         category,
         severity: severityFor(category, combined),
-        verificationStatus: "official",
-        sourceTrustLevel: "official",
+        verificationStatus: source.trust_level === "official" ? "official" : source.trust_level === "verified" ? "verified" : source.trust_level === "osint" ? "osint_unconfirmed" : "unknown",
+        sourceTrustLevel: source.trust_level,
         sourceName: source.name,
         sourceUrl,
         canonicalUrl: sourceUrl,
@@ -97,7 +113,7 @@ export const rssAdapter: NewsSourceAdapter = {
         city: location.city,
         geographicScope: location.region || location.country,
         organizations: [source.name],
-        tags: [category, "RSS", "offizielle Quelle"],
+        tags: [category, "RSS", source.trust_level === "official" ? "offizielle Quelle" : "bestätigte Quelle"],
         rawPayload: { title, publishedRaw },
       } satisfies NormalizedNewsItem];
     });

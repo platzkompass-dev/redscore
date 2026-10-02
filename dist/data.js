@@ -38,7 +38,7 @@ export const supplyGroups = [
   { id: "food", category: "Versorgung", label: "Haltbare Lebensmittel", icon: "food", unit: "Tage", target: 10, note: "Abwechslungsreich und zum Haushalt passend", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14], max: 30 },
   { id: "pet", category: "Haushalt", label: "Haustierbedarf", icon: "special", unit: "Tage", target: 10, note: "Futter, Wasser, Medikamente und Transport je Tier", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14], max: 30 },
   { id: "medicine", category: "Gesundheit", label: "Medikamente", icon: "medical", unit: "Tage", target: 10, note: "Individuell mit Arzt oder Apotheke abstimmen", source: "BBK", inputMode: "days", suggestions: [3, 5, 7, 10, 14, 30], max: 90 },
-  { id: "power", category: "Haushalt", label: "Licht & Energie", icon: "household", unit: "bereit", target: 1, note: "Taschenlampe, Batterien und Powerbank", source: "BBK", inputMode: "level" },
+  { id: "power", category: "Haushalt", label: "Licht & Energie", icon: "light-bulb", unit: "bereit", target: 1, note: "Taschenlampe, Batterien und Powerbank", source: "BBK", inputMode: "level" },
   { id: "hygiene", category: "Gesundheit", label: "Hygiene", icon: "health", unit: "bereit", target: 1, note: "Persönlichen Bedarf für zehn Tage prüfen", source: "BBK", inputMode: "level" },
 ];
 

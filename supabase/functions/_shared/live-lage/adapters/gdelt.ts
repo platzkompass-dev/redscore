@@ -61,6 +61,19 @@ function severityFor(category: NewsCategory, value: string): Severity {
   return "medium";
 }
 
+function isActionableHeadline(category: NewsCategory, value: string): boolean {
+  const text = value.toLowerCase();
+  if (/review|testbericht|podcast|kommentar|meinung|film|serie|spiel|sport|aktienkurs|börse|wahlkampf/.test(text)) return false;
+  const incident = /alarm|warning|warnung|attack|angriff|outage|ausfall|disruption|störung|closed|closure|gesperrt|evacuat|evaku|strikes?|trifft|damag|schaden|fire|brand|flood|hochwasser|storm|sturm|earthquake|erdbeben|eruption|ausbruch|leak|austritt|sabotage|sighting|gesichtet|sichtung/.test(text);
+  if (!incident) return false;
+  if (category === "drones") {
+    return /alarm|sighting|gesichtet|sichtung|closed|closure|gesperrt|vorfall/.test(text)
+      && /airport|flughafen|military|militär|critical infrastructure|kritische infrastruktur|power plant|kraftwerk|harbor|hafen|rail|bahn|police|polizei/.test(text);
+  }
+  if (category === "cyber") return /attack|angriff|ransomware|outage|ausfall|disruption|störung|beeinträchtig/.test(text);
+  return true;
+}
+
 function parseSeenDate(value: unknown): string | null {
   const raw = String(value || "");
   const match = raw.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
@@ -104,7 +117,7 @@ export const gdeltAdapter: NewsSourceAdapter = {
       const host = hostname(url);
       const publishedAt = parseSeenDate(article.seendate);
       const eventCategory = categoryFor(title);
-      if (title.length < 8 || !publishedAt || !eventCategory || !trusted(host)) return [];
+      if (title.length < 8 || !publishedAt || !eventCategory || !trusted(host) || !isActionableHeadline(eventCategory, title)) return [];
       let sourceUrl: string;
       try { sourceUrl = safePublicUrl(url, source.allowed_hosts); }
       catch { return []; }

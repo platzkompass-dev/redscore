@@ -30,6 +30,9 @@ export const gdacsAdapter: NewsSourceAdapter = {
       const eventId = tag(item, "gdacs:eventid");
       const country = tag(item, "gdacs:country") || "International";
       const alert = tag(item, "gdacs:alertlevel");
+      // Green GDACS notices are monitoring signals, not a citizen-facing crisis
+      // situation. Live-Lage starts at orange so the dashboard stays actionable.
+      if (!/^(orange|red)$/i.test(alert)) return [];
       const linkValue = tag(item, "link") || String(source.config.canonical_url || "");
       let sourceUrl: string;
       try { sourceUrl = safePublicUrl(linkValue, source.allowed_hosts); }

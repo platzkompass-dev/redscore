@@ -1,5 +1,5 @@
-import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=5";
+import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=2";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=6";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -34,7 +34,7 @@ function loadState() {
 let state = loadState();
 let warningState = { status: "loading", warnings: [], checkedAt: null, fallback: false };
 let warningRequested = false;
-const LIVE_CACHE_KEY = "redscore-live-lage-v1";
+const LIVE_CACHE_KEY = "redscore-live-lage-v2";
 const PLACES_CACHE_KEY = "redscore-nearby-places-v1";
 const LIVE_REFRESH_MS = 60_000;
 const liveCache = (() => {
@@ -94,10 +94,10 @@ const emergencyPackItems = [
   { id: "first-aid", category: "Gesundheit", label: "Erste-Hilfe-Material", detail: "Kleine Reiseapotheke inklusive Pflastern und Verbandmaterial.", quantity: "1 Set", icon: "health", priority: "hoch" },
   { id: "radio", category: "Information", label: "Radio", detail: "Batterie-, Solar- oder Kurbelradio für amtliche Informationen.", quantity: "1 Gerät", icon: "radio", priority: "hoch" },
   { id: "flashlight", category: "Licht & Energie", label: "Taschenlampe", detail: "Robuste Lampe und passende Ersatzbatterien.", quantity: "1 je Person", icon: "weather-warning", priority: "mittel" },
-  { id: "powerbank", category: "Licht & Energie", label: "Geladene Powerbank", detail: "Mit passendem Ladekabel und regelmäßig geprüftem Ladezustand.", quantity: "1–2 Stück", icon: "household", priority: "mittel" },
+  { id: "powerbank", category: "Licht & Energie", label: "Geladene Powerbank", detail: "Mit passendem Ladekabel und regelmäßig geprüftem Ladezustand.", quantity: "1–2 Stück", icon: "battery", priority: "mittel" },
   { id: "documents", category: "Dokumente", label: "Dokumentenkopien", detail: "Ausweise, Versicherungen und medizinische Informationen geschützt kopieren.", quantity: "1 Mappe", icon: "plan", priority: "hoch" },
-  { id: "cash", category: "Dokumente", label: "Bargeld", detail: "Kleine Scheine und Münzen für Situationen ohne Kartenzahlung.", quantity: "persönlich", icon: "supplies", priority: "mittel" },
-  { id: "clothing", category: "Unterwegs", label: "Warme Kleidung", detail: "Wetterfeste Wechselkleidung, feste Schuhe und eine Rettungsdecke.", quantity: "pro Person", icon: "backpack", priority: "mittel" },
+  { id: "cash", category: "Dokumente", label: "Bargeld", detail: "Kleine Scheine und Münzen für Situationen ohne Kartenzahlung.", quantity: "persönlich", icon: "euro-banknote", priority: "mittel" },
+  { id: "clothing", category: "Unterwegs", label: "Warme Kleidung", detail: "Wetterfeste Wechselkleidung, feste Schuhe und eine Rettungsdecke.", quantity: "pro Person", icon: "coat", priority: "mittel" },
   { id: "hygiene", category: "Unterwegs", label: "Hygieneartikel", detail: "Handdesinfektion, Feuchttücher und persönliche Hygieneartikel.", quantity: "pro Person", icon: "health", priority: "mittel" },
   { id: "whistle", category: "Unterwegs", label: "Signalpfeife", detail: "Klein, leicht und bei eingeschränkter Sicht hörbar.", quantity: "1 Stück", icon: "bell", priority: "niedrig" },
   { id: "keys", category: "Unterwegs", label: "Ersatzschlüssel", detail: "Wohnung, Keller, Fahrzeug oder wichtige Zugangskarten prüfen.", quantity: "nach Bedarf", icon: "settings", priority: "niedrig" },
@@ -272,7 +272,7 @@ function supplyNote(group) {
 }
 
 function supplyTargetLabel(group) {
-  return group.inputMode === "level" ? "Vollständig" : `${fmt(supplyTarget(group))} ${group.unit}`;
+  return group.inputMode === "level" ? "Einsatzbereit" : `${fmt(supplyTarget(group))} ${group.unit}`;
 }
 
 function supplyValueLabel(group, value) {
@@ -321,7 +321,7 @@ function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
     ${brand(false)}
     <nav><button data-legal="about">Über RedScore</button><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button></nav>
-    <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe">${icon("knowledge", "bbk-source-icon")}<span><b>BBK</b><small>Orientiert an Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe</small></span></a>
+    <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Informationen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe"><img class="bbk-source-logo" src="assets/bbk-logo.svg?v=2" alt="Bundesamt für Bevölkerungsschutz und Katastrophenhilfe"><span><small>Offizielle Informationsquelle · keine behördliche Partnerschaft</small></span></a>
   </footer>`;
 }
 

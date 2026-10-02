@@ -386,6 +386,7 @@ const EN = new Map(Object.entries({
   "Hygiene": "Hygiene",
   "Persönlichen Bedarf für zehn Tage prüfen": "Check personal needs for ten days",
   "Vollständig": "Complete",
+  "Einsatzbereit": "Ready for use",
   "Teilweise": "Partial",
   "Nicht vorhanden": "Not available",
   "Nicht erfasst": "Not recorded",

@@ -39,7 +39,7 @@ Deno.serve(async request => {
     latitude: Number.isFinite(Number(url.searchParams.get("lat"))) ? Number(url.searchParams.get("lat")) : undefined,
     longitude: Number.isFinite(Number(url.searchParams.get("lon"))) ? Number(url.searchParams.get("lon")) : undefined,
   };
-  const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+  const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
   let events = await db.request<any[]>("rpc/get_live_lage_events", {
     method: "POST",
     body: JSON.stringify({ p_limit: 200, p_cutoff: cutoff }),
@@ -49,7 +49,8 @@ Deno.serve(async request => {
   if (scope === "world") events = events.filter(event => !/deutschland|germany/i.test(event.country || ""));
 
   const ranked = events.map(event => ({ ...event, relevance: calculateRelevance(event, user) }))
-    .filter(event => scope !== "for_you" || event.relevance.score >= 45)
+    .filter(event => !["low", "info"].includes(String(event.severity)))
+    .filter(event => scope !== "for_you" || event.relevance.score >= 70)
     .sort((a, b) => b.relevance.score - a.relevance.score || Date.parse(b.published_at) - Date.parse(a.published_at));
   const clustered = clusterLiveEvents(ranked)
     .sort((a, b) => b.relevance.score - a.relevance.score || Date.parse(b.published_at) - Date.parse(a.published_at))
