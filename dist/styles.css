@@ -122,8 +122,10 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
   .site-footer nav button,.site-footer nav a{padding:5px 2px;text-align:center}
   .site-footer .bbk-source-badge{order:3;flex-direction:column;justify-content:center;margin:auto;border-left:0;padding-left:0;text-align:center}
   .site-footer .bbk-source-badge span{justify-items:center}
-  .image-hero.pantry-hero,.image-hero.warning-hero,.image-hero.knowledge-hero{min-height:285px;background-size:auto 100%;background-position:center top}
-  .dashboard-hero::after{width:100%;background-size:auto 100%;background-position:center top;opacity:.28}
+  .image-hero.pantry-hero,.image-hero.knowledge-hero{min-height:285px;background-color:#061722;background-size:100% 100%,150% auto;background-position:center,right bottom;background-repeat:no-repeat}
+  .image-hero.warning-hero{min-height:285px;background-size:cover;background-position:center top}
+  .dashboard-hero::after{width:100%;background-size:150% auto;background-position:right bottom;background-repeat:no-repeat;opacity:.28}
+  .household-visual,.profile-photo-panel .household-visual{background-size:100% 100%,150% auto;background-position:center,right center;background-repeat:no-repeat}
 }
 
 /* Interaktive Notfallrucksack-Packliste */
