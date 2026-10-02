@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=4";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=5";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -26,6 +26,7 @@ function loadState() {
       supplies: { ...defaultState.supplies, ...saved.supplies },
       supplyDetails: { ...defaultState.supplyDetails, ...saved.supplyDetails },
       settings: { ...defaultState.settings, ...saved.settings },
+      packlist: { ...defaultState.packlist, ...saved.packlist },
       ui: { ...defaultState.ui, ...saved.ui },
     };
   } catch { return clone(defaultState); }
@@ -83,6 +84,25 @@ const householdScenes = {
   "family-neutral": "assets/households/family-neutral.png",
   "neutral-household": "assets/pantry.png",
 };
+
+// Persönliche Notfallrucksack-Checkliste auf Basis der BBK-Empfehlungen.
+// Die Einträge sind bewusst Empfehlungen und keine erfundenen Bestandsdaten.
+const emergencyPackItems = [
+  { id: "water", category: "Wasser", label: "Trinkwasser", detail: "Eine kleine Flasche pro Person für den Weg; Vorrat separat planen.", quantity: "persönlicher Bedarf", icon: "water", priority: "hoch" },
+  { id: "food", category: "Verpflegung", label: "Haltbare Verpflegung", detail: "Kompakt, energiereich und ohne Kühlung genießbar.", quantity: "für unterwegs", icon: "food", priority: "mittel" },
+  { id: "medicine", category: "Gesundheit", label: "Persönliche Medikamente", detail: "Regelmäßige Medikamente und wichtige Hilfsmittel einpacken.", quantity: "persönlich", icon: "medical", priority: "hoch" },
+  { id: "first-aid", category: "Gesundheit", label: "Erste-Hilfe-Material", detail: "Kleine Reiseapotheke inklusive Pflastern und Verbandmaterial.", quantity: "1 Set", icon: "health", priority: "hoch" },
+  { id: "radio", category: "Information", label: "Radio", detail: "Batterie-, Solar- oder Kurbelradio für amtliche Informationen.", quantity: "1 Gerät", icon: "radio", priority: "hoch" },
+  { id: "flashlight", category: "Licht & Energie", label: "Taschenlampe", detail: "Robuste Lampe und passende Ersatzbatterien.", quantity: "1 je Person", icon: "weather-warning", priority: "mittel" },
+  { id: "powerbank", category: "Licht & Energie", label: "Geladene Powerbank", detail: "Mit passendem Ladekabel und regelmäßig geprüftem Ladezustand.", quantity: "1–2 Stück", icon: "household", priority: "mittel" },
+  { id: "documents", category: "Dokumente", label: "Dokumentenkopien", detail: "Ausweise, Versicherungen und medizinische Informationen geschützt kopieren.", quantity: "1 Mappe", icon: "plan", priority: "hoch" },
+  { id: "cash", category: "Dokumente", label: "Bargeld", detail: "Kleine Scheine und Münzen für Situationen ohne Kartenzahlung.", quantity: "persönlich", icon: "supplies", priority: "mittel" },
+  { id: "clothing", category: "Unterwegs", label: "Warme Kleidung", detail: "Wetterfeste Wechselkleidung, feste Schuhe und eine Rettungsdecke.", quantity: "pro Person", icon: "backpack", priority: "mittel" },
+  { id: "hygiene", category: "Unterwegs", label: "Hygieneartikel", detail: "Handdesinfektion, Feuchttücher und persönliche Hygieneartikel.", quantity: "pro Person", icon: "health", priority: "mittel" },
+  { id: "whistle", category: "Unterwegs", label: "Signalpfeife", detail: "Klein, leicht und bei eingeschränkter Sicht hörbar.", quantity: "1 Stück", icon: "bell", priority: "niedrig" },
+  { id: "keys", category: "Unterwegs", label: "Ersatzschlüssel", detail: "Wohnung, Keller, Fahrzeug oder wichtige Zugangskarten prüfen.", quantity: "nach Bedarf", icon: "settings", priority: "niedrig" },
+  { id: "pet", category: "Haustiere", label: "Haustierbedarf", detail: "Futter, Wasser, Leine/Transportbox, Medikamente und Unterlagen.", quantity: "je Tier", icon: "special", priority: "hoch", petsOnly: true },
+];
 
 function selectedScene() { return householdScenes[state.profile.selectedScene] || householdScenes["neutral-household"]; }
 function sceneStyle(_key, property = "--scene-image") { return `style="${property}:url('${selectedScene()}')"`; }
@@ -185,6 +205,7 @@ async function loadAccount() {
   state.supplies = clone(defaultState.supplies);
   state.supplyDetails = clone(defaultState.supplyDetails);
   state.settings = clone(defaultState.settings);
+  state.packlist = clone(defaultState.packlist);
   state.ui = clone(defaultState.ui);
   if (result.appState) {
     state.assessment = { ...state.assessment, ...(result.appState.assessment || {}) };
@@ -192,6 +213,7 @@ async function loadAccount() {
     state.supplies = { ...state.supplies, ...(result.appState.supplies || {}) };
     state.supplyDetails = result.appState.supply_details || {};
     state.settings = { ...state.settings, ...(result.appState.settings || {}) };
+    state.packlist = { ...state.packlist, ...(result.appState.packlist || {}) };
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   return true;
@@ -206,7 +228,7 @@ async function syncAccount() {
       postal_code: state.household.postalCode, city: state.household.city, state: state.household.state, district: state.household.district,
       onboarding_completed: state.profile.onboardingCompleted, selected_scene: state.profile.selectedScene,
     },
-    appState: { assessment: state.assessment, task_status: state.taskStatus, supplies: state.supplies, supply_details: state.supplyDetails, settings: state.settings },
+    appState: { assessment: state.assessment, task_status: state.taskStatus, supplies: state.supplies, supply_details: state.supplyDetails, packlist: state.packlist, settings: state.settings },
   });
 }
 function toast(message) {
@@ -287,7 +309,7 @@ function navigate(route) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-const routeLabel = route => ({ home: "Start", plan: "Mein Plan", supplies: "Vorräte", map: "Schutz in deiner Nähe", warnschutz: "Warnschutz", knowledge: "Wissen", profile: "Profil" })[route] || "Start";
+const routeLabel = route => ({ home: "Start", plan: "Mein Plan", packliste: "Notfallrucksack", supplies: "Vorräte", map: "Schutz in deiner Nähe", warnschutz: "Warnschutz", knowledge: "Wissen", profile: "Profil" })[route] || "Start";
 function languageControl() {
   const language = getLanguage();
   return `<div class="language-switcher"><button class="language-flag" data-language-toggle aria-label="${language === "de" ? "Sprache auswählen" : "Select language"}" aria-expanded="${languageMenuOpen}"><span class="flag-icon flag-${language}" aria-hidden="true"></span></button><div class="language-menu" ${languageMenuOpen ? "" : "hidden"}><button data-language="de" class="${language === "de" ? "active" : ""}"><span class="flag-icon flag-de" aria-hidden="true"></span> Deutsch</button><button data-language="en" class="${language === "en" ? "active" : ""}"><span class="flag-icon flag-en" aria-hidden="true"></span> English</button></div></div>`;
@@ -580,17 +602,40 @@ function taskRow(task) {
   const done = !!state.taskStatus[task.id];
   return `<article class="task-row ${done ? "done" : ""}"><button data-task-done="${task.id}" aria-label="Status ändern">${done ? "✓" : ""}</button>${icon(task.icon, "row-icon")}<div><h3>${task.title}</h3><p>${task.description}</p></div><span class="priority ${task.priority.toLowerCase()}">${task.priority}</span><button data-task-detail="${task.id}">›</button></article>`;
 }
+function packItems() {
+  return emergencyPackItems.filter(item => !item.petsOnly || petCount() > 0);
+}
+function packProgress() {
+  const items = packItems();
+  const checked = items.filter(item => state.packlist[item.id]).length;
+  return { items, checked, total: items.length, percent: items.length ? Math.round(checked / items.length * 100) : 0 };
+}
+function packItemCard(item) {
+  const checked = Boolean(state.packlist[item.id]);
+  return `<article class="pack-item ${checked ? "checked" : ""}"><button class="pack-check" data-pack-item="${item.id}" aria-label="${checked ? "Als nicht vorhanden markieren" : "Als vorhanden markieren"}" aria-pressed="${checked}">${checked ? "✓" : ""}</button>${icon(item.icon, "pack-item-icon")}<div class="pack-item-copy"><div class="pack-item-heading"><h3>${item.label}</h3><span class="pack-priority ${item.priority}">${item.priority}</span></div><p>${item.detail}</p><small>${item.quantity}</small></div></article>`;
+}
 function renderPlan() {
   const filters = ["Alle", "Vorräte", "Zuhause", "Unterwegs", "Familie"];
   const householdTasks = relevantTasks();
   const shown = householdTasks.filter(task => state.ui.planFilter === "Alle" || task.category === state.ui.planFilter);
   const done = householdTasks.filter(task => state.taskStatus[task.id]).length;
   const content = `<section class="subhero compact"><div><h1>Mein Plan</h1><h2>Schritt für Schritt mehr Sicherheit.</h2><p>Dein Fortschritt enthält nur Aufgaben, die du selbst bestätigt hast.</p></div></section>
-    <div class="content-wrap two-column"><aside class="side-card"><small>DEIN FORTSCHRITT</small><strong>${done} / ${householdTasks.length}</strong><div class="bar"><i style="width:${done/householdTasks.length*100}%"></i></div><p>${done ? "Bestätigte Maßnahmen" : "Noch nichts als erledigt markiert"}</p></aside><section>
+    <div class="content-wrap"><article class="packlist-promo"><div class="packlist-promo-icon">${icon("backpack", "pack-bag-icon")}</div><div><small>INTERAKTIVE CHECKLISTE</small><h2>Notfallrucksack packen</h2><p>Prüfe Schritt für Schritt, was im persönlichen Rucksack bereits vorhanden ist.</p></div><button class="green" data-route="packliste">Packliste öffnen →</button></article><div class="two-column"><aside class="side-card"><small>DEIN FORTSCHRITT</small><strong>${done} / ${householdTasks.length}</strong><div class="bar"><i style="width:${done/householdTasks.length*100}%"></i></div><p>${done ? "Bestätigte Maßnahmen" : "Noch nichts als erledigt markiert"}</p></aside><section>
       <div class="filter-row">${filters.map(f => `<button data-plan-filter="${f}" class="${f===state.ui.planFilter?"active":""}">${f}</button>`).join("")}</div>
       <div class="task-list">${shown.map(taskRow).join("")}</div>
-    </section></div>`;
+    </section></div></div>`;
   app.innerHTML = loggedShell("plan", content, "plan-page");
+}
+
+function renderPacklist() {
+  const { items, checked, total, percent } = packProgress();
+  const categories = ["Alle", ...new Set(items.map(item => item.category))];
+  const query = String(state.ui.packSearch || "").trim().toLowerCase();
+  const shown = items.filter(item => (state.ui.packFilter === "Alle" || item.category === state.ui.packFilter) && (!query || `${item.label} ${item.detail} ${item.category}`.toLowerCase().includes(query)));
+  const readyText = percent === 100 ? "Dein Rucksack ist vollständig geprüft." : `${total - checked} ${total - checked === 1 ? "Punkt fehlt" : "Punkte fehlen noch"}.`;
+  const content = `<section class="subhero compact packlist-hero"><div><small>BBK-ORIENTIERT · PERSÖNLICH</small><h1>Notfallrucksack</h1><h2>Alles Wichtige griffbereit.</h2><p>Packe nur, was du selbst tragen kannst. Hake ab, was bereits vorhanden und einsatzbereit ist.</p><a href="${sources.bbkBag}" target="_blank" rel="noreferrer">Offizielle BBK-Empfehlungen öffnen →</a></div></section>
+    <div class="content-wrap packlist-layout"><aside class="packlist-visual"><div class="pack-visual-art">${icon("backpack", "pack-bag-icon")}</div><div class="pack-ring" style="--pack-progress:${percent * 3.6}deg"><strong>${percent}%</strong><small>geprüft</small></div><h2>${checked} von ${total} bereit</h2><p>${readyText}</p><div class="bar"><i style="width:${percent}%"></i></div><small class="packlist-note">Die Liste wird lokal gespeichert und mit deinem Konto synchronisiert. Sie ersetzt keine individuelle Beratung.</small></aside><section class="packlist-content"><div class="packlist-toolbar"><form data-pack-search><label><span>Packliste durchsuchen</span><input name="query" value="${esc(state.ui.packSearch)}" placeholder="z. B. Medikamente"></label><button class="outline">Suchen</button></form><div class="filter-row pack-filters">${categories.map(category => `<button data-pack-filter="${category}" class="${category===state.ui.packFilter?"active":""}">${category}</button>`).join("")}</div></div><div class="packlist-summary"><span>${shown.length} ${shown.length === 1 ? "Eintrag" : "Einträge"}</span><span>${checked} abgehakt · ${total - checked} offen</span></div><div class="pack-items">${shown.length ? shown.map(packItemCard).join("") : `<div class="no-data">${icon("backpack", "big-icon")}<h3>Keine Einträge gefunden</h3><p>Ändere die Suche oder wähle eine andere Kategorie.</p></div>`}</div></section></div>`;
+  app.innerHTML = loggedShell("plan", content, "packlist-page");
 }
 
 function renderSupplies() {
@@ -722,7 +767,7 @@ function modal() {
   }
   if (state.ui.modal.startsWith("task:")) {
     const id = state.ui.modal.split(":")[1], task = tasks.find(t => t.id === id);
-    return `<div class="modal-backdrop"><section class="modal task-modal"><button class="modal-close" data-close-modal>×</button>${icon(task.icon,"modal-icon")}<small>${task.priority.toUpperCase()} · ${task.category.toUpperCase()}</small><h2>${task.title}</h2><p>${task.description}</p><ul>${task.checklist.map(item => `<li>✓ ${item}</li>`).join("")}</ul><button class="green full" data-task-done="${task.id}">${state.taskStatus[task.id]?"Wieder öffnen":"Als erledigt markieren"}</button></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal task-modal"><button class="modal-close" data-close-modal>×</button>${icon(task.icon,"modal-icon")}<small>${task.priority.toUpperCase()} · ${task.category.toUpperCase()}</small><h2>${task.title}</h2><p>${task.description}</p><ul>${task.checklist.map(item => `<li>✓ ${item}</li>`).join("")}</ul>${task.id === "backpack" ? `<button class="outline full" data-open-packlist>Interaktive Packliste öffnen</button>` : ""}<button class="green full" data-task-done="${task.id}">${state.taskStatus[task.id]?"Wieder öffnen":"Als erledigt markieren"}</button></section></div>`;
   }
   if (state.ui.modal.startsWith("article:")) {
     const id = state.ui.modal.split(":")[1], article = knowledgeArticles.find(a => a.id === id);
@@ -745,7 +790,7 @@ function render() {
   if (!state.authenticated) renderPublic();
   else {
     const route = hashRoute();
-    ({ home: renderHome, plan: renderPlan, supplies: renderSupplies, map: renderMap, warnschutz: renderWarnschutz, knowledge: renderKnowledge, profile: renderProfile }[route] || renderHome)();
+    ({ home: renderHome, plan: renderPlan, packliste: renderPacklist, supplies: renderSupplies, map: renderMap, warnschutz: renderWarnschutz, knowledge: renderKnowledge, profile: renderProfile }[route] || renderHome)();
   }
   applyLanguage(app);
 }
@@ -767,6 +812,8 @@ app.addEventListener("click", async event => {
   if (button.dataset.language) { setLanguage(button.dataset.language); languageMenuOpen = false; return render(); }
   if (button.dataset.legal) { state.ui.modal = `legal:${button.dataset.legal}`; return render(); }
   if (button.dataset.route) return navigate(button.dataset.route);
+  if (button.dataset.packFilter) { state.ui.packFilter = button.dataset.packFilter; save(); return render(); }
+  if (button.dataset.packItem) { state.packlist[button.dataset.packItem] = !state.packlist[button.dataset.packItem]; save(); toast(state.packlist[button.dataset.packItem] ? "Für den Notfallrucksack abgehakt." : "Eintrag wieder geöffnet."); return render(); }
   if (button.dataset.supplySuggestion) {
     const input = button.closest("form")?.querySelector('input[name="value"]');
     if (input) { input.value = button.dataset.supplySuggestion; input.focus(); }
@@ -784,6 +831,7 @@ app.addEventListener("click", async event => {
     persistSession(null); state = clone(defaultState); localStorage.removeItem(STORAGE_KEY); location.hash = ""; return render();
   }
   if (button.matches("[data-close-modal]") || event.target.classList.contains("modal-backdrop")) { state.ui.modal = null; return render(); }
+  if (button.matches("[data-open-packlist]")) { state.ui.modal = null; return navigate("packliste"); }
   if (button.matches("[data-open-assessment]")) { state.ui.modal = "assessment"; return render(); }
   if (button.dataset.answer) { const [id,val] = button.dataset.answer.split(":"); state.assessment.answers[id] = val === "true"; save(); return render(); }
   if (button.matches("[data-finish-assessment]")) { if (relevantAssessmentQuestions().every(([id]) => typeof state.assessment.answers[id] === "boolean")) { state.assessment.completedAt = new Date().toISOString(); state.ui.modal = null; save(); toast("Dein eigener Vorsorgestand wurde berechnet."); render(); } return; }
@@ -854,6 +902,7 @@ app.addEventListener("submit", async event => {
     state.ui.modal = null; save(); toast("Tatsächlicher Bestand gespeichert."); render();
   }
   if (form.matches("[data-knowledge-search]")) { state.ui.knowledgeSearch = new FormData(form).get("query").trim(); save(); render(); }
+  if (form.matches("[data-pack-search]")) { state.ui.packSearch = String(new FormData(form).get("query") || "").trim(); save(); render(); }
 });
 
 app.addEventListener("input", event => {

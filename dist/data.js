@@ -66,7 +66,8 @@ export const defaultState = {
   supplies: Object.fromEntries(supplyGroups.map(group => [group.id, null])),
   supplyDetails: {},
   settings: { notifications: null, offlinePlacesSaved: false },
-  ui: { planFilter: "Alle", supplyFilter: "Alle", mapFilter: "Alle", knowledgeSearch: "", knowledgeCategory: "Alle", modal: null, selectedTask: null },
+  packlist: {},
+  ui: { planFilter: "Alle", supplyFilter: "Alle", mapFilter: "Alle", knowledgeSearch: "", knowledgeCategory: "Alle", packFilter: "Alle", packSearch: "", modal: null, selectedTask: null },
 };
 
 export const sources = {

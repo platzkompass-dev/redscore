@@ -59,7 +59,7 @@ function cleanAppState(value = {}) {
   const safeObject = item => item && typeof item === "object" && !Array.isArray(item) ? item : {};
   return {
     assessment: safeObject(value.assessment), task_status: safeObject(value.task_status),
-    supplies: safeObject(value.supplies), supply_details: safeObject(value.supply_details), settings: safeObject(value.settings),
+    supplies: safeObject(value.supplies), supply_details: safeObject(value.supply_details), packlist: safeObject(value.packlist), settings: safeObject(value.settings),
   };
 }
 
