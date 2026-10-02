@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=3";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=4";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -228,7 +228,12 @@ function relevantTasks() {
 function score() {
   const questions = relevantAssessmentQuestions();
   if (!state.assessment.completedAt || questions.some(([id]) => typeof state.assessment.answers[id] !== "boolean")) return null;
-  return Math.round(questions.filter(([id]) => state.assessment.answers[id]).length / questions.length * 100);
+  const preparedness = questions.filter(([id]) => state.assessment.answers[id]).length / questions.length * 100;
+  // The homepage score is the single household score. Supply progress contributes
+  // transparently once the assessment is complete; the supplies page shows only
+  // its own progress, never a second score.
+  const supplies = supplyPercent() ?? 0;
+  return Math.round(preparedness * 0.7 + supplies * 0.3);
 }
 function supplyPercent() {
   const relevant = supplyGroups.filter(group => group.id !== "pet" || petCount() > 0);
@@ -594,7 +599,7 @@ function renderSupplies() {
   const relevantGroups = supplyGroups.filter(group => group.id !== "pet" || petCount() > 0);
   const shownGroups = relevantGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
   const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
-    <div class="content-wrap supplies-layout"><aside class="side-card">${scoreRing(percent)}<p>${percent === null ? "Noch kein Bestand erfasst." : "Aus selbst eingetragenen Beständen berechnet."}</p><button class="outline" data-open-supply="water">Jetzt erfassen</button></aside>
+    <div class="content-wrap supplies-layout"><aside class="side-card supply-progress-card"><small>VORRATSFORTSCHRITT</small><strong>${percent === null ? "Noch nicht erfasst" : `${percent} %`}</strong><div class="bar"><i style="width:${percent === null ? 0 : percent}%"></i></div><p>${percent === null ? "Trage deine tatsächlichen Bestände ein." : "Aus deinen selbst eingetragenen Beständen berechnet."}</p><button class="outline" data-open-supply="water">Jetzt erfassen</button></aside>
     <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>${esc(householdSummary())}</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b> · <button data-edit-household>Angaben ändern</button></p></div></article>
       <div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div>
       <div class="supply-table"><div class="table-head"><span>Bereich</span><span>BBK-orientiertes Ziel</span><span>Dein Bestand</span><span></span></div>
