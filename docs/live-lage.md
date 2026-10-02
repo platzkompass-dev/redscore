@@ -3,7 +3,7 @@
 ## Datenfluss
 
 ```text
-DWD / GDACS -> Source Adapter -> Supabase Import Function -> PostgreSQL
+DWD / GDACS / BBK / BMDS / GDELT -> Source Adapter -> Supabase Import Function -> PostgreSQL
                                                     |
 Browser <- /api/live-lage <- RedScore-Server <- Read Function + Relevanzmodell
 ```
@@ -27,8 +27,10 @@ Lesemodell der Security-Definer-RPCs.
 ## Adapter
 
 `NewsSourceAdapter` normalisiert strukturierte öffentliche Feeds. Im MVP sind
-`dwd.ts` und `gdacs.ts` registriert. Unterstützte Erweiterungen sind REST, RSS, Atom,
-JSON Feed und CAP. HTML-Scraping ist nicht Bestandteil des MVP.
+`dwd.ts`, `gdacs.ts`, `rss.ts` und `gdelt.ts` registriert. Der RSS-Adapter verarbeitet
+BBK- und BMDS-Feeds, der GDELT-Adapter ausschließlich Treffer etablierter
+Originalquellen aus einer Domain-Allowlist. Unterstützte Erweiterungen sind REST, RSS,
+Atom, JSON Feed und CAP. HTML-Scraping ist nicht Bestandteil des MVP.
 
 Eine neue Quelle wird so ergänzt:
 

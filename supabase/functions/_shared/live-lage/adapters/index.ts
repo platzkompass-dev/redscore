@@ -1,10 +1,14 @@
 import type { NewsSourceAdapter } from "../types.ts";
 import { dwdAdapter } from "./dwd.ts";
 import { gdacsAdapter } from "./gdacs.ts";
+import { gdeltAdapter } from "./gdelt.ts";
+import { rssAdapter } from "./rss.ts";
 
 const adapters = new Map<string, NewsSourceAdapter>([
   [dwdAdapter.key, dwdAdapter],
   [gdacsAdapter.key, gdacsAdapter],
+  [gdeltAdapter.key, gdeltAdapter],
+  [rssAdapter.key, rssAdapter],
 ]);
 
 export function adapterFor(key: string): NewsSourceAdapter {

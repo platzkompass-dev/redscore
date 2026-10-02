@@ -9,10 +9,13 @@ function json(status, payload) {
 function configuration() {
   const baseUrl = process.env.SUPABASE_URL || "";
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
+  const publicSiteUrl = process.env.PUBLIC_SITE_URL || "https://www.redscore.de";
   try {
     const url = new URL(baseUrl);
-    if (url.protocol !== "https:" || !url.hostname.endsWith(".supabase.co") || !anonKey) return null;
-    return { url, anonKey };
+    const siteUrl = new URL(publicSiteUrl);
+    const siteProtocolAllowed = siteUrl.protocol === "https:" || (siteUrl.protocol === "http:" && ["localhost", "127.0.0.1"].includes(siteUrl.hostname));
+    if (url.protocol !== "https:" || !url.hostname.endsWith(".supabase.co") || !anonKey || !siteProtocolAllowed) return null;
+    return { url, anonKey, confirmationUrl: new URL("/?auth=confirmed", siteUrl).toString() };
   } catch { return null; }
 }
 
@@ -88,7 +91,7 @@ export async function POST(request) {
       const email = String(input.email || "").trim().toLowerCase().slice(0, 254);
       const password = String(input.password || "");
       if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 8 || password.length > 128) return json(400, { error: "Bitte gültige E-Mail und mindestens 8 Zeichen Passwort eingeben." });
-      const pathname = action === "sign_up" ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+      const pathname = action === "sign_up" ? `/auth/v1/signup?redirect_to=${encodeURIComponent(config.confirmationUrl)}` : "/auth/v1/token?grant_type=password";
       const authBody = action === "sign_up" ? { email, password, data: { display_name: String(input.displayName || "").trim().slice(0, 80) } } : { email, password };
       const { result, payload } = await upstream(config, pathname, { method: "POST", body: JSON.stringify(authBody) });
       if (!result.ok) return json(result.status === 429 ? 429 : 400, { error: payload.msg || payload.error_description || "Anmeldung nicht möglich." });
@@ -116,7 +119,7 @@ export async function POST(request) {
         upstream(config, `/rest/v1/user_app_state?select=*&user_id=eq.${encodeURIComponent(user.id)}&limit=1`, { headers: authHeaders }),
       ]);
       if (!profileResult.result.ok || !stateResult.result.ok) return json(502, { error: "Kontodaten konnten nicht geladen werden." });
-      return json(200, { user: { id: user.id, email: user.email }, profile: profileResult.payload[0] || null, appState: stateResult.payload[0] || null });
+      return json(200, { user: { id: user.id, email: user.email, user_metadata: user.user_metadata || {} }, profile: profileResult.payload[0] || null, appState: stateResult.payload[0] || null });
     }
     if (action === "save") {
       const profile = { user_id: user.id, ...cleanProfile(input.profile), updated_at: new Date().toISOString() };

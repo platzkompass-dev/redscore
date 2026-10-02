@@ -18,7 +18,7 @@ export interface SourceConfig {
   trust_level: SourceTrustLevel;
   allowed_hosts: string[];
   polling_interval_seconds: number;
-  config: { endpoint?: string; canonical_url?: string };
+  config: { endpoint?: string; canonical_url?: string; query?: string };
 }
 
 export interface NormalizedNewsItem {

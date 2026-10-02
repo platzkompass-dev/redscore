@@ -22,8 +22,13 @@ ausgeführt wird.
 
 - DWD WarnWetter JSONP/JSON (amtlich, Abrufintervall 60 Sekunden)
 - GDACS GeoRSS (amtliche internationale Kooperation, Abrufintervall 300 Sekunden)
+- BBK-RSS (amtlich, Abrufintervall 300 Sekunden)
+- BMDS-RSS (amtlich, Abrufintervall 600 Sekunden; nur Sicherheits-/Infrastrukturthemen)
+- GDELT mit Allowlist etablierter Originalquellen (bestätigte Quelle, Abrufintervall 300 Sekunden)
 
-Es werden weder HTML-Scraping noch erfundene Development-Meldungen verwendet.
+Die Quellen werden zentral im Supabase-Backend abgerufen. Es werden weder HTML-Scraping
+noch erfundene Live-Meldungen verwendet. GDELT-Medienfunde bleiben als `verified`
+gekennzeichnet und werden niemals als amtliche Warnung dargestellt.
 
 ## Lokale Serverkonfiguration
 

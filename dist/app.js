@@ -1,5 +1,5 @@
-import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks, verifiedPlaces } from "./data.js";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=1";
+import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=3";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -34,6 +34,7 @@ let state = loadState();
 let warningState = { status: "loading", warnings: [], checkedAt: null, fallback: false };
 let warningRequested = false;
 const LIVE_CACHE_KEY = "redscore-live-lage-v1";
+const PLACES_CACHE_KEY = "redscore-nearby-places-v1";
 const LIVE_REFRESH_MS = 60_000;
 const liveCache = (() => {
   try { return JSON.parse(localStorage.getItem(LIVE_CACHE_KEY) || localStorage.getItem("plans-live-lage-v1")) || {}; }
@@ -52,6 +53,19 @@ let liveState = {
 let liveRequest = null;
 let liveRefreshTimer = null;
 let liveClockTimer = null;
+const placesCache = (() => {
+  try { return JSON.parse(localStorage.getItem(PLACES_CACHE_KEY) || "null"); }
+  catch { return null; }
+})();
+let placesState = {
+  status: navigator.onLine ? "idle" : "offline",
+  key: placesCache?.key || "",
+  center: placesCache?.center || null,
+  places: Array.isArray(placesCache?.places) ? placesCache.places : [],
+  fetchedAt: placesCache?.fetchedAt || null,
+  error: null,
+};
+let placesRequest = null;
 let session = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; } })();
 let syncTimer = null;
 let accountBusy = false;
@@ -122,6 +136,27 @@ function persistSession(value) {
   if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value)); else localStorage.removeItem(SESSION_KEY);
 }
 
+function consumeAuthRedirect() {
+  const query = new URLSearchParams(location.search);
+  const fragment = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : location.hash);
+  const accessToken = fragment.get("access_token");
+  const refreshToken = fragment.get("refresh_token");
+  const confirmed = query.get("auth") === "confirmed";
+  const failed = Boolean(query.get("error") || fragment.get("error"));
+  if (accessToken && refreshToken) {
+    const expiresIn = Math.max(60, Number(fragment.get("expires_in")) || 3600);
+    persistSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: fragment.get("token_type") || "bearer",
+      expires_in: expiresIn,
+      expires_at: Number(fragment.get("expires_at")) || Math.floor(Date.now() / 1000) + expiresIn,
+    });
+  }
+  if (confirmed || failed || (accessToken && refreshToken)) history.replaceState(null, "", "/#/home");
+  return { confirmed: confirmed || Boolean(accessToken && refreshToken), failed };
+}
+
 async function refreshSessionIfNeeded() {
   if (!session?.refresh_token) return false;
   const expiresAt = Number(session.expires_at || 0) * 1000;
@@ -136,15 +171,21 @@ async function loadAccount() {
   const profile = result.profile;
   state.authenticated = true;
   state.profile = {
-    id: result.user.id, email: result.user.email || "", name: profile?.display_name || session.user?.user_metadata?.display_name || "",
-    initials: initials(profile?.display_name || session.user?.user_metadata?.display_name), onboardingCompleted: Boolean(profile?.onboarding_completed),
+    id: result.user.id, email: result.user.email || "", name: profile?.display_name || result.user?.user_metadata?.display_name || session.user?.user_metadata?.display_name || "",
+    initials: initials(profile?.display_name || result.user?.user_metadata?.display_name || session.user?.user_metadata?.display_name), onboardingCompleted: Boolean(profile?.onboarding_completed),
     selectedScene: profile?.selected_scene || "neutral-household",
   };
-  if (profile) state.household = {
+  state.household = profile ? {
     adults: Array.isArray(profile.adults) ? profile.adults : [], children: Number(profile.children_count || 0), pets: Array.isArray(profile.pets) ? profile.pets : [],
     postalCode: profile.postal_code || "", city: profile.city || "", state: profile.state || "", district: profile.district || "",
     location: [profile.postal_code, profile.city].filter(Boolean).join(" "),
-  };
+  } : clone(defaultState.household);
+  state.assessment = clone(defaultState.assessment);
+  state.taskStatus = {};
+  state.supplies = clone(defaultState.supplies);
+  state.supplyDetails = clone(defaultState.supplyDetails);
+  state.settings = clone(defaultState.settings);
+  state.ui = clone(defaultState.ui);
   if (result.appState) {
     state.assessment = { ...state.assessment, ...(result.appState.assessment || {}) };
     state.taskStatus = result.appState.task_status || {};
@@ -252,14 +293,15 @@ function brand(light = false) {
 function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
     ${brand(false)}
-    <nav><button data-legal="about">Über RedScore</button><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button><a href="mailto:${CONTACT_EMAIL}">Kontakt</a></nav>
-    <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe">${icon("knowledge", "bbk-source-icon")}<span><b>BBK</b><small>Orientiert an Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe</small></span></a><p><a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></p>
+    <nav><button data-legal="about">Über RedScore</button><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button></nav>
+    <a class="footer-contact" href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>
+    <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe">${icon("knowledge", "bbk-source-icon")}<span><b>BBK</b><small>Orientiert an Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe</small></span></a>
   </footer>`;
 }
 
 function publicHeader() {
   return `<header class="public-header">${brand(true)}<nav>
-    <button data-scroll="top" class="active">⌂ Start</button><button data-scroll="how">▣ So funktioniert’s</button><button data-route="knowledge">▰ Wissen</button><button data-scroll="about">⌖ Über RedScore</button>
+    <button data-scroll="top" class="active">Start</button><button data-scroll="how">So funktioniert’s</button><button data-route="knowledge">Wissen</button><button data-scroll="about">Über RedScore</button>
   </nav><div class="public-actions"><button class="search-button" aria-label="Suche">⌕</button><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button>${languageControl()}</div></header>`;
 }
 function categoryCard(iconName, title, copy, route) {
@@ -282,7 +324,7 @@ function renderPublic() {
         <div class="trust-row"><span>✓ Kostenlos</span><span>✓ Unverbindlich</span><span>✓ Datenschutzfreundlich</span></div>
       </div>
       <aside class="public-score-card"><small>Dein Vorsorgestand</small><div class="empty-score">–</div><strong>Noch nicht berechnet</strong><p>Erst deine vollständigen Antworten ergeben einen Wert.</p></aside>
-      <div class="script-note">Heute vorbereiten.<br>Morgen sicherer leben.</div>
+      <div class="script-note">Niemand kann es sich leisten,<br>unvorbereitet zu sein.</div>
     </section>
     <section class="public-categories">${categories.map(item => categoryCard(...item)).join("")}</section>
     <section class="public-info" id="about">
@@ -297,9 +339,6 @@ function renderPublic() {
 
 function appHeader(active) {
   return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools">${languageControl()}<button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">${esc(state.profile.initials || initials(state.profile.name))}</button><button class="user-name" data-route="profile">${esc((state.profile.name || "Profil").split(" ")[0])}⌄</button></div></header>`;
-}
-function householdVisual(className = "") {
-  return `<button class="household-visual ${className}" data-edit-household style="--household-image:url('${selectedScene()}')"><span><b>${esc(householdSummary() || "Haushalt einrichten")}</b><small>Passendes RedScore-Motiv aus dem geschützten Bildportfolio · keine privaten Fotos</small></span><strong>Angaben ändern →</strong></button>`;
 }
 function loggedShell(active, content, pageClass = "") {
   document.body.className = "logged-mode";
@@ -512,7 +551,6 @@ function renderHome() {
   const content = `<div class="home-live-layout"><div class="home-core"><section class="dashboard-hero" ${heroPhoto}>
     <div class="dashboard-copy"><h1>Heute vorsorgen.<br><em>Morgen sicherer.</em></h1><p>Krisen kommen oft unerwartet.<br>Sei vorbereitet – für deine Familie,<br>dein Zuhause und deine Zukunft.</p><blockquote>„Sicherheit ist planbar – Schritt für Schritt.“</blockquote></div>
     <div class="dashboard-score">${scoreRing(value, value !== null && value < 50)}<div class="score-message"><strong>${value === null ? "Noch nicht bewertet." : value >= 70 ? "Gut vorbereitet." : "Es gibt wichtige Lücken."}</strong><p>${value === null ? `Beantworte zuerst alle ${relevantAssessmentQuestions().length} Fragen. Wir zeigen niemals einen erfundenen Beispielwert.` : "Der Wert basiert ausschließlich auf deinen Antworten."}</p><button class="${value !== null && value < 50 ? "red" : "green"}" data-open-assessment>${value === null ? "Jetzt ehrlich prüfen" : "Angaben aktualisieren"} →</button></div></div>
-    <div class="dashboard-family">${householdVisual("hero-family")}</div>
   </section>
   <section class="status-grid">
     <button class="status-card ${statusTone}" data-route="warnschutz">${icon("weather-warning", "status-icon")}${warningSummary(true)}<b>›</b></button>
@@ -566,18 +604,58 @@ function renderSupplies() {
   app.innerHTML = loggedShell("supplies", content, "supplies-page");
 }
 
+function mapLocationKey() {
+  return [state.household.postalCode, state.household.city, state.household.state].filter(Boolean).join("|").toLowerCase();
+}
+function storePlacesCache() {
+  try { localStorage.setItem(PLACES_CACHE_KEY, JSON.stringify({ key: placesState.key, center: placesState.center, places: placesState.places, fetchedAt: placesState.fetchedAt })); }
+  catch { /* The online map remains usable without a local cache. */ }
+}
+async function requestNearbyPlaces(force = false) {
+  const key = mapLocationKey();
+  if (!state.authenticated || !state.household.city || !state.household.postalCode || placesRequest) return placesRequest;
+  if (!navigator.onLine) { placesState.status = placesState.places.length && placesState.key === key ? "offline" : "error"; return; }
+  if (!force && placesState.key === key && placesState.places.length && Date.now() - Date.parse(placesState.fetchedAt || 0) < 6 * 60 * 60_000) return;
+  placesState.status = placesState.places.length && placesState.key === key ? "refreshing" : "loading";
+  const params = new URLSearchParams({ postalCode: state.household.postalCode, city: state.household.city, state: state.household.state || "" });
+  placesRequest = fetch(`/api/places?${params}`, { cache: "no-store", headers: { accept: "application/json" } })
+    .then(async response => {
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Ortsdaten nicht verfügbar");
+      placesState = { status: "live", key, center: payload.center, places: Array.isArray(payload.places) ? payload.places : [], fetchedAt: payload.generatedAt || new Date().toISOString(), error: null };
+      storePlacesCache();
+    })
+    .catch(error => { placesState.status = placesState.places.length && placesState.key === key ? "offline" : "error"; placesState.error = error instanceof Error ? error.message : "Ortsdaten nicht verfügbar"; })
+    .finally(() => { placesRequest = null; if (state.authenticated && hashRoute() === "map") renderMap(); });
+  return placesRequest;
+}
+function placeIcon(category) {
+  return ({ Behörden: "profile", Versorgung: "supplies", Gesundheit: "medical", Schutzräume: "home", Hilfe: "weather-warning" })[category] || "map";
+}
+function osmEmbed(center) {
+  if (!center || !navigator.onLine) return "";
+  const lat = Number(center.lat), lon = Number(center.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "";
+  const bbox = [lon - .075, lat - .045, lon + .075, lat + .045].map(value => value.toFixed(6)).join(",");
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat.toFixed(6)}%2C${lon.toFixed(6)}`;
+}
 function renderMap() {
-  const categories = ["Alle", "Behörden", "Versorgung", "Gesundheit", "Schutzräume"];
-  const supportsLocalPlaces = /freiburg/i.test(state.household.city || "");
-  const shown = !supportsLocalPlaces || state.ui.mapFilter === "Schutzräume" ? [] : verifiedPlaces.filter(p => state.ui.mapFilter === "Alle" || p.category === state.ui.mapFilter);
+  const categories = ["Alle", "Behörden", "Versorgung", "Gesundheit", "Hilfe", "Schutzräume"];
+  const currentKey = mapLocationKey();
+  const hasCurrentData = placesState.key === currentKey;
+  const allPlaces = hasCurrentData ? placesState.places : [];
+  const shown = allPlaces.filter(place => state.ui.mapFilter === "Alle" || place.category === state.ui.mapFilter);
   const location = state.household.location || state.household.city || "Standort nicht eingerichtet";
-  const content = `<section class="image-hero shelter-hero"><div><h1>Schutz in deiner Nähe</h1><h2>Verifizierte Orte für den Ernstfall.</h2><p>Nur nachvollziehbare Adressen werden angezeigt. Unbestätigte Schutzraumstandorte erfindet RedScore nicht.</p></div></section>
-    <div class="map-controls"><div>⌖ <b>${esc(location)}</b></div><button data-edit-household>Standort ändern</button><button data-save-offline>${state.settings.offlinePlacesSaved ? "Offline-Liste aktualisieren" : "Offline-Liste speichern"}</button></div>
+  const embed = hasCurrentData ? osmEmbed(placesState.center) : "";
+  const mapStatus = placesState.status === "loading" ? "Orte werden geladen …" : placesState.status === "refreshing" ? "Ortsdaten werden aktualisiert …" : placesState.status === "offline" ? `Offline-Stand ${relativeTime(placesState.fetchedAt)}` : placesState.status === "error" ? (placesState.error || "Ortsdaten nicht verfügbar") : `OpenStreetMap-Daten · ${relativeTime(placesState.fetchedAt)}`;
+  const content = `<section class="image-hero shelter-hero"><div><h1>Schutz in deiner Nähe</h1><h2>Wichtige Anlaufstellen auf einer echten Karte.</h2><p>RedScore zeigt nachvollziehbare Infrastruktur aus OpenStreetMap. Als Schutzraum gilt ein Ort nur, wenn er dort ausdrücklich so gekennzeichnet ist.</p></div></section>
+    <div class="map-controls"><div>⌖ <b>${esc(location)}</b><small>${esc(mapStatus)}</small></div><button data-edit-household>Standort ändern</button><button data-map-refresh>Neu laden</button><button data-save-offline>${state.settings.offlinePlacesSaved ? "Offline-Liste aktualisieren" : "Offline-Liste speichern"}</button></div>
     <div class="filter-row wide">${categories.map(f => `<button data-map-filter="${f}" class="${f===state.ui.mapFilter?"active":""}">${f}</button>`).join("")}</div>
-    <div class="map-layout"><section class="place-list"><h2>Ergebnisse (${shown.length})</h2>${shown.length ? shown.map(place => `<article>${icon(place.icon,"place-icon")}<div><b>${place.name}</b><small>${place.address}</small><em>Quelle: ${place.source}</em></div><a href="https://www.openstreetmap.org/search?query=${encodeURIComponent(place.address)}" target="_blank" rel="noreferrer">Route ↗</a></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>Keine verifizierten öffentlichen Schutzräume</h3><p>Im Ernstfall gelten die Anweisungen der Behörden. Wir erfinden keine Standorte.</p></div>`}</section>
-      <section class="real-map offline-preview" aria-label="Schematische Offline-Übersicht"><svg viewBox="0 0 900 520" aria-hidden="true"><rect width="900" height="520" fill="#173b3b"/><path d="M-50 110 C170 190 315 65 505 145 S730 340 960 250" fill="none" stroke="#285f71" stroke-width="125"/><path d="M-30 92 C170 165 310 48 515 132 S745 326 950 236" fill="none" stroke="#3d8395" stroke-width="6"/><g fill="none" stroke="#51634e" stroke-width="18" opacity=".8"><path d="M40 430 C250 300 330 370 520 265 S740 160 900 175"/><path d="M80 15 C130 175 230 220 380 292 S670 410 845 540"/></g><g fill="none" stroke="#d9c785" stroke-width="5"><path d="M20 430 C260 320 340 350 520 270 S720 180 930 175"/><path d="M90 -20 C155 185 260 228 390 290 S680 410 840 535"/></g><circle cx="520" cy="270" r="62" fill="#22a7ea18" stroke="#38b9f2" stroke-width="3"/><circle cx="520" cy="270" r="11" fill="#1eaef1" stroke="#fff" stroke-width="4"/></svg><div class="map-city-label">${esc(state.household.city || "Dein Standort")}</div><div class="offline-caption"><b>Offline-Übersicht</b><small>Gespeicherte Orte · keine Navigation</small></div>${supportsLocalPlaces ? `<a href="https://www.openstreetmap.org/search?query=${encodeURIComponent(location)}" target="_blank" rel="noreferrer">OpenStreetMap online öffnen ↗</a>` : ""}</section>
-    </div><div class="emergency-bar">⚠ <b>Im Ernstfall:</b> Aktuelle Warnmeldungen und behördliche Anweisungen haben Vorrang. <button data-route="warnschutz">Warnstatus prüfen →</button></div>`;
+    <div class="map-layout"><section class="place-list"><h2>Orte (${shown.length})</h2>${placesState.status === "loading" && !shown.length ? `<div class="no-data map-loading"><span></span><h3>Karte wird vorbereitet</h3><p>Standort und relevante Infrastruktur werden sicher serverseitig abgefragt.</p></div>` : shown.length ? shown.map(place => `<article>${icon(placeIcon(place.category),"place-icon")}<div><b>${esc(place.name)}</b><small>${esc(place.address || place.distanceLabel)}</small><em>${esc(place.category)} · ${esc(place.distanceLabel)} · OpenStreetMap</em></div><a href="${safeExternalUrl(place.routeUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Route zu ${esc(place.name)} öffnen">Route ↗</a></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>${state.household.city ? "Keine passenden Orte gefunden" : "Standort noch nicht eingerichtet"}</h3><p>${state.household.city ? "Wechsle den Filter oder aktualisiere die Suche. Behördlich ausgewiesene Schutzräume sind in Deutschland nur lückenhaft erfasst." : "Ergänze Postleitzahl und Ort in deinen Haushaltsangaben."}</p></div>`}</section>
+      <section class="real-map ${embed ? "online-map" : "offline-map"}" aria-label="Karte wichtiger Anlaufstellen">${embed ? `<iframe src="${embed}" title="OpenStreetMap rund um ${esc(location)}" loading="lazy" referrerpolicy="no-referrer"></iframe><span>© OpenStreetMap-Mitwirkende</span>` : `<div class="map-unavailable">${icon("map","big-icon")}<h3>${navigator.onLine ? "Karte wird geladen" : "Karte offline"}</h3><p>${navigator.onLine ? "Die Kartenansicht erscheint nach dem Ortsabgleich." : "Deine zuletzt gespeicherte Ortsliste bleibt verfügbar. Kartenkacheln benötigen eine Internetverbindung."}</p></div>`}</section>
+    </div><p class="map-source-note">OpenStreetMap-Einträge sind Gemeinschaftsdaten und keine amtliche Bestätigung der Eignung im Katastrophenfall. Prüfe Öffnungszeiten und behördliche Hinweise.</p><div class="emergency-bar">⚠ <b>Im Ernstfall:</b> Aktuelle Warnmeldungen und behördliche Anweisungen haben Vorrang. <button data-route="warnschutz">Warnstatus prüfen →</button></div>`;
   app.innerHTML = loggedShell("map", content, "map-page");
+  requestNearbyPlaces();
 }
 
 function renderWarnschutz() {
@@ -602,7 +680,6 @@ function renderKnowledge() {
 function renderProfile() {
   const petSummary = (state.household.pets || []).map(pet => `${pet.count}× ${pet.label || petLabel(pet.type)}`).join(", ") || "Keine Haustiere";
   const content = `<div class="content-wrap profile-layout"><section><h1>Profil</h1><article class="profile-card"><div class="avatar large">${esc(state.profile.initials)}</div><div><h2>${esc(state.profile.name)}</h2><p>${esc(householdSummary())}</p><small>${esc([state.household.location, state.household.state].filter(Boolean).join(" · "))}</small></div></article>
-    <div class="profile-photo-panel">${householdVisual()}</div>
     <div class="settings-list"><article>${icon("map","row-icon")}<span><b>Standort</b><small>${esc([state.household.location, state.household.district, state.household.state].filter(Boolean).join(" · "))}</small></span></article><article>${icon("profile","row-icon")}<span><b>Haushalt</b><small>${esc(householdSummary())} · ${esc(petSummary)}</small></span></article><article>${icon("settings","row-icon")}<span><b>Datenschutz</b><small>Vorsorgedaten werden kontogebunden gespeichert und bleiben auf diesem Gerät offline verfügbar. RedScore lädt keine privaten Fotos hoch und führt keine Gesichtsanalyse durch.</small></span></article></div>
   </section><aside class="profile-actions"><button class="outline" data-edit-household>Haushalt bearbeiten</button><button class="outline" data-open-assessment>Vorsorgestand neu prüfen</button><button class="red" data-logout>Abmelden</button></aside></div>`;
   app.innerHTML = loggedShell("profile", content, "profile-page");
@@ -627,7 +704,7 @@ function modal() {
   if (state.ui.modal === "onboarding") {
     const adults = state.household.adults?.length || 1;
     const petAmount = type => state.household.pets?.find(pet => pet.type === type)?.count || 0;
-    return `<div class="modal-backdrop"><section class="modal onboarding-modal"><small>ERSTEINRICHTUNG · DEIN HAUSHALT</small><h2>Damit RedScore wirklich zu euch passt</h2><p>Wir fragen nur die Angaben ab, die Mengen, Aufgaben und das passende Haushaltsmotiv beeinflussen. Beziehungsstatus oder sexuelle Orientierung werden nicht erfasst.</p><form data-onboarding-form><div class="onboarding-grid"><label><span>Dein Anzeigename</span><input name="displayName" value="${esc(state.profile.name)}" maxlength="80" autocomplete="name" required></label><label><span>Erwachsene Personen</span><input name="adultCount" type="number" min="1" max="8" value="${adults}" required></label><div class="adult-identities" data-adult-identities>${Array.from({ length: 8 }, (_, index) => `<label class="adult-identity" data-adult-index="${index}" ${index >= adults ? "hidden" : ""}><span>Person ${index + 1} – freiwillige Selbstbezeichnung</span><select name="adultGender${index}" ${index < adults ? "required" : ""}><option value="unspecified">Keine Angabe</option><option value="woman" ${state.household.adults?.[index]?.gender === "woman" ? "selected" : ""}>Frau</option><option value="man" ${state.household.adults?.[index]?.gender === "man" ? "selected" : ""}>Mann</option><option value="diverse" ${state.household.adults?.[index]?.gender === "diverse" ? "selected" : ""}>Divers / nichtbinär</option></select></label>`).join("")}</div><label><span>Kinder im Haushalt</span><input name="children" type="number" min="0" max="12" value="${state.household.children || 0}" required></label><fieldset class="pet-fields"><legend>Haustiere – Anzahl je Art</legend>${[["dog","Hunde"],["cat","Katzen"],["bird","Vögel"],["small_animal","Kleintiere"],["fish","Fische / Aquarien"],["reptile","Reptilien"],["other","Andere Tiere"]].map(([type,label]) => `<label><span>${label}</span><input name="pet_${type}" type="number" min="0" max="20" value="${petAmount(type)}"></label>`).join("")}</fieldset><label><span>Postleitzahl</span><input name="postalCode" inputmode="numeric" pattern="[0-9]{5}" value="${esc(state.household.postalCode)}" required></label><label><span>Ort</span><input name="city" value="${esc(state.household.city)}" maxlength="80" required></label><label><span>Bundesland</span><input name="state" value="${esc(state.household.state)}" maxlength="80" required></label><label><span>Landkreis / Region (optional)</span><input name="district" value="${esc(state.household.district)}" maxlength="100"></label></div><div class="privacy-note">🔒 Keine privaten Fotos. Das angezeigte Motiv stammt aus einem vorab geprüften RedScore-Bildportfolio und wird nur nach Haushaltskonstellation ausgewählt.</div><button class="green full">Haushalt speichern und starten →</button></form></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal onboarding-modal"><small>ERSTEINRICHTUNG · DEIN HAUSHALT</small><h2>Damit RedScore wirklich zu euch passt</h2><p>Wir fragen nur die Angaben ab, die Mengen, Aufgaben und das passende Haushaltsmotiv beeinflussen. Beziehungsstatus oder sexuelle Orientierung werden nicht erfasst.</p><form data-onboarding-form><div class="onboarding-grid"><label><span>Dein Anzeigename</span><input name="displayName" value="${esc(state.profile.name)}" maxlength="80" autocomplete="name" required></label><label><span>Erwachsene Personen</span><input name="adultCount" type="number" min="1" max="8" value="${adults}" required></label><div class="adult-identities" data-adult-identities>${Array.from({ length: 8 }, (_, index) => `<label class="adult-identity" data-adult-index="${index}" ${index >= adults ? "hidden" : ""}><span>Person ${index + 1} – freiwillige Selbstbezeichnung</span><select name="adultGender${index}" ${index < adults ? "required" : ""}><option value="unspecified">Keine Angabe</option><option value="woman" ${state.household.adults?.[index]?.gender === "woman" ? "selected" : ""}>Frau</option><option value="man" ${state.household.adults?.[index]?.gender === "man" ? "selected" : ""}>Mann</option><option value="diverse" ${state.household.adults?.[index]?.gender === "diverse" ? "selected" : ""}>Divers / nichtbinär</option></select></label>`).join("")}</div><label><span>Kinder im Haushalt</span><input name="children" type="number" min="0" max="12" value="${state.household.children || 0}" required></label><fieldset class="pet-fields"><legend>Haustiere – Anzahl je Art</legend>${[["dog","Hunde"],["cat","Katzen"],["bird","Vögel"],["small_animal","Kleintiere"],["fish","Fische / Aquarien"],["reptile","Reptilien"],["other","Andere Tiere"]].map(([type,label]) => `<label><span>${label}</span><input name="pet_${type}" type="number" min="0" max="20" value="${petAmount(type)}"></label>`).join("")}</fieldset><label><span>Postleitzahl</span><input name="postalCode" inputmode="numeric" pattern="[0-9]{5}" value="${esc(state.household.postalCode)}" required></label><label><span>Ort</span><input name="city" value="${esc(state.household.city)}" maxlength="80" required></label><label><span>Bundesland</span><input name="state" value="${esc(state.household.state)}" maxlength="80" required></label><label><span>Landkreis / Region (optional)</span><input name="district" value="${esc(state.household.district)}" maxlength="100"></label></div><button class="green full">Haushalt speichern und starten →</button></form></section></div>`;
   }
   if (state.ui.modal === "assessment") {
     const questions = relevantAssessmentQuestions();
@@ -711,8 +788,9 @@ app.addEventListener("click", async event => {
   if (button.dataset.supplyFilter) { state.ui.supplyFilter = button.dataset.supplyFilter; save(); return render(); }
   if (button.dataset.openSupply) { state.ui.modal = "supply:"+button.dataset.openSupply; return render(); }
   if (button.dataset.mapFilter) { state.ui.mapFilter = button.dataset.mapFilter; save(); return render(); }
+  if (button.matches("[data-map-refresh]")) return requestNearbyPlaces(true);
   if (button.dataset.article) { state.ui.modal = "article:"+button.dataset.article; return render(); }
-  if (button.matches("[data-save-offline]")) { state.settings.offlinePlacesSaved = true; save(); toast("Die verifizierte Ortsliste ist lokal gespeichert. Die Kartenkacheln bleiben online."); return render(); }
+  if (button.matches("[data-save-offline]")) { state.settings.offlinePlacesSaved = true; storePlacesCache(); save(); toast("Die aktuelle Ortsliste ist offline gespeichert. Kartenkacheln benötigen weiterhin Internet."); return render(); }
   if (button.matches("[data-notifications]")) {
     if (!("Notification" in window)) return toast("Dieser Browser unterstützt keine Web-Mitteilungen.");
     const permission = await Notification.requestPermission();
@@ -795,16 +873,21 @@ app.addEventListener("change", event => {
 });
 
 window.addEventListener("hashchange", render);
-window.addEventListener("offline", () => { liveState.status = "offline"; if (state.authenticated && hashRoute() === "home") render(); });
-window.addEventListener("online", () => { if (state.authenticated) { requestLiveLage(true); syncAccount().catch(() => {}); } });
+window.addEventListener("offline", () => { liveState.status = "offline"; placesState.status = placesState.places.length ? "offline" : "error"; if (state.authenticated && ["home","map"].includes(hashRoute())) render(); });
+window.addEventListener("online", () => { if (state.authenticated) { requestLiveLage(true); if (hashRoute() === "map") requestNearbyPlaces(true); syncAccount().catch(() => {}); } });
 liveClockTimer = setInterval(updateLiveClock, 1000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 async function initialize() {
+  const authRedirect = consumeAuthRedirect();
   if (session) {
     try { await loadAccount(); if (!state.profile.onboardingCompleted) state.ui.modal = "onboarding"; }
     catch { persistSession(null); state.authenticated = false; }
   }
+  if (authRedirect.failed) state.ui.modal = "login";
+  else if (authRedirect.confirmed && !state.authenticated) state.ui.modal = "login";
   render();
+  if (authRedirect.failed) toast("Der Bestätigungslink ist ungültig oder abgelaufen.");
+  else if (authRedirect.confirmed) toast(state.authenticated ? "E-Mail bestätigt. Willkommen bei RedScore." : "E-Mail bestätigt. Du kannst dich jetzt anmelden.");
 }
 initialize();
 

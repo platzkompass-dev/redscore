@@ -5,11 +5,13 @@ import { POST } from "../api/account.js";
 const originalFetch = globalThis.fetch;
 const originalUrl = process.env.SUPABASE_URL;
 const originalKey = process.env.SUPABASE_ANON_KEY;
+const originalSiteUrl = process.env.PUBLIC_SITE_URL;
 
 test.afterEach(() => {
   globalThis.fetch = originalFetch;
   if (originalUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = originalUrl;
   if (originalKey === undefined) delete process.env.SUPABASE_ANON_KEY; else process.env.SUPABASE_ANON_KEY = originalKey;
+  if (originalSiteUrl === undefined) delete process.env.PUBLIC_SITE_URL; else process.env.PUBLIC_SITE_URL = originalSiteUrl;
 });
 
 test("rejects invalid registration before contacting Supabase", async () => {
@@ -38,6 +40,28 @@ test("proxies password sign-in only to the configured Supabase auth endpoint", a
   assert.equal(response.status, 200);
   assert.equal(calledUrl, "https://example.supabase.co/auth/v1/token?grant_type=password");
   assert.equal((await response.json()).session.access_token, "access");
+});
+
+test("sends new account confirmations to the configured public RedScore URL", async () => {
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY = "publishable-test-key";
+  process.env.PUBLIC_SITE_URL = "https://www.redscore.de";
+  let calledUrl = "";
+  let calledBody;
+  globalThis.fetch = async (url, options) => {
+    calledUrl = String(url);
+    calledBody = JSON.parse(options.body);
+    return Response.json({ id: "new-user", email: "new@example.org" });
+  };
+  const response = await POST(new Request("https://www.redscore.de/api/account", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "sign_up", email: "new@example.org", password: "valid-password", displayName: "New User" }),
+  }));
+  assert.equal(response.status, 200);
+  const upstreamUrl = new URL(calledUrl);
+  assert.equal(upstreamUrl.pathname, "/auth/v1/signup");
+  assert.equal(upstreamUrl.searchParams.get("redirect_to"), "https://www.redscore.de/?auth=confirmed");
+  assert.deepEqual(calledBody, { email: "new@example.org", password: "valid-password", data: { display_name: "New User" } });
+  assert.equal((await response.json()).confirmationRequired, true);
 });
 
 test("requires a valid user token before profile data is loaded", async () => {
