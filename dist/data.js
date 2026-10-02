@@ -1,6 +1,7 @@
 export const navItems = [
   { id: "home", icon: "home", label: "Start" },
   { id: "supplies", icon: "supplies", label: "Vorräte" },
+  { id: "packliste", icon: "backpack", label: "Packliste" },
   { id: "map", icon: "map", label: "Schutz in deiner Nähe" },
   { id: "warnschutz", icon: "radio", label: "Warnschutz" },
   { id: "knowledge", icon: "knowledge", label: "Wissen" },

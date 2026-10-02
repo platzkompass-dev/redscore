@@ -180,6 +180,7 @@ const EN = new Map(Object.entries({
   "Packliste öffnen": "Open packing list",
   "Alles Wichtige griffbereit.": "Everything important within reach.",
   "Notfallrucksack": "Emergency backpack",
+  "Packliste": "Packing list",
   "Packe nur, was du selbst tragen kannst. Hake ab, was bereits vorhanden und einsatzbereit ist.": "Pack only what you can carry yourself. Check off what is already available and ready to use.",
   "Offizielle BBK-Empfehlungen öffnen": "Open official BBK recommendations",
   "geprüft": "checked",

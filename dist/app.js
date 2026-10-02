@@ -321,7 +321,6 @@ function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
     ${brand(false)}
     <nav><button data-legal="about">Über RedScore</button><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button></nav>
-    <a class="footer-contact" href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>
     <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe">${icon("knowledge", "bbk-source-icon")}<span><b>BBK</b><small>Orientiert an Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe</small></span></a>
   </footer>`;
 }
@@ -635,7 +634,7 @@ function renderPacklist() {
   const readyText = percent === 100 ? "Dein Rucksack ist vollständig geprüft." : `${total - checked} ${total - checked === 1 ? "Punkt fehlt" : "Punkte fehlen noch"}.`;
   const content = `<section class="subhero compact packlist-hero"><div><small>BBK-ORIENTIERT · PERSÖNLICH</small><h1>Notfallrucksack</h1><h2>Alles Wichtige griffbereit.</h2><p>Packe nur, was du selbst tragen kannst. Hake ab, was bereits vorhanden und einsatzbereit ist.</p><a href="${sources.bbkBag}" target="_blank" rel="noreferrer">Offizielle BBK-Empfehlungen öffnen →</a></div></section>
     <div class="content-wrap packlist-layout"><aside class="packlist-visual"><div class="pack-visual-art">${icon("backpack", "pack-bag-icon")}</div><div class="pack-ring" style="--pack-progress:${percent * 3.6}deg"><strong>${percent}%</strong><small>geprüft</small></div><h2>${checked} von ${total} bereit</h2><p>${readyText}</p><div class="bar"><i style="width:${percent}%"></i></div><small class="packlist-note">Die Liste wird lokal gespeichert und mit deinem Konto synchronisiert. Sie ersetzt keine individuelle Beratung.</small></aside><section class="packlist-content"><div class="packlist-toolbar"><form data-pack-search><label><span>Packliste durchsuchen</span><input name="query" value="${esc(state.ui.packSearch)}" placeholder="z. B. Medikamente"></label><button class="outline">Suchen</button></form><div class="filter-row pack-filters">${categories.map(category => `<button data-pack-filter="${category}" class="${category===state.ui.packFilter?"active":""}">${category}</button>`).join("")}</div></div><div class="packlist-summary"><span>${shown.length} ${shown.length === 1 ? "Eintrag" : "Einträge"}</span><span>${checked} abgehakt · ${total - checked} offen</span></div><div class="pack-items">${shown.length ? shown.map(packItemCard).join("") : `<div class="no-data">${icon("backpack", "big-icon")}<h3>Keine Einträge gefunden</h3><p>Ändere die Suche oder wähle eine andere Kategorie.</p></div>`}</div></section></div>`;
-  app.innerHTML = loggedShell("plan", content, "packlist-page");
+  app.innerHTML = loggedShell("packliste", content, "packlist-page");
 }
 
 function renderSupplies() {
