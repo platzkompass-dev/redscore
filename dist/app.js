@@ -315,7 +315,7 @@ function languageControl() {
   return `<div class="language-switcher"><button class="language-flag" data-language-toggle aria-label="${language === "de" ? "Sprache auswählen" : "Select language"}" aria-expanded="${languageMenuOpen}"><span class="flag-icon flag-${language}" aria-hidden="true"></span></button><div class="language-menu" ${languageMenuOpen ? "" : "hidden"}><button data-language="de" class="${language === "de" ? "active" : ""}"><span class="flag-icon flag-de" aria-hidden="true"></span> Deutsch</button><button data-language="en" class="${language === "en" ? "active" : ""}"><span class="flag-icon flag-en" aria-hidden="true"></span> English</button></div></div>`;
 }
 function brand(light = false) {
-  return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png" alt="" /><span><em>Red</em>Score</span><small>DEIN VORSPRUNG IM ERNSTFALL</small></button>`;
+  return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png?v=5" alt="" /><span><em>Red</em>Score</span><small>DEIN VORSPRUNG IM ERNSTFALL</small></button>`;
 }
 function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
