@@ -105,7 +105,7 @@ $g.DrawImage($source, [System.Drawing.Rectangle]::new(50, 85, 460, 460))
 
 $fontFamily = "Segoe UI"
 $brandFont = [System.Drawing.Font]::new($fontFamily, 82, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$claimFont = [System.Drawing.Font]::new($fontFamily, 28, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+$claimFont = [System.Drawing.Font]::new($fontFamily, 24, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
 $detailFont = [System.Drawing.Font]::new($fontFamily, 22, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $red = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#ff2838"))
 $white = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
@@ -113,7 +113,7 @@ $muted = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::From
 $g.DrawString("Red", $brandFont, $red, 535, 210)
 $redWidth = $g.MeasureString("Red", $brandFont).Width
 $g.DrawString("Score", $brandFont, $white, 535 + $redWidth - 8, 210)
-$g.DrawString("DEIN VORSPRUNG IM ERNSTFALL", $claimFont, $white, 542, 320)
+$g.DrawString("Weil der Ernstfall nicht fragt, ob du bereit bist.", $claimFont, $white, 542, 320)
 $g.DrawString("Wissen · Planen · Sicher leben", $detailFont, $muted, 542, 372)
 
 $linePen = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml("#ff2838"), 5)

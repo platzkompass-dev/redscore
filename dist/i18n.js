@@ -2,6 +2,7 @@ const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
   "DEIN VORSPRUNG IM ERNSTFALL": "YOUR EDGE IN AN EMERGENCY",
+  "Weil der Ernstfall nicht fragt, ob du bereit bist.": "Because emergencies do not ask whether you are ready.",
   "Start": "Home",
   "Mein Plan": "My plan",
   "Vorräte": "Supplies",
@@ -10,6 +11,7 @@ const EN = new Map(Object.entries({
   "Trage deine tatsächlichen Bestände ein.": "Enter your actual supplies.",
   "Aus deinen selbst eingetragenen Beständen berechnet.": "Calculated from the supplies you entered.",
   "Schutz in deiner Nähe": "Protection near you",
+  "Schutz in deiner Nähe auf einer echten Karte.": "Protection near you on a real map.",
   "Warnschutz": "Alerts",
   "Wissen": "Knowledge",
   "Profil": "Profile",
@@ -574,7 +576,7 @@ function replaceNodeText(node) {
 export function applyLanguage(root = document) {
   const language = getLanguage();
   document.documentElement.lang = language;
-  document.title = language === "en" ? "RedScore – Prepared for emergencies" : "RedScore – Sicher vorbereitet";
+  document.title = language === "en" ? "RedScore - Are you prepared?" : "RedScore - Bist du vorbereitet?";
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = language === "en"
     ? "RedScore helps people prepare for disasters, supply disruptions and emergencies."

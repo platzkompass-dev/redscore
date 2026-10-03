@@ -1,5 +1,5 @@
-import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=2";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=7";
+import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=3";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=8";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -310,13 +310,13 @@ function navigate(route) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-const routeLabel = route => ({ home: "Start", plan: "Mein Plan", packliste: "Notfallrucksack", supplies: "Vorräte", map: "Schutz in deiner Nähe", warnschutz: "Warnschutz", knowledge: "Wissen", profile: "Profil" })[route] || "Start";
+const routeLabel = route => ({ home: "Start", plan: "Mein Plan", packliste: "Notfallrucksack", supplies: "Vorräte", map: "SafePlaces", warnschutz: "Warnschutz", knowledge: "Wissen", profile: "Profil" })[route] || "Start";
 function languageControl() {
   const language = getLanguage();
   return `<div class="language-switcher"><button class="language-flag" data-language-toggle aria-label="${language === "de" ? "Sprache auswählen" : "Select language"}" aria-expanded="${languageMenuOpen}"><span class="flag-icon flag-${language}" aria-hidden="true"></span></button><div class="language-menu" ${languageMenuOpen ? "" : "hidden"}><button data-language="de" class="${language === "de" ? "active" : ""}"><span class="flag-icon flag-de" aria-hidden="true"></span> Deutsch</button><button data-language="en" class="${language === "en" ? "active" : ""}"><span class="flag-icon flag-en" aria-hidden="true"></span> English</button></div></div>`;
 }
 function brand(light = false) {
-  return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png?v=5" alt="" /><span><em>Red</em>Score</span><small>DEIN VORSPRUNG IM ERNSTFALL</small></button>`;
+  return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png?v=5" alt="" /><span><em>Red</em>Score</span><small>Weil der Ernstfall nicht fragt, ob du bereit bist.</small></button>`;
 }
 function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
@@ -339,7 +339,7 @@ function renderPublic() {
   const categories = [
     ["supplies", "Vorräte", "Reichen deine Vorräte für den Ernstfall?", "supplies"],
     ["home", "Zuhause & Notfall", "Wie sicher ist dein Zuhause?", "plan"],
-    ["map", "Schutz in deiner Nähe", "Kennst du wichtige Orte in deiner Umgebung?", "map"],
+    ["map", "SafePlaces", "Kennst du wichtige Orte in deiner Umgebung?", "map"],
     ["radio", "Warnschutz", "Erhältst du rechtzeitig Warnungen?", "warnschutz"],
     ["knowledge", "Wissen", "Weißt du, was im Ernstfall zu tun ist?", "knowledge"],
     ["profile", "Familie", "Ist deine Familie eingebunden und vorbereitet?", "profile"],
@@ -590,7 +590,7 @@ function renderHome() {
   </section>
   <section class="feature-row">${[
     ["pantry.png","Vorräte","Bestände selbst erfassen.","supplies"],
-    ["shelter.png","Schutz in deiner Nähe","Verifizierte Anlaufstellen.","map"],
+    ["shelter.png","SafePlaces","Verifizierte Anlaufstellen.","map"],
     ["warning-storm.png","Warnschutz","DWD-Status und Warnwege.","warnschutz"],
     ["knowledge.png","Wissen","Offizielle Hinweise verständlich.","knowledge"],
   ].map(([img,title,copy,route]) => `<button data-route="${route}" style="--feature:url('assets/${img}')"><span><b>${title}</b><small>${copy}</small></span><strong>›</strong></button>`).join("")}</section></div>${liveLagePanel()}</div>`;
@@ -752,7 +752,7 @@ function renderMap() {
     ${mapRouteState.status === "loading" ? `<p><i></i> Fahrtroute wird innerhalb von RedScore berechnet …</p>` : mapRouteState.status === "ready" ? `<p><strong>${routeDistance(mapRouteState.route.distanceMeters)}</strong><strong>${routeDuration(mapRouteState.route.durationSeconds)}</strong><small>PKW-Route · ${esc(mapRouteState.route.source)}</small></p>` : `<p class="route-error">${esc(mapRouteState.error || "Route nicht verfügbar")}</p>`}
     <button data-map-route-close aria-label="Routenansicht schließen">×</button>
   </article>` : "";
-  const content = `<section class="image-hero shelter-hero"><div><h1>Schutz in deiner Nähe</h1><h2>Wichtige Anlaufstellen auf einer echten Karte.</h2><p>RedScore zeigt nachvollziehbare Infrastruktur aus OpenStreetMap. Als Schutzraum gilt ein Ort nur, wenn er dort ausdrücklich so gekennzeichnet ist.</p></div></section>
+  const content = `<section class="image-hero shelter-hero"><div><h1>SafePlaces</h1><h2>Schutz in deiner Nähe auf einer echten Karte.</h2><p>RedScore zeigt nachvollziehbare Infrastruktur aus OpenStreetMap. Als Schutzraum gilt ein Ort nur, wenn er dort ausdrücklich so gekennzeichnet ist.</p></div></section>
     <div class="map-controls"><div>⌖ <b>${esc(location)}</b><small>${esc(mapStatus)}</small></div><button data-edit-household>Standort ändern</button><button data-map-refresh>Neu laden</button><button data-save-offline>${state.settings.offlinePlacesSaved ? "Offline-Liste aktualisieren" : "Offline-Liste speichern"}</button></div>
     <div class="filter-row wide">${categories.map(f => `<button data-map-filter="${f}" class="${f===state.ui.mapFilter?"active":""}">${f}</button>`).join("")}</div>
     <div class="map-layout"><section class="place-list"><h2>Orte (${shown.length})</h2>${placesState.status === "loading" && !shown.length ? `<div class="no-data map-loading"><span></span><h3>Karte wird vorbereitet</h3><p>Standort und relevante Infrastruktur werden sicher serverseitig abgefragt.</p></div>` : shown.length ? shown.map(place => `<article class="${place.id === mapRouteState.placeId ? "route-selected" : ""}">${icon(placeIcon(place.category),"place-icon")}<div><b>${esc(place.name)}</b><small>${esc(place.address || place.distanceLabel)}</small><em>${esc(place.category)} · ${esc(place.distanceLabel)} · OpenStreetMap</em></div><button data-map-route="${esc(place.id)}" aria-label="Route zu ${esc(place.name)} innerhalb von RedScore anzeigen">${place.id === mapRouteState.placeId ? "Ausgewählt" : "Route"} →</button></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>${state.household.city ? "Keine passenden Orte gefunden" : "Standort noch nicht eingerichtet"}</h3><p>${state.household.city ? "Wechsle den Filter oder aktualisiere die Suche. Behördlich ausgewiesene Schutzräume sind in Deutschland nur lückenhaft erfasst." : "Ergänze Postleitzahl und Ort in deinen Haushaltsangaben."}</p></div>`}</section>
