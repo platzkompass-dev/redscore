@@ -1,5 +1,5 @@
-import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=3";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=8";
+import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=4";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=9";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -11,6 +11,34 @@ const esc = (value = "") => String(value).replace(/[&<>'"]/g, c => ({ "&": "&amp
 const icon = (name, className = "icon3d") => `<img class="${className}" src="assets/icons-3d/${name}.png" alt="" />`;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 const fmt = n => new Intl.NumberFormat(getLanguage() === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 1 }).format(n);
+const customSupplyCategories = ["Versorgung", "Gesundheit", "Haushalt", "Sonstiges"];
+
+function normalizeCustomSupplies(items) {
+  if (!Array.isArray(items)) return [];
+  return items.slice(0, 100).map((item, index) => {
+    const quantity = Number(item?.quantity);
+    const category = customSupplyCategories.includes(item?.category) ? item.category : "Sonstiges";
+    return {
+      id: /^custom-[a-z0-9-]{4,80}$/i.test(String(item?.id || "")) ? String(item.id) : `custom-imported-${index}`,
+      label: String(item?.label || "").trim().slice(0, 80),
+      category,
+      quantity: Number.isFinite(quantity) ? clamp(quantity, 0, 999999) : 0,
+      unit: String(item?.unit || "Stück").trim().slice(0, 30) || "Stück",
+      note: String(item?.note || "").trim().slice(0, 160),
+      createdAt: String(item?.createdAt || new Date().toISOString()),
+      updatedAt: String(item?.updatedAt || item?.createdAt || new Date().toISOString()),
+    };
+  }).filter(item => item.label);
+}
+
+function createCustomSupplyId() {
+  const token = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `custom-${token}`;
+}
+
+function customSupplyIcon(category) {
+  return ({ Versorgung: "supplies", Gesundheit: "medical", Haushalt: "household", Sonstiges: "special" })[category] || "special";
+}
 
 function loadState() {
   try {
@@ -25,6 +53,7 @@ function loadState() {
       assessment: { ...defaultState.assessment, ...saved.assessment },
       supplies: { ...defaultState.supplies, ...saved.supplies },
       supplyDetails: { ...defaultState.supplyDetails, ...saved.supplyDetails },
+      customSupplies: normalizeCustomSupplies(saved.customSupplies),
       settings: { ...defaultState.settings, ...saved.settings },
       packlist: { ...defaultState.packlist, ...saved.packlist },
       ui: { ...defaultState.ui, ...saved.ui },
@@ -205,6 +234,7 @@ async function loadAccount() {
   state.taskStatus = {};
   state.supplies = clone(defaultState.supplies);
   state.supplyDetails = clone(defaultState.supplyDetails);
+  state.customSupplies = clone(defaultState.customSupplies);
   state.settings = clone(defaultState.settings);
   state.packlist = clone(defaultState.packlist);
   state.ui = clone(defaultState.ui);
@@ -213,6 +243,7 @@ async function loadAccount() {
     state.taskStatus = result.appState.task_status || {};
     state.supplies = { ...state.supplies, ...(result.appState.supplies || {}) };
     state.supplyDetails = result.appState.supply_details || {};
+    state.customSupplies = normalizeCustomSupplies(result.appState.custom_supplies);
     state.settings = { ...state.settings, ...(result.appState.settings || {}) };
     state.packlist = { ...state.packlist, ...(result.appState.packlist || {}) };
   }
@@ -229,7 +260,7 @@ async function syncAccount() {
       postal_code: state.household.postalCode, city: state.household.city, state: state.household.state, district: state.household.district,
       onboarding_completed: state.profile.onboardingCompleted, selected_scene: state.profile.selectedScene,
     },
-    appState: { assessment: state.assessment, task_status: state.taskStatus, supplies: state.supplies, supply_details: state.supplyDetails, packlist: state.packlist, settings: state.settings },
+    appState: { assessment: state.assessment, task_status: state.taskStatus, supplies: state.supplies, supply_details: state.supplyDetails, custom_supplies: normalizeCustomSupplies(state.customSupplies), packlist: state.packlist, settings: state.settings },
   });
 }
 function toast(message) {
@@ -640,16 +671,20 @@ function renderPacklist() {
 
 function renderSupplies() {
   const percent = supplyPercent();
-  const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt"];
+  const customSupplies = normalizeCustomSupplies(state.customSupplies);
+  const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt", ...(customSupplies.some(item => item.category === "Sonstiges") ? ["Sonstiges"] : [])];
   const relevantGroups = supplyGroups.filter(group => group.id !== "pet" || petCount() > 0);
   const shownGroups = relevantGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
+  const shownCustomSupplies = customSupplies.filter(item => state.ui.supplyFilter === "Alle" || item.category === state.ui.supplyFilter);
   const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
     <div class="content-wrap supplies-layout"><aside class="side-card supply-progress-card"><small>VORRATSFORTSCHRITT</small><strong>${percent === null ? "Noch nicht erfasst" : `${percent} %`}</strong><div class="bar"><i style="width:${percent === null ? 0 : percent}%"></i></div><p>${percent === null ? "Trage deine tatsächlichen Bestände ein." : "Aus deinen selbst eingetragenen Beständen berechnet."}</p><button class="outline" data-open-supply="water">Jetzt erfassen</button></aside>
     <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>${esc(householdSummary())}</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b> · <button data-edit-household>Angaben ändern</button></p></div></article>
-      <div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div>
+      <div class="supply-toolbar"><div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div><button class="green add-supply-button" data-add-custom-supply>+ Eigenen Vorrat hinzufügen</button></div>
       <div class="supply-table"><div class="table-head"><span>Bereich</span><span>BBK-orientiertes Ziel</span><span>Dein Bestand</span><span></span></div>
-        ${shownGroups.map(group => { const val = state.supplies[group.id]; const complete = val !== null && val >= supplyTarget(group); return `<article><div>${icon(group.icon,"row-icon")}<span><b>${group.label}</b><small>${supplyNote(group)}</small></span></div><strong>${supplyTargetLabel(group)}</strong><span class="${complete?"complete":val===null?"unknown":"partial"}">${supplyValueLabel(group,val)}</span><button data-open-supply="${group.id}">Bearbeiten</button></article>`; }).join("")}</div>
-      <p class="source-note">Ziele sind Orientierung, kein amtliches Prüfsiegel. Medikamente und Sonderbedarf individuell abstimmen.</p>
+        ${shownGroups.map(group => { const val = state.supplies[group.id]; const complete = val !== null && val >= supplyTarget(group); return `<article><div>${icon(group.icon,"row-icon")}<span><b>${group.label}</b><small>${supplyNote(group)}</small></span></div><strong>${supplyTargetLabel(group)}</strong><span class="${complete?"complete":val===null?"unknown":"partial"}">${supplyValueLabel(group,val)}</span><button data-open-supply="${group.id}">Bearbeiten</button></article>`; }).join("")}
+        ${shownCustomSupplies.map(item => `<article class="custom-supply-row"><div>${icon(customSupplyIcon(item.category),"row-icon")}<span><b>${esc(item.label)}</b><small>${esc(item.note || item.category)}</small></span></div><strong><span class="custom-supply-badge">Eigener Eintrag</span></strong><span class="complete">${fmt(item.quantity)} ${esc(item.unit)}</span><button data-edit-custom-supply="${esc(item.id)}">Bearbeiten</button></article>`).join("")}
+        ${!shownGroups.length && !shownCustomSupplies.length ? `<div class="supply-empty"><p>In dieser Kategorie gibt es noch keine Einträge.</p><button class="outline" data-add-custom-supply>Eigenen Vorrat hinzufügen</button></div>` : ""}</div>
+      <p class="source-note">Ziele sind Orientierung, kein amtliches Prüfsiegel. Medikamente und Sonderbedarf individuell abstimmen. Eigene Einträge ergänzen deine persönliche Liste, verändern aber keine BBK-orientierten Ziele und fließen nicht in den RedScore ein.</p>
     </section></div>`;
   app.innerHTML = loggedShell("supplies", content, "supplies-page");
 }
@@ -815,6 +850,13 @@ function modal() {
     const answered = questions.filter(([id]) => typeof state.assessment.answers[id] === "boolean").length;
     return `<div class="modal-backdrop"><section class="modal assessment-modal"><button class="modal-close" data-close-modal>×</button><small>TRANSPARENTE EIGENE AUSWERTUNG</small><h2>RedScore Vorsorge-Check</h2><p>Beantworte alle Fragen ehrlich. Jede Ja-Antwort zählt gleich; unbeantwortete Fragen erzeugen keinen Score.</p><div class="assessment-progress">${answered} von ${questions.length} beantwortet</div><div class="question-list">${questions.map(([id,q,hint],i) => `<article><b>${i+1}</b><div><strong>${q}</strong><small>${hint}</small></div><div><button data-answer="${id}:true" class="${state.assessment.answers[id]===true?"yes":""}">Ja</button><button data-answer="${id}:false" class="${state.assessment.answers[id]===false?"no":""}">Nein</button></div></article>`).join("")}</div><button class="green full" data-finish-assessment ${answered < questions.length ? "disabled" : ""}>Auswertung berechnen</button><a href="${sources.bbkChecklist}" target="_blank">Grundlage: BBK-Ratgeber und Checkliste ↗</a></section></div>`;
   }
+  if (state.ui.modal.startsWith("custom-supply:")) {
+    const id = state.ui.modal.slice("custom-supply:".length);
+    const item = id === "new" ? null : normalizeCustomSupplies(state.customSupplies).find(entry => entry.id === id);
+    if (id !== "new" && !item) return "";
+    const selectedCategory = item?.category || (customSupplyCategories.includes(state.ui.supplyFilter) && state.ui.supplyFilter !== "Alle" ? state.ui.supplyFilter : "Versorgung");
+    return `<div class="modal-backdrop"><section class="modal supply-modal custom-supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(customSupplyIcon(selectedCategory),"modal-icon")}<small>PERSÖNLICHER VORRAT</small><h2>${item ? "Eigenen Eintrag bearbeiten" : "Eigenen Vorrat hinzufügen"}</h2><p>Ergänze Dinge, die für deinen Haushalt wichtig sind, mit ihrer tatsächlichen Menge.</p><form data-custom-supply-form="${item ? esc(item.id) : "new"}"><label><span>Bezeichnung</span><input name="label" value="${esc(item?.label || "")}" maxlength="80" placeholder="z. B. Babynahrung" required></label><label><span>Kategorie</span><select name="category" required>${customSupplyCategories.map(category => `<option value="${category}" ${category === selectedCategory ? "selected" : ""}>${category}</option>`).join("")}</select></label><div class="custom-supply-quantity"><label><span>Menge</span><input name="quantity" type="number" min="0" max="999999" step="0.1" inputmode="decimal" value="${item ? esc(item.quantity) : ""}" placeholder="0" required></label><label><span>Einheit</span><input name="unit" list="supply-unit-options" value="${esc(item?.unit || "Stück")}" maxlength="30" placeholder="Stück" required><datalist id="supply-unit-options"><option value="Stück"><option value="Liter"><option value="kg"><option value="g"><option value="Packungen"><option value="Dosen"><option value="Flaschen"><option value="Tage"><option value="Sets"></datalist></label></div><label><span>Notiz (optional)</span><input name="note" value="${esc(item?.note || "")}" maxlength="160" placeholder="z. B. kühl und trocken lagern"></label><button class="green full">Eintrag speichern</button>${item ? `<button class="delete-custom-supply" type="button" data-delete-custom-supply="${esc(item.id)}">Eintrag löschen</button>` : ""}</form><em>Eigene Einträge werden offline gespeichert und mit deinem Konto synchronisiert. Sie verändern den RedScore nicht.</em></section></div>`;
+  }
   if (state.ui.modal.startsWith("supply:")) {
     const id = state.ui.modal.split(":")[1], group = supplyGroups.find(g => g.id === id), value = state.supplies[id];
     return `<div class="modal-backdrop"><section class="modal supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(group.icon,"modal-icon")}<small>ECHTEN BESTAND EINTRAGEN</small><h2>${group.label}</h2><p>Ziel: ${supplyTargetLabel(group)}<br>${supplyNote(group)}</p><form data-supply-form="${id}">${supplyInput(group,value)}<button class="green full">Speichern</button></form><em>Der Wert wird lokal offline gespeichert und mit deinem RedScore-Konto synchronisiert.</em></section></div>`;
@@ -894,6 +936,13 @@ app.addEventListener("click", async event => {
   if (button.dataset.planFilter) { state.ui.planFilter = button.dataset.planFilter; save(); return render(); }
   if (button.dataset.supplyFilter) { state.ui.supplyFilter = button.dataset.supplyFilter; save(); return render(); }
   if (button.dataset.openSupply) { state.ui.modal = "supply:"+button.dataset.openSupply; return render(); }
+  if (button.matches("[data-add-custom-supply]")) { state.ui.modal = "custom-supply:new"; return render(); }
+  if (button.dataset.editCustomSupply) { state.ui.modal = `custom-supply:${button.dataset.editCustomSupply}`; return render(); }
+  if (button.dataset.deleteCustomSupply) {
+    if (!globalThis.confirm(translateText("Möchtest du diesen eigenen Eintrag wirklich löschen?"))) return;
+    state.customSupplies = normalizeCustomSupplies(state.customSupplies).filter(item => item.id !== button.dataset.deleteCustomSupply);
+    state.ui.modal = null; save(); toast("Eigener Eintrag wurde gelöscht."); return render();
+  }
   if (button.dataset.mapFilter) { state.ui.mapFilter = button.dataset.mapFilter; save(); return render(); }
   if (button.dataset.mapRoute) return requestPlaceRoute(button.dataset.mapRoute);
   if (button.matches("[data-map-route-close]")) { mapRouteState = { status: "idle", placeId: null, route: null, error: null }; return renderMap(); }
@@ -955,7 +1004,25 @@ app.addEventListener("submit", async event => {
     if (!Number.isFinite(value) || value < 0) return;
     state.supplies[form.dataset.supplyForm] = value;
     if (group.inputMode === "packages") state.supplyDetails[group.id] = { containerCount: Number(formData.get("containerCount")), containerSize: Number(formData.get("containerSize")) };
-    state.ui.modal = null; save(); toast("Tatsächlicher Bestand gespeichert."); render();
+    state.ui.modal = null; save(); toast("Tatsächlicher Bestand gespeichert."); return render();
+  }
+  if (form.dataset.customSupplyForm) {
+    const formData = new FormData(form);
+    const label = String(formData.get("label") || "").trim().slice(0, 80);
+    const categoryValue = String(formData.get("category") || "");
+    const category = customSupplyCategories.includes(categoryValue) ? categoryValue : "Sonstiges";
+    const quantity = Number(formData.get("quantity"));
+    const unit = String(formData.get("unit") || "").trim().slice(0, 30);
+    const note = String(formData.get("note") || "").trim().slice(0, 160);
+    if (!label || !unit || !Number.isFinite(quantity) || quantity < 0 || quantity > 999999) return toast("Bitte Bezeichnung, Menge und Einheit vollständig angeben.");
+    const items = normalizeCustomSupplies(state.customSupplies);
+    const existingIndex = items.findIndex(item => item.id === form.dataset.customSupplyForm);
+    const now = new Date().toISOString();
+    const entry = { id: existingIndex >= 0 ? items[existingIndex].id : createCustomSupplyId(), label, category, quantity, unit, note, createdAt: existingIndex >= 0 ? items[existingIndex].createdAt : now, updatedAt: now };
+    if (existingIndex >= 0) items[existingIndex] = entry; else items.push(entry);
+    state.customSupplies = items;
+    state.ui.supplyFilter = category;
+    state.ui.modal = null; save(); toast("Eigener Vorrat wurde gespeichert."); return render();
   }
   if (form.matches("[data-knowledge-search]")) { state.ui.knowledgeSearch = new FormData(form).get("query").trim(); save(); render(); }
   if (form.matches("[data-pack-search]")) { state.ui.packSearch = String(new FormData(form).get("query") || "").trim(); save(); render(); }

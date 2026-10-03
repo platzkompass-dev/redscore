@@ -48,6 +48,9 @@ Supabase Auth übernimmt Registrierung, E-Mail-Bestätigung, Anmeldung und Sitzu
 `user_profiles` speichert ausschließlich das eigene Profil und die freiwillige
 Haushaltskonstellation; `user_app_state` speichert Vorsorgeantworten und Bestände.
 Row-Level-Security beschränkt alle Zugriffe auf `auth.uid() = user_id`.
+Neben den BBK-orientierten Vorratsgruppen können Nutzer eigene Vorräte mit Kategorie,
+Menge, Einheit und Notiz ergänzen. Diese Einträge werden offline vorgehalten und über
+`custom_supplies` kontogebunden synchronisiert, fließen aber nicht in den RedScore ein.
 
 Bei der Ersteinrichtung wird jede erwachsene Person freiwillig als Frau, Mann,
 divers/nichtbinär oder ohne Angabe erfasst. Kinder und Haustiere werden als Anzahl bzw.

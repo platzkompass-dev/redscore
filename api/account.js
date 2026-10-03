@@ -1,6 +1,7 @@
 const MAX_BODY_BYTES = 64_000;
 const ALLOWED_GENDERS = new Set(["woman", "man", "diverse", "unspecified"]);
 const ALLOWED_PETS = new Set(["dog", "cat", "bird", "small_animal", "fish", "reptile", "other"]);
+const ALLOWED_SUPPLY_CATEGORIES = new Set(["Versorgung", "Gesundheit", "Haushalt", "Sonstiges"]);
 
 function json(status, payload) {
   return Response.json(payload, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" } });
@@ -57,9 +58,27 @@ function cleanProfile(value = {}) {
 
 function cleanAppState(value = {}) {
   const safeObject = item => item && typeof item === "object" && !Array.isArray(item) ? item : {};
+  const customSupplies = Array.isArray(value.custom_supplies) ? value.custom_supplies.slice(0, 100).map(item => {
+    const quantity = Number(item?.quantity);
+    const id = String(item?.id || "");
+    const label = String(item?.label || "").trim().slice(0, 80);
+    const unit = String(item?.unit || "").trim().slice(0, 30);
+    if (!/^custom-[a-z0-9-]{4,80}$/i.test(id) || !label || !unit || !Number.isFinite(quantity)) return null;
+    return {
+      id,
+      label,
+      category: ALLOWED_SUPPLY_CATEGORIES.has(item?.category) ? item.category : "Sonstiges",
+      quantity: Math.max(0, Math.min(999999, quantity)),
+      unit,
+      note: String(item?.note || "").trim().slice(0, 160),
+      createdAt: String(item?.createdAt || "").slice(0, 40),
+      updatedAt: String(item?.updatedAt || "").slice(0, 40),
+    };
+  }).filter(Boolean) : [];
   return {
     assessment: safeObject(value.assessment), task_status: safeObject(value.task_status),
-    supplies: safeObject(value.supplies), supply_details: safeObject(value.supply_details), packlist: safeObject(value.packlist), settings: safeObject(value.settings),
+    supplies: safeObject(value.supplies), supply_details: safeObject(value.supply_details), custom_supplies: customSupplies,
+    packlist: safeObject(value.packlist), settings: safeObject(value.settings),
   };
 }
 

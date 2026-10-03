@@ -73,3 +73,33 @@ test("requires a valid user token before profile data is loaded", async () => {
   }));
   assert.equal(response.status, 401);
 });
+
+test("validates custom supplies before synchronizing them", async () => {
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY = "publishable-test-key";
+  let storedState;
+  globalThis.fetch = async (url, options) => {
+    const pathname = new URL(url).pathname;
+    if (pathname === "/auth/v1/user") return Response.json({ id: "user-id", email: "person@example.org" });
+    if (pathname === "/rest/v1/user_app_state") storedState = JSON.parse(options.body);
+    return Response.json({}, { status: 200 });
+  };
+  const response = await POST(new Request("https://www.redscore.de/api/account", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer syntactically-valid-token" },
+    body: JSON.stringify({
+      action: "save",
+      profile: {},
+      appState: {
+        custom_supplies: [
+          { id: "custom-valid-1234", label: "  Babynahrung  ", category: "Versorgung", quantity: 4.5, unit: "Gläser", note: "  trocken  " },
+          { id: "not-valid", label: "Soll nicht gespeichert werden", category: "Sonstiges", quantity: 1, unit: "Stück" },
+        ],
+      },
+    }),
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(storedState.custom_supplies, [{
+    id: "custom-valid-1234", label: "Babynahrung", category: "Versorgung", quantity: 4.5, unit: "Gläser", note: "trocken", createdAt: "", updatedAt: "",
+  }]);
+});
