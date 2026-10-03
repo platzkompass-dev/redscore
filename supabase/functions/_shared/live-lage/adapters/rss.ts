@@ -11,6 +11,7 @@ function field(block: string, names: string[]): string {
 
 function categoryFor(value: string): NewsCategory | null {
   const text = value.toLowerCase();
+  if (/luftangriff|raketenangriff|drohnenangriff|militärschlag|bombardement|beschuss|gefechte?|kampfhandlungen|waffenruhe|waffenstillstand|invasion|offensive|raketen (?:treffen|töten|zerstören)|airstrikes?|missile attacks?|missiles? (?:hit|strike|kill|damage|launched|fired)|drone attacks?|military strikes?|bombardment|shelling|armed clashes?|fighting|ceasefires?|invasion|military offensive/.test(text)) return "international_security";
   if (/drohn|drone|uav/.test(text)) return "drones";
   if (/cyber|ransomware|hacker|it-ausfall|it.?ausfall/.test(text)) return "cyber";
   if (/stromausfall|blackout|power outage/.test(text)) return "power_outage";
@@ -39,6 +40,10 @@ function categoryFor(value: string): NewsCategory | null {
 function isCurrentIncident(category: NewsCategory, value: string): boolean {
   const text = value.toLowerCase();
   if (/ratgeber|gebärdensprache|\bdgs\b|warntag|bilanz|veranstaltung|projekt|forschung|fähigkeitsmanagement|publikation|interview|erklärvideo|tipps? (?:für|zur)|wie (?:kann|können|funktioniert)|vorsorge(?:n|tipps|ratgeber)/.test(text)) return false;
+  if (category === "international_security") {
+    if (/analyse|kommentar|meinung|podcast|dokumentation|jahrestag|rückblick|geschichte|wahlkampf|fordert? (?:mehr|neue)|debattiert|berät über/.test(text)) return false;
+    return /luftangriff|raketenangriff|drohnenangriff|militärschlag|bombardement|beschuss|gefechte?|kampfhandlungen|waffenruhe|waffenstillstand|invasion|offensive|explosion|raketen (?:treffen|töten|zerstören)|airstrikes?|missile attacks?|missiles? (?:hit|strike|kill|damage|launched|fired)|drone attacks?|military strikes?|bombardment|shelling|armed clashes?|fighting|ceasefires?|invasion|military offensive|explosion|killed|dead|verwundet|tote/.test(text);
+  }
   const active = /aktuell|heute|gestern|meldet|gemeldet|ereignis|vorfall|alarm|warnung|gefahr|ausgefallen|beeinträchtigt|unterbrochen|gesperrt|evakuiert|ausgetreten|brennt|überschwemmt|überflutet|tritt auf|erwartet|angriff|attacke|sichtung|gesichtet|explosion/.test(text);
   if (!active) return false;
   if (category === "drones") return /sichtung|gesichtet|alarm|vorfall|gesperrt/.test(text) && /flughafen|airport|militär|bundeswehr|kritische infrastr|kraftwerk|hafen|bahn|polizei/.test(text);
@@ -49,13 +54,24 @@ function isCurrentIncident(category: NewsCategory, value: string): boolean {
 function severityFor(category: NewsCategory, value: string): Severity {
   const text = value.toLowerCase();
   if (/nuklear|radioaktiv|terror|tote|lebensgefahr|mass evacuation/.test(text)) return "critical";
-  if (["drones", "cyber", "critical_infrastructure", "power_outage", "major_fire", "chemical_incident", "radiological", "evacuation"].includes(category)) return "high";
+  if (["drones", "cyber", "critical_infrastructure", "power_outage", "major_fire", "chemical_incident", "radiological", "evacuation", "international_security"].includes(category)) return "high";
   if (/warnung|alarm|gefahr|ausfall|evaku|gesperrt|hochwasser|orkan/.test(text)) return "high";
   return "medium";
 }
 
 function locationFor(value: string): { country: string; region?: string; city?: string } {
   const text = value.toLowerCase();
+  const countries: Array<[RegExp, string]> = [
+    [/ukraine|kyiv|kiew|kharkiv|charkiw|odesa|odessa|dnipro|donetsk|luhansk|saporischschja|zaporizhzhia/, "Ukraine"],
+    [/russland|russia|moskau|moscow|kreml|belgorod|kursk/, "Russland"],
+    [/gaza|westjordanland|west bank|palästin|palestin/, "Palästinensische Gebiete"],
+    [/israel|tel aviv|jerusalem/, "Israel"], [/iran|teheran|tehran/, "Iran"],
+    [/libanon|lebanon|beirut/, "Libanon"], [/syrien|syria|damascus|damaskus/, "Syrien"],
+    [/jemen|yemen|sanaa/, "Jemen"], [/sudan|khartum|khartoum|darfur/, "Sudan"],
+    [/taiwan|taipei/, "Taiwan"], [/myanmar|burma/, "Myanmar"],
+    [/kongo|congo|kinshasa|goma/, "Demokratische Republik Kongo"],
+  ];
+  const countryHit = countries.find(([pattern]) => pattern.test(text));
   const regions: Array<[RegExp, string, string?]> = [
     [/\bschönefeld\b|flughafen ber|airport ber|berlin brandenburg airport/, "Brandenburg", "Schönefeld"],
     [/\bberlin\b/, "Berlin", "Berlin"], [/brandenburg|potsdam/, "Brandenburg"],
@@ -70,7 +86,8 @@ function locationFor(value: string): { country: string; region?: string; city?: 
     [/bremen|bremerhaven/, "Bremen"],
   ];
   const hit = regions.find(([pattern]) => pattern.test(text));
-  return { country: hit || /deutschland|germany/.test(text) ? "Deutschland" : "International", region: hit?.[1], city: hit?.[2] };
+  if (hit || /deutschland|germany/.test(text)) return { country: "Deutschland", region: hit?.[1], city: hit?.[2] };
+  return { country: countryHit?.[1] || "International" };
 }
 
 export const rssAdapter: NewsSourceAdapter = {

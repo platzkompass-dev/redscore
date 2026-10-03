@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=4";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=9";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=11";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -386,7 +386,7 @@ function renderPublic() {
     </section>
     <section class="public-categories">${categories.map(item => categoryCard(...item)).join("")}</section>
     <section class="public-info" id="about">
-      <article class="lighthouse-card"><div><small>DEIN REDSCORE</small><h2>Ein Check. Mehr Klarheit.</h2><p>RedScore ordnet persönliche Katastrophenvorbereitung übersichtlich nach offiziellen Empfehlungen. Es gibt keinen Beispielwert: Erst vollständig beantwortete Fragen erzeugen deinen eigenen Stand.</p><ul><li>✓ Individuelle Auswertung</li><li>✓ Konkrete Handlungsschritte</li><li>✓ Orientierung an offiziellen Quellen</li><li>✓ Für Bürgerinnen und Bürger in jeder Lebenslage</li><li>✓ Offline nutzbar und kontogebunden</li></ul><button class="green large" data-open-auth="register">Jetzt Prüfung starten →</button></div></article>
+      <article class="lighthouse-card"><div><small>DEIN REDSCORE</small><h2>Ein Check. Mehr Klarheit.</h2><p>RedScore ordnet persönliche Katastrophenvorbereitung übersichtlich nach offiziellen Empfehlungen. Es gibt keinen Beispielwert: Erst vollständig beantwortete Fragen erzeugen deinen eigenen Stand.</p><ul><li>✓ Individuelle Auswertung</li><li>✓ Konkrete Handlungsschritte</li><li>✓ Orientierung an offiziellen Quellen</li><li>✓ Für Bürgerinnen und Bürger in jeder Lebenslage</li><li>✓ Offline nutzbar und kontogebunden</li></ul><button class="green large" data-open-auth="register">Jetzt kostenlos starten →</button></div></article>
       <article class="why-card"><small>WARUM VORSORGEN?</small><h2>Krisen kommen<br>meist ungeplant.</h2><p>Ob Stromausfall, Unwetter oder eine andere Notlage: Vorbereitung schützt Handlungsspielraum und reduziert Risiken.</p><div class="benefits"><span>🛡️ <b>Mehr Sicherheit</b></span><span>🌱 <b>Weniger Abhängigkeit</b></span><span>🤝 <b>Ruhe und Klarheit</b></span><span>▥ <b>Schritt für Schritt</b></span></div></article>
     </section>
     <section class="how-strip" id="how"><h2>So einfach geht’s</h2><div><article><b>1</b><span><strong>Konto anlegen</strong><small>E-Mail bestätigen und sicher anmelden.</small></span></article><i>›</i><article><b>2</b><span><strong>Haushalt einrichten</strong><small>Personen, Kinder, Haustiere und Standort erfassen.</small></span></article><i>›</i><article><b>3</b><span><strong>Vorsorge starten</strong><small>Passende Mengen, Aufgaben und Lagehinweise erhalten.</small></span></article></div></section>
@@ -417,7 +417,7 @@ function warningSummary(compact = false) {
 }
 
 const liveScopeLabels = { for_you: "Für dich", germany: "Deutschland", world: "Weltlage", all: "Alle" };
-const liveFilterLabels = { all: "Alle", drones: "Drohnen", cyber: "Cyber", disasters: "Katastrophen", weather: "Wetter", infrastructure: "Infrastruktur", supply: "Versorgung", security: "Sicherheit" };
+const liveFilterLabels = { all: "Alle", conflicts: "Kriege", drones: "Drohnen", cyber: "Cyber", disasters: "Katastrophen", weather: "Wetter", infrastructure: "Infrastruktur", supply: "Versorgung", security: "Sicherheit" };
 const liveCategoryLabels = {
   drones: "Drohnen", cyber: "Cyber", it_outage: "IT-Ausfall", critical_infrastructure: "Kritische Infrastruktur",
   power_outage: "Stromausfall", telecom_outage: "Telekommunikation", drinking_water: "Trinkwasser",
@@ -425,7 +425,7 @@ const liveCategoryLabels = {
   earthquake: "Erdbeben", volcano: "Vulkan", tsunami: "Tsunami", severe_weather: "Unwetter",
   evacuation: "Evakuierung", major_fire: "Großbrand", chemical_incident: "Chemieunfall", hazmat: "Gefahrstoff",
   radiological: "Radiologisch", transport_outage: "Verkehr", supply_disruption: "Versorgung",
-  civil_protection: "Katastrophenschutz", official_warning: "Amtliche Warnung", international_security: "Weltlage",
+  civil_protection: "Katastrophenschutz", official_warning: "Amtliche Warnung", international_security: "Kriege & Konflikte",
 };
 const liveSeverityLabels = { critical: "KRITISCH", high: "HOCH", medium: "MITTEL", low: "GERING", info: "HINWEIS" };
 const liveVerificationLabels = {
@@ -453,6 +453,7 @@ function safeExternalUrl(value) {
 }
 
 function liveEventIcon(category) {
+  if (category === "international_security") return "radio";
   if (["storm","heavy_rain","flood","severe_weather","extreme_heat"].includes(category)) return "weather-warning";
   if (["drinking_water","supply_disruption"].includes(category)) return "water";
   if (["earthquake","volcano","tsunami","wildfire","major_fire","evacuation"].includes(category)) return "special";
@@ -573,8 +574,10 @@ function liveEventCard(event) {
   const sources = Array.isArray(event.sources) ? event.sources : [];
   const sourceNames = [...new Set(sources.map(source => source.name).filter(Boolean))].slice(0, 2).join(", ") || "Quelle nicht benannt";
   const distance = event.relevance?.distance_km;
+  const ageMs = Date.now() - Date.parse(event.published_at || 0);
+  const breaking = event.category === "international_security" && Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 2 * 60 * 60 * 1000;
   return `<article class="live-event tone-${esc(severity)}">
-    <div class="live-event-top">${icon(liveEventIcon(event.category), "live-event-icon")}<span>${esc(liveCategoryLabels[event.category] || event.category || "Lage")}</span><b>${esc(liveSeverityLabels[severity] || "HINWEIS")}</b><time>${relativeTime(event.published_at)}</time></div>
+    <div class="live-event-top">${icon(liveEventIcon(event.category), "live-event-icon")}<span>${esc(liveCategoryLabels[event.category] || event.category || "Lage")}</span>${breaking ? `<em class="breaking-badge">BREAKING</em>` : ""}<b>${esc(liveSeverityLabels[severity] || "HINWEIS")}</b><time>${relativeTime(event.published_at)}</time></div>
     <h3>${esc(event.title)}</h3><p>${esc(event.summary || "Für diese strukturierte Meldung liegt keine weitere Kurzbeschreibung vor.")}</p>
     <div class="live-meta"><span>⌖ ${esc(location)}</span><span>Quelle: ${esc(sourceNames)}</span></div>
     <div class="live-evidence"><em class="verify-${esc(event.verification_status || "unknown")}">${esc(verification)}</em>${Number(event.cluster_count) > 1 ? `<span class="cluster-badge">${Number(event.cluster_count)} regionale Meldungen gebündelt</span>` : Number(event.source_count) > 1 ? `<span>Bestätigt durch ${Number(event.source_count)} Quellen</span>` : ""}</div>

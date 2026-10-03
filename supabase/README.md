@@ -22,6 +22,9 @@ ausgeführt wird.
 
 - DWD WarnWetter JSONP/JSON (amtlich, Abrufintervall 60 Sekunden)
 - GDACS GeoRSS (amtliche internationale Kooperation, Abrufintervall 300 Sekunden)
+- NASA EONET (laufende internationale Naturereignisse, Abrufintervall 300 Sekunden)
+- USGS (signifikante Erdbeben, Abrufintervall 60 Sekunden)
+- NOAA/NWS (aktive schwere und extreme Wetterwarnungen, Abrufintervall 60 Sekunden)
 - BBK-RSS (amtlich, Abrufintervall 300 Sekunden)
 - BMDS-RSS (amtlich, Abrufintervall 600 Sekunden; nur Sicherheits-/Infrastrukturthemen)
 - GDELT mit Allowlist etablierter Originalquellen (bestätigte Quelle, Abrufintervall 300 Sekunden)

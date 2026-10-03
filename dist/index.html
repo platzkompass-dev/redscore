@@ -4,25 +4,89 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#061722" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="author" content="RedScore" />
+    <meta name="application-name" content="RedScore" />
+    <meta name="apple-mobile-web-app-title" content="RedScore" />
+    <meta name="keywords" content="Katastrophenvorsorge, Notfallvorsorge, Notvorrat, Notfallrucksack, Bevölkerungsschutz, Warnmeldungen, Krisenvorsorge, SafePlaces" />
     <meta
       name="description"
-      content="RedScore ist das Katastrophenvorbereitungssystem für Bürgerinnen und Bürger – mit Vorsorge, Vorräten, Warnungen und Notfallwissen."
+      content="RedScore hilft Bürgerinnen und Bürgern kostenlos bei Katastrophenvorsorge, Notvorrat, Notfallrucksack, Warnmeldungen und wichtigen Orten im Ernstfall."
     />
     <link rel="icon" href="assets/favicon.ico?v=5" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png?v=5" />
     <link rel="apple-touch-icon" href="assets/app-icon-180.png?v=5" />
     <link rel="manifest" href="manifest.webmanifest?v=5" />
-    <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="stylesheet" href="styles.css?v=27" />
     <link rel="canonical" href="https://www.redscore.de/" />
     <meta property="og:site_name" content="RedScore" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:title" content="RedScore – Bist du vorbereitet?" />
+    <meta property="og:description" content="Kostenlose Katastrophenvorsorge für Bürgerinnen und Bürger: Notvorrat, Notfallrucksack, Live-Lage, Warnungen und SafePlaces übersichtlich an einem Ort." />
     <meta property="og:url" content="https://www.redscore.de/" />
     <meta property="og:image" content="https://www.redscore.de/assets/redscore-logo-full.png?v=6" />
+    <meta property="og:image:secure_url" content="https://www.redscore.de/assets/redscore-logo-full.png?v=6" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="RedScore – Bist du vorbereitet?" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RedScore – Bist du vorbereitet?" />
+    <meta name="twitter:description" content="Kostenlose Katastrophenvorsorge mit Notvorrat, Notfallrucksack, Live-Lage, Warnungen und SafePlaces." />
+    <meta name="twitter:image" content="https://www.redscore.de/assets/redscore-logo-full.png?v=6" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.redscore.de/#organization",
+            "name": "RedScore",
+            "url": "https://www.redscore.de/",
+            "logo": "https://www.redscore.de/assets/redscore-logo.png?v=5",
+            "description": "RedScore ist ein Katastrophenvorbereitungssystem für Bürgerinnen und Bürger."
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.redscore.de/#website",
+            "url": "https://www.redscore.de/",
+            "name": "RedScore",
+            "alternateName": "RedScore Katastrophenvorsorge",
+            "inLanguage": "de-DE",
+            "publisher": { "@id": "https://www.redscore.de/#organization" }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://www.redscore.de/#app",
+            "name": "RedScore",
+            "url": "https://www.redscore.de/",
+            "applicationCategory": "LifestyleApplication",
+            "operatingSystem": "Web",
+            "inLanguage": ["de-DE", "en"],
+            "isAccessibleForFree": true,
+            "description": "Kostenlose Katastrophenvorsorge mit persönlichem RedScore, Notvorrat, Notfallrucksack, Live-Lage, Warnungen und SafePlaces.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+            "publisher": { "@id": "https://www.redscore.de/#organization" },
+            "featureList": [
+              "Persönlicher Vorsorge-Check",
+              "Interaktive Vorratsliste",
+              "Notfallrucksack-Packliste",
+              "Live-Lage für Warnungen, Katastrophen und Konflikte",
+              "SafePlaces mit wichtigen Orten"
+            ]
+          }
+        ]
+      }
+    </script>
     <title>RedScore - Bist du vorbereitet?</title>
   </head>
   <body>
-    <div id="app" aria-live="polite"></div>
+    <div id="app" aria-live="polite"><noscript><main><h1>RedScore – kostenlose Katastrophenvorsorge</h1><p>Bereite deinen Haushalt auf Krisen und Katastrophen vor: mit persönlichem Vorsorge-Check, Notvorrat, Notfallrucksack, Warnmeldungen, Live-Lage und wichtigen Orten in deiner Nähe.</p><p>Bitte aktiviere JavaScript, um RedScore zu verwenden.</p></main></noscript></div>
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=25"></script>
+    <script defer src="analytics.js?v=1"></script>
+    <script type="module" src="app.js?v=27"></script>
   </body>
 </html>

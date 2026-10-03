@@ -9,6 +9,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const db = new DatabaseClient(supabaseUrl, anonKey);
 const filterCategories: Record<string, string[]> = {
+  conflicts: ["international_security"],
   drones: ["drones"],
   cyber: ["cyber","it_outage"],
   weather: ["flood","heavy_rain","storm","extreme_heat","severe_weather"],

@@ -57,8 +57,16 @@ async function ingest(source: SourceConfig & Record<string, any>, item: Normaliz
   const sourceItemFilter = `news_event_sources?select=id,event_id&source_id=eq.${source.id}&source_item_id=eq.${encodeURIComponent(item.externalId)}&limit=1`;
   const existingLink = await db.select<any[]>(sourceItemFilter);
   if (existingLink.length) {
-    await db.update(`news_event_sources?id=eq.${existingLink[0].id}`, { fetched_at: item.fetchedAt, source_title: item.title, source_summary: item.summary });
-    await db.update(`news_events?id=eq.${existingLink[0].event_id}`, { last_seen_at: item.fetchedAt, active: true });
+    await db.update(`news_event_sources?id=eq.${existingLink[0].id}`, {
+      fetched_at: item.fetchedAt,
+      source_url: item.sourceUrl,
+      source_title: item.title,
+      source_summary: item.summary,
+      source_published_at: item.publishedAt,
+      raw_payload: item.rawPayload || null,
+    });
+    const { source_count: _sourceCount, ...refreshedEvent } = eventRow(item);
+    await db.update(`news_events?id=eq.${existingLink[0].event_id}`, refreshedEvent);
     return "updated";
   }
 

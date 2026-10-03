@@ -3,7 +3,7 @@
 ## Datenfluss
 
 ```text
-DWD / GDACS / BBK / BMDS / GDELT -> Source Adapter -> Supabase Import Function -> PostgreSQL
+DWD / GDACS / NASA EONET / USGS / NOAA-NWS / BBK / UN News / Medienmonitor -> Source Adapter -> Supabase Import Function -> PostgreSQL
                                                     |
 Browser <- /api/live-lage <- RedScore-Server <- Read Function + Relevanzmodell
 ```
@@ -27,10 +27,19 @@ Lesemodell der Security-Definer-RPCs.
 ## Adapter
 
 `NewsSourceAdapter` normalisiert strukturierte öffentliche Feeds. Im MVP sind
-`dwd.ts`, `gdacs.ts`, `rss.ts` und `gdelt.ts` registriert. Der RSS-Adapter verarbeitet
-BBK- und BMDS-Feeds, der GDELT-Adapter ausschließlich Treffer etablierter
+`dwd.ts`, `gdacs.ts`, `eonet.ts`, `usgs.ts`, `nws.ts`, `rss.ts` und `gdelt.ts` registriert. Der RSS-Adapter verarbeitet
+BBK-, Behörden- und UN-News-Feeds. Kriegs- und Konfliktmeldungen werden nur bei
+konkreten Ereignissignalen wie Angriffen, Beschuss, Gefechten oder Waffenruhen
+aufgenommen; allgemeine Außenpolitik und Meinungsbeiträge werden verworfen. Der
+GDELT-Adapter verarbeitet ausschließlich Treffer etablierter
 Originalquellen aus einer Domain-Allowlist. Unterstützte Erweiterungen sind REST, RSS,
 Atom, JSON Feed und CAP. HTML-Scraping ist nicht Bestandteil des MVP.
+
+Für die Weltlage ergänzen drei strukturierte Primärquellen die GDACS-Lage: NASA
+EONET führt laufende Naturereignisse, USGS liefert signifikante Erdbeben und
+NOAA/NWS liefert ausschließlich aktive US-Wetterwarnungen der Schweregrade
+`Severe` und `Extreme`. Die Adapter validieren URLs gegen Host-Listen. Abgelaufene
+Warnungen werden deaktiviert und nicht als aktiv angezeigt.
 
 Eine neue Quelle wird so ergänzt:
 
