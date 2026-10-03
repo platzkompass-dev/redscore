@@ -20,8 +20,8 @@ function hasPlausiblePublishedAt(item: NormalizedNewsItem): boolean {
 
 function eventRow(item: NormalizedNewsItem) {
   return {
-    title: item.title,
-    summary: item.summary,
+    title: item.title.slice(0, 300),
+    summary: item.summary.slice(0, 1200),
     category: item.category,
     severity: item.severity,
     verification_status: item.verificationStatus,
