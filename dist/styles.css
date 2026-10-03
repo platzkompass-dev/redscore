@@ -141,4 +141,15 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 /* The official BBK source mark forms one continuous white information area. */
 .site-footer{overflow:hidden}
 .site-footer .bbk-source-badge{align-self:stretch;max-width:none;margin:-18px -4vw -18px 0;padding:18px 4vw 18px 14px;background:#fff;color:#082849}
+.bbk-source-badge .bbk-note-wide{max-width:270px}.bbk-source-badge .bbk-note-mobile{display:none}
 @media (max-width:760px){.site-footer .bbk-source-badge{width:100%;box-sizing:border-box;margin:0;padding:14px;background:#fff}}
+@media (max-width:600px){.bbk-source-badge .bbk-note-wide{display:none}.bbk-source-badge .bbk-note-mobile{display:block;max-width:250px}}
+
+/* Internal route planning keeps the user inside RedScore. */
+.place-list article button{border:1px solid #3b6e62;border-radius:6px;padding:7px 9px;white-space:nowrap;background:#08242f;color:#5ce4b2;font:inherit;font-size:12px;cursor:pointer}
+.place-list article.route-selected{background:#0d332d;border-left:3px solid #4ce0ab}
+.place-list article.route-selected button{background:#168664;color:#fff;border-color:#45d9a5}
+.route-overview{position:absolute;z-index:4;top:12px;left:12px;right:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 46px 12px 14px;border:1px solid #497182;border-radius:9px;background:#061b28f2;color:#fff;box-shadow:0 14px 32px #0009;backdrop-filter:blur(9px)}
+.route-overview>div{display:flex;align-items:center;gap:10px;min-width:0}.route-place-icon{width:38px;height:38px;object-fit:contain}.route-overview span{display:grid;min-width:0}.route-overview small{color:#8fb0bd;font-size:9px;letter-spacing:.7px}.route-overview b,.route-overview em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.route-overview em{color:#b7cad2;font-size:10px;font-style:normal}
+.route-overview p{display:flex;align-items:center;gap:11px;margin:0;color:#c6d8df;font-size:11px}.route-overview p strong{color:#55e1ae;font-size:15px;white-space:nowrap}.route-overview p i{width:18px;height:18px;border:3px solid #365663;border-top-color:#55e1ae;border-radius:50%;animation:map-spin .8s linear infinite}.route-overview .route-error{color:#ffc2c6}.route-overview>button{position:absolute;top:8px;right:9px;border:0;background:none;color:#d9e6eb;font-size:24px;cursor:pointer}.real-map.has-route iframe{filter:saturate(.9) contrast(1.05) brightness(.86)}
+@media (max-width:760px){.route-overview{grid-template-columns:1fr;gap:8px}.route-overview p{flex-wrap:wrap}.route-overview p small{flex-basis:100%}}

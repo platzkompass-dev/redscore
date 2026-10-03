@@ -19,6 +19,8 @@ const EN = new Map(Object.entries({
   "Impressum": "Legal notice",
   "Kontakt": "Contact",
   "Orientiert an Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe": "Based on recommendations from Germany's Federal Office of Civil Protection and Disaster Assistance",
+  "Deine Aufgaben beruhen auf den Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe. Es existiert keine behördliche Zusammenarbeit.": "Your tasks are based on recommendations from Germany's Federal Office of Civil Protection and Disaster Assistance. There is no official partnership.",
+  "Offizielle Informationsquelle · keine behördliche Partnerschaft": "Official information source · no official partnership",
   "So funktioniert’s": "How it works",
   "Einloggen": "Sign in",
   "Kostenlos registrieren": "Register for free",
@@ -228,6 +230,12 @@ const EN = new Map(Object.entries({
   "Keine verifizierten öffentlichen Schutzräume": "No verified public shelters",
   "Im Ernstfall gelten die Anweisungen der Behörden. Wir erfinden keine Standorte.": "In an emergency, follow the authorities' instructions. We do not invent locations.",
   "Route": "Directions",
+  "Ausgewählt": "Selected",
+  "ROUTENZIEL": "ROUTE DESTINATION",
+  "Fahrtroute wird innerhalb von RedScore berechnet …": "Calculating the route inside RedScore …",
+  "Route nicht verfügbar": "Route unavailable",
+  "Die Routenberechnung benötigt eine Internetverbindung.": "Route calculation requires an internet connection.",
+  "Start oder Routenziel ist nicht verfügbar.": "The start or route destination is unavailable.",
   "Offline-Übersicht": "Offline overview",
   "Gespeicherte Orte · keine Navigation": "Saved places · no navigation",
   "OpenStreetMap online öffnen": "Open OpenStreetMap online",
@@ -541,6 +549,11 @@ export function translateText(value) {
     .replace(/(\d+) Tage/g, "$1 days")
     .replace(/(\d+) Liter/g, "$1 liters")
     .replace(/^Gesamt: ([\d,.]+) Liter$/, "Total: $1 liters")
+    .replace(/^ca\. (\d+) Min\.$/, "about $1 min.")
+    .replace(/^ca\. (\d+) Std\. ?(\d+)? ?Min\.?$/, (_, hours, minutes) => `about ${hours} hr.${minutes ? ` ${minutes} min.` : ""}`)
+    .replace(/^PKW-Route · /, "Car route · ")
+    .replace(/^Route zu (.+) innerhalb von RedScore anzeigen$/, "Show directions to $1 inside RedScore")
+    .replace(/^Routenansicht schließen$/, "Close route view")
     .replace(/^(\d+) gleichartige Regionalmeldungen zusammengefasst$/, "$1 similar regional reports grouped")
     .replace(/^Betroffene Gebiete \((\d+)\)$/, "Affected areas ($1)")
     .replace(/^Nachvollziehbare Quellen \((\d+)\)$/, "Traceable sources ($1)")

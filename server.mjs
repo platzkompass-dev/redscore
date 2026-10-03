@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { POST as accountHandler } from "./api/account.js";
 import { GET as placesHandler } from "./api/places.js";
+import { POST as routeHandler } from "./api/route.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, "dist");
@@ -136,6 +137,10 @@ const server = http.createServer(async (request, response) => {
   if (requestUrl.pathname === "/api/places") {
     if (request.method !== "GET") return sendJson(response, 405, { error: "GET erforderlich" });
     return runWebHandler(placesHandler, request, response, requestUrl);
+  }
+  if (requestUrl.pathname === "/api/route") {
+    if (request.method !== "POST") return sendJson(response, 405, { error: "POST erforderlich" });
+    return runWebHandler(routeHandler, request, response, requestUrl);
   }
   if (requestUrl.pathname === "/api/account") {
     if (request.method !== "POST") return sendJson(response, 405, { error: "POST erforderlich" });

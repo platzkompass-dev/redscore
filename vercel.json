@@ -11,6 +11,10 @@
       "maxDuration": 20,
       "supportsCancellation": true
     },
+    "api/route.js": {
+      "maxDuration": 10,
+      "supportsCancellation": true
+    },
     "api/account.js": {
       "maxDuration": 10,
       "supportsCancellation": true

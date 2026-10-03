@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=2";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=6";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=7";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -67,6 +67,7 @@ let placesState = {
   error: null,
 };
 let placesRequest = null;
+let mapRouteState = { status: "idle", placeId: null, route: null, error: null };
 let session = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; } })();
 let syncTimer = null;
 let accountBusy = false;
@@ -321,7 +322,7 @@ function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
     ${brand(false)}
     <nav><button data-legal="about">Über RedScore</button><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button></nav>
-    <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Informationen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe"><img class="bbk-source-logo" src="assets/bbk-logo.svg?v=2" alt="Bundesamt für Bevölkerungsschutz und Katastrophenhilfe"><span><small>Offizielle Informationsquelle · keine behördliche Partnerschaft</small></span></a>
+    <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Informationen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe"><img class="bbk-source-logo" src="assets/bbk-logo.svg?v=2" alt="Bundesamt für Bevölkerungsschutz und Katastrophenhilfe"><span><small class="bbk-note-wide">Deine Aufgaben beruhen auf den Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe. Es existiert keine behördliche Zusammenarbeit.</small><small class="bbk-note-mobile">Offizielle Informationsquelle · keine behördliche Partnerschaft</small></span></a>
   </footer>`;
 }
 
@@ -681,12 +682,60 @@ async function requestNearbyPlaces(force = false) {
 function placeIcon(category) {
   return ({ Behörden: "profile", Versorgung: "supplies", Gesundheit: "medical", Schutzräume: "home", Hilfe: "weather-warning" })[category] || "map";
 }
-function osmEmbed(center) {
+function osmEmbed(center, destination = null) {
   if (!center || !navigator.onLine) return "";
   const lat = Number(center.lat), lon = Number(center.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "";
-  const bbox = [lon - .075, lat - .045, lon + .075, lat + .045].map(value => value.toFixed(6)).join(",");
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat.toFixed(6)}%2C${lon.toFixed(6)}`;
+  const targetLat = Number(destination?.lat), targetLon = Number(destination?.lon);
+  const hasDestination = Number.isFinite(targetLat) && Number.isFinite(targetLon);
+  const minLat = hasDestination ? Math.min(lat, targetLat) : lat;
+  const maxLat = hasDestination ? Math.max(lat, targetLat) : lat;
+  const minLon = hasDestination ? Math.min(lon, targetLon) : lon;
+  const maxLon = hasDestination ? Math.max(lon, targetLon) : lon;
+  const latPadding = Math.max(.012, (maxLat - minLat) * .35);
+  const lonPadding = Math.max(.02, (maxLon - minLon) * .35);
+  const bbox = [minLon - lonPadding, minLat - latPadding, maxLon + lonPadding, maxLat + latPadding].map(value => value.toFixed(6)).join(",");
+  const markerLat = hasDestination ? targetLat : lat;
+  const markerLon = hasDestination ? targetLon : lon;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${markerLat.toFixed(6)}%2C${markerLon.toFixed(6)}`;
+}
+
+function routeDistance(meters) {
+  return meters < 1000 ? `${Math.max(50, Math.round(meters / 50) * 50)} m` : `${fmt(meters / 1000)} km`;
+}
+function routeDuration(seconds) {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `ca. ${minutes} Min.`;
+  const hours = Math.floor(minutes / 60), rest = minutes % 60;
+  return `ca. ${hours} Std.${rest ? ` ${rest} Min.` : ""}`;
+}
+async function requestPlaceRoute(placeId) {
+  const place = placesState.places.find(item => item.id === placeId);
+  const center = placesState.center;
+  if (!place || !center) return toast("Start oder Routenziel ist nicht verfügbar.");
+  if (!navigator.onLine) {
+    mapRouteState = { status: "error", placeId, route: null, error: "Die Routenberechnung benötigt eine Internetverbindung." };
+    return renderMap();
+  }
+  mapRouteState = { status: "loading", placeId, route: null, error: null };
+  renderMap();
+  try {
+    const response = await fetch("/api/route", {
+      method: "POST",
+      cache: "no-store",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ fromLat: center.lat, fromLon: center.lon, toLat: place.lat, toLon: place.lon }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Route nicht verfügbar");
+    if (mapRouteState.placeId !== placeId) return;
+    mapRouteState = { status: "ready", placeId, route: payload, error: null };
+  } catch (error) {
+    if (mapRouteState.placeId !== placeId) return;
+    mapRouteState = { status: "error", placeId, route: null, error: error instanceof Error ? error.message : "Route nicht verfügbar" };
+  }
+  renderMap();
+  document.querySelector(".route-overview")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 function renderMap() {
   const categories = ["Alle", "Behörden", "Versorgung", "Gesundheit", "Hilfe", "Schutzräume"];
@@ -695,13 +744,19 @@ function renderMap() {
   const allPlaces = hasCurrentData ? placesState.places : [];
   const shown = allPlaces.filter(place => state.ui.mapFilter === "Alle" || place.category === state.ui.mapFilter);
   const location = state.household.location || state.household.city || "Standort nicht eingerichtet";
-  const embed = hasCurrentData ? osmEmbed(placesState.center) : "";
+  const selectedPlace = allPlaces.find(place => place.id === mapRouteState.placeId) || null;
+  const embed = hasCurrentData ? osmEmbed(placesState.center, selectedPlace) : "";
   const mapStatus = placesState.status === "loading" ? "Orte werden geladen …" : placesState.status === "refreshing" ? "Ortsdaten werden aktualisiert …" : placesState.status === "offline" ? `Offline-Stand ${relativeTime(placesState.fetchedAt)}` : placesState.status === "error" ? (placesState.error || "Ortsdaten nicht verfügbar") : `OpenStreetMap-Daten · ${relativeTime(placesState.fetchedAt)}`;
+  const routeOverview = selectedPlace ? `<article class="route-overview ${mapRouteState.status}">
+    <div>${icon(placeIcon(selectedPlace.category), "route-place-icon")}<span><small>ROUTENZIEL</small><b>${esc(selectedPlace.name)}</b><em>${esc(selectedPlace.address || selectedPlace.distanceLabel)}</em></span></div>
+    ${mapRouteState.status === "loading" ? `<p><i></i> Fahrtroute wird innerhalb von RedScore berechnet …</p>` : mapRouteState.status === "ready" ? `<p><strong>${routeDistance(mapRouteState.route.distanceMeters)}</strong><strong>${routeDuration(mapRouteState.route.durationSeconds)}</strong><small>PKW-Route · ${esc(mapRouteState.route.source)}</small></p>` : `<p class="route-error">${esc(mapRouteState.error || "Route nicht verfügbar")}</p>`}
+    <button data-map-route-close aria-label="Routenansicht schließen">×</button>
+  </article>` : "";
   const content = `<section class="image-hero shelter-hero"><div><h1>Schutz in deiner Nähe</h1><h2>Wichtige Anlaufstellen auf einer echten Karte.</h2><p>RedScore zeigt nachvollziehbare Infrastruktur aus OpenStreetMap. Als Schutzraum gilt ein Ort nur, wenn er dort ausdrücklich so gekennzeichnet ist.</p></div></section>
     <div class="map-controls"><div>⌖ <b>${esc(location)}</b><small>${esc(mapStatus)}</small></div><button data-edit-household>Standort ändern</button><button data-map-refresh>Neu laden</button><button data-save-offline>${state.settings.offlinePlacesSaved ? "Offline-Liste aktualisieren" : "Offline-Liste speichern"}</button></div>
     <div class="filter-row wide">${categories.map(f => `<button data-map-filter="${f}" class="${f===state.ui.mapFilter?"active":""}">${f}</button>`).join("")}</div>
-    <div class="map-layout"><section class="place-list"><h2>Orte (${shown.length})</h2>${placesState.status === "loading" && !shown.length ? `<div class="no-data map-loading"><span></span><h3>Karte wird vorbereitet</h3><p>Standort und relevante Infrastruktur werden sicher serverseitig abgefragt.</p></div>` : shown.length ? shown.map(place => `<article>${icon(placeIcon(place.category),"place-icon")}<div><b>${esc(place.name)}</b><small>${esc(place.address || place.distanceLabel)}</small><em>${esc(place.category)} · ${esc(place.distanceLabel)} · OpenStreetMap</em></div><a href="${safeExternalUrl(place.routeUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Route zu ${esc(place.name)} öffnen">Route ↗</a></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>${state.household.city ? "Keine passenden Orte gefunden" : "Standort noch nicht eingerichtet"}</h3><p>${state.household.city ? "Wechsle den Filter oder aktualisiere die Suche. Behördlich ausgewiesene Schutzräume sind in Deutschland nur lückenhaft erfasst." : "Ergänze Postleitzahl und Ort in deinen Haushaltsangaben."}</p></div>`}</section>
-      <section class="real-map ${embed ? "online-map" : "offline-map"}" aria-label="Karte wichtiger Anlaufstellen">${embed ? `<iframe src="${embed}" title="OpenStreetMap rund um ${esc(location)}" loading="lazy" referrerpolicy="no-referrer"></iframe><span>© OpenStreetMap-Mitwirkende</span>` : `<div class="map-unavailable">${icon("map","big-icon")}<h3>${navigator.onLine ? "Karte wird geladen" : "Karte offline"}</h3><p>${navigator.onLine ? "Die Kartenansicht erscheint nach dem Ortsabgleich." : "Deine zuletzt gespeicherte Ortsliste bleibt verfügbar. Kartenkacheln benötigen eine Internetverbindung."}</p></div>`}</section>
+    <div class="map-layout"><section class="place-list"><h2>Orte (${shown.length})</h2>${placesState.status === "loading" && !shown.length ? `<div class="no-data map-loading"><span></span><h3>Karte wird vorbereitet</h3><p>Standort und relevante Infrastruktur werden sicher serverseitig abgefragt.</p></div>` : shown.length ? shown.map(place => `<article class="${place.id === mapRouteState.placeId ? "route-selected" : ""}">${icon(placeIcon(place.category),"place-icon")}<div><b>${esc(place.name)}</b><small>${esc(place.address || place.distanceLabel)}</small><em>${esc(place.category)} · ${esc(place.distanceLabel)} · OpenStreetMap</em></div><button data-map-route="${esc(place.id)}" aria-label="Route zu ${esc(place.name)} innerhalb von RedScore anzeigen">${place.id === mapRouteState.placeId ? "Ausgewählt" : "Route"} →</button></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>${state.household.city ? "Keine passenden Orte gefunden" : "Standort noch nicht eingerichtet"}</h3><p>${state.household.city ? "Wechsle den Filter oder aktualisiere die Suche. Behördlich ausgewiesene Schutzräume sind in Deutschland nur lückenhaft erfasst." : "Ergänze Postleitzahl und Ort in deinen Haushaltsangaben."}</p></div>`}</section>
+      <section class="real-map ${embed ? "online-map" : "offline-map"} ${selectedPlace ? "has-route" : ""}" aria-label="${selectedPlace ? `Route zu ${esc(selectedPlace.name)}` : "Karte wichtiger Anlaufstellen"}">${routeOverview}${embed ? `<iframe src="${embed}" title="${selectedPlace ? `OpenStreetMap mit Routenziel ${esc(selectedPlace.name)}` : `OpenStreetMap rund um ${esc(location)}`}" loading="lazy" referrerpolicy="no-referrer"></iframe><span>© OpenStreetMap-Mitwirkende</span>` : `<div class="map-unavailable">${icon("map","big-icon")}<h3>${navigator.onLine ? "Karte wird geladen" : "Karte offline"}</h3><p>${navigator.onLine ? "Die Kartenansicht erscheint nach dem Ortsabgleich." : "Deine zuletzt gespeicherte Ortsliste bleibt verfügbar. Kartenkacheln benötigen eine Internetverbindung."}</p></div>`}</section>
     </div><p class="map-source-note">OpenStreetMap-Einträge sind Gemeinschaftsdaten und keine amtliche Bestätigung der Eignung im Katastrophenfall. Prüfe Öffnungszeiten und behördliche Hinweise.</p><div class="emergency-bar">⚠ <b>Im Ernstfall:</b> Aktuelle Warnmeldungen und behördliche Anweisungen haben Vorrang. <button data-route="warnschutz">Warnstatus prüfen →</button></div>`;
   app.innerHTML = loggedShell("map", content, "map-page");
   requestNearbyPlaces();
@@ -840,6 +895,8 @@ app.addEventListener("click", async event => {
   if (button.dataset.supplyFilter) { state.ui.supplyFilter = button.dataset.supplyFilter; save(); return render(); }
   if (button.dataset.openSupply) { state.ui.modal = "supply:"+button.dataset.openSupply; return render(); }
   if (button.dataset.mapFilter) { state.ui.mapFilter = button.dataset.mapFilter; save(); return render(); }
+  if (button.dataset.mapRoute) return requestPlaceRoute(button.dataset.mapRoute);
+  if (button.matches("[data-map-route-close]")) { mapRouteState = { status: "idle", placeId: null, route: null, error: null }; return renderMap(); }
   if (button.matches("[data-map-refresh]")) return requestNearbyPlaces(true);
   if (button.dataset.article) { state.ui.modal = "article:"+button.dataset.article; return render(); }
   if (button.matches("[data-save-offline]")) { state.settings.offlinePlacesSaved = true; storePlacesCache(); save(); toast("Die aktuelle Ortsliste ist offline gespeichert. Kartenkacheln benötigen weiterhin Internet."); return render(); }
