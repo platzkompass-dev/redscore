@@ -1,4 +1,4 @@
-const ALLOWED_PARAMS = new Set(["scope", "filter", "limit", "country", "region", "district", "lat", "lon"]);
+const ALLOWED_PARAMS = new Set(["scope", "filter", "limit", "country", "region", "district", "lat", "lon", "language"]);
 const MAX_RESPONSE_BYTES = 2_000_000;
 
 function json(status, payload) {
@@ -64,4 +64,3 @@ export async function GET(request) {
     return json(503, { error: "Der Lage-Dienst ist vorübergehend nicht erreichbar." });
   }
 }
-

@@ -3,6 +3,7 @@ import { DatabaseClient } from "../_shared/live-lage/db.ts";
 import { corsHeaders } from "../_shared/live-lage/security.ts";
 import { calculateRelevance } from "../_shared/live-lage/relevance.ts";
 import { clusterLiveEvents } from "../_shared/live-lage/cluster.ts";
+import { liveLanguage, localizedSourceName, localizeLiveEvent } from "../_shared/live-lage/localize.ts";
 import type { UserContext } from "../_shared/live-lage/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -30,6 +31,7 @@ Deno.serve(async request => {
   if (!supabaseUrl || !anonKey) return new Response(JSON.stringify({ error: "Backend configuration missing" }), { status: 503, headers });
 
   const url = new URL(request.url);
+  const language = liveLanguage(url.searchParams.get("language"));
   const scope = ["for_you","germany","world","all"].includes(url.searchParams.get("scope") || "") ? url.searchParams.get("scope")! : "for_you";
   const filter = cleanParam(url.searchParams.get("filter") || "all", 30).toLowerCase();
   const limit = Math.min(30, Math.max(1, Number(url.searchParams.get("limit") || 12)));
@@ -55,7 +57,8 @@ Deno.serve(async request => {
     .sort((a, b) => b.relevance.score - a.relevance.score || Date.parse(b.published_at) - Date.parse(a.published_at));
   const clustered = clusterLiveEvents(ranked)
     .sort((a, b) => b.relevance.score - a.relevance.score || Date.parse(b.published_at) - Date.parse(a.published_at))
-    .slice(0, limit);
+    .slice(0, limit)
+    .map(event => localizeLiveEvent(event, language));
   const sourceState = await db.request<any[]>("rpc/get_live_lage_source_state", { method: "POST", body: "{}" });
   const lastSyncAt = sourceState.map(source => source.last_successful_fetch).filter(Boolean).sort().at(-1) || null;
 
@@ -64,8 +67,9 @@ Deno.serve(async request => {
     lastSyncAt,
     scope,
     filter,
+    language,
     events: clustered,
-    sources: sourceState,
+    sources: sourceState.map(source => ({ ...source, name: localizedSourceName(source.name, language) })),
     disclaimer: "Lageübersicht aus strukturierten Quellen. Im Ereignisfall gelten ausschließlich amtliche Warnungen und Anweisungen.",
   }), { headers: { ...headers, "cache-control": "public, max-age=20, stale-while-revalidate=60" } });
 });

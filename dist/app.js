@@ -63,11 +63,14 @@ function loadState() {
 let state = loadState();
 let warningState = { status: "loading", warnings: [], checkedAt: null, fallback: false };
 let warningRequested = false;
-const LIVE_CACHE_KEY = "redscore-live-lage-v2";
+const LIVE_CACHE_KEY = "redscore-live-lage-v3";
 const PLACES_CACHE_KEY = "redscore-nearby-places-v1";
 const LIVE_REFRESH_MS = 60_000;
 const liveCache = (() => {
-  try { return JSON.parse(localStorage.getItem(LIVE_CACHE_KEY) || localStorage.getItem("plans-live-lage-v1")) || {}; }
+  try {
+    const cached = JSON.parse(localStorage.getItem(LIVE_CACHE_KEY) || "null") || {};
+    return cached.language === getLanguage() ? cached : {};
+  }
   catch { return {}; }
 })();
 let liveState = {
@@ -81,6 +84,7 @@ let liveState = {
   error: null,
 };
 let liveRequest = null;
+let liveRequestLanguage = null;
 let liveRefreshTimer = null;
 let liveClockTimer = null;
 const placesCache = (() => {
@@ -517,7 +521,7 @@ function storeLiveCache() {
   try {
     localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify({
       events: liveState.events, sources: liveState.sources, lastSyncAt: liveState.lastSyncAt,
-      receivedAt: liveState.receivedAt, scope: liveState.scope, filter: liveState.filter,
+      receivedAt: liveState.receivedAt, scope: liveState.scope, filter: liveState.filter, language: getLanguage(),
     }));
   } catch { /* The feed remains usable in memory. */ }
 }
@@ -529,18 +533,24 @@ async function requestLiveLage(force = false) {
     if (["home","warnschutz"].includes(hashRoute())) render();
     return;
   }
-  if (liveRequest) return liveRequest;
+  const requestedLanguage = getLanguage();
+  if (liveRequest) {
+    if (liveRequestLanguage === requestedLanguage) return liveRequest;
+    return liveRequest.finally(() => requestLiveLage(true));
+  }
   const received = liveState.receivedAt ? new Date(liveState.receivedAt).getTime() : 0;
   if (!force && received && Date.now() - received < 30_000) return;
   liveState.status = liveState.events.length ? "refreshing" : "loading";
-  const params = new URLSearchParams({ scope: liveState.scope, filter: liveState.filter, limit: "30", country: "Deutschland" });
+  const params = new URLSearchParams({ scope: liveState.scope, filter: liveState.filter, limit: "30", country: "Deutschland", language: requestedLanguage });
   if (state.household.state) params.set("region", state.household.state);
   if (state.household.district) params.set("district", state.household.district.replace(/^Landkreis\s+/i, ""));
   if (/freiburg/i.test(state.household.city || "")) { params.set("lat", "53.823008"); params.set("lon", "9.285572"); }
-  liveRequest = fetch(`/api/live-lage?${params}`, { cache: "no-store", headers: { accept: "application/json" } })
+  liveRequestLanguage = requestedLanguage;
+  liveRequest = fetch(`/api/live-lage?${params}`, { cache: "no-store", headers: { accept: "application/json", "accept-language": requestedLanguage } })
     .then(async response => {
       if (!response.ok) throw new Error("Live-Lage API unavailable");
       const payload = await response.json();
+      if (getLanguage() !== requestedLanguage) return;
       liveState.events = Array.isArray(payload.events) ? payload.events : [];
       liveState.sources = Array.isArray(payload.sources) ? payload.sources : [];
       liveState.lastSyncAt = payload.lastSyncAt || null;
@@ -559,6 +569,7 @@ async function requestLiveLage(force = false) {
     })
     .finally(() => {
       liveRequest = null;
+      liveRequestLanguage = null;
       clearTimeout(liveRefreshTimer);
       liveRefreshTimer = setTimeout(() => requestLiveLage(true), LIVE_REFRESH_MS);
       if (state.authenticated && ["home","warnschutz"].includes(hashRoute())) render();
@@ -908,7 +919,22 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
-  if (button.dataset.language) { setLanguage(button.dataset.language); languageMenuOpen = false; return render(); }
+  if (button.dataset.language) {
+    const nextLanguage = button.dataset.language === "en" ? "en" : "de";
+    const changed = getLanguage() !== nextLanguage;
+    setLanguage(nextLanguage);
+    languageMenuOpen = false;
+    if (changed) {
+      liveState.events = [];
+      liveState.sources = [];
+      liveState.receivedAt = null;
+      liveState.lastSyncAt = null;
+      liveState.status = navigator.onLine ? "loading" : "offline";
+    }
+    render();
+    if (changed && state.authenticated) requestLiveLage(true);
+    return;
+  }
   if (button.dataset.legal) { state.ui.modal = `legal:${button.dataset.legal}`; return render(); }
   if (button.dataset.route) return navigate(button.dataset.route);
   if (button.dataset.packFilter) { state.ui.packFilter = button.dataset.packFilter; save(); return render(); }

@@ -31,7 +31,7 @@ await loadLocalEnvironment();
 const port = Number(process.env.PORT || 4173);
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const anonKey = process.env.SUPABASE_ANON_KEY || "";
-const allowedLiveParams = new Set(["scope", "filter", "limit", "country", "region", "district", "lat", "lon"]);
+const allowedLiveParams = new Set(["scope", "filter", "limit", "country", "region", "district", "lat", "lon", "language"]);
 const mime = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
