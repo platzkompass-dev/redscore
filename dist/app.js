@@ -105,6 +105,26 @@ let session = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY)
 let syncTimer = null;
 let accountBusy = false;
 let languageMenuOpen = false;
+let deferredInstallPrompt = null;
+const INSTALL_DISMISSED_KEY = "redscore-install-prompt-dismissed-v1";
+const isStandaloneApp = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+const installPromptDismissed = () => localStorage.getItem(INSTALL_DISMISSED_KEY) === "1";
+function maybeShowInstallPrompt() {
+  if (!state.authenticated && hashRoute() === "home" && deferredInstallPrompt && !isStandaloneApp() && !installPromptDismissed() && state.ui.modal !== "install") {
+    state.ui.modal = "install";
+    render();
+  }
+}
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  maybeShowInstallPrompt();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+  if (state.ui.modal === "install") { state.ui.modal = null; render(); }
+});
 const householdScenes = {
   "solo-woman": "assets/households/solo-woman.png",
   "solo-man": "assets/households/solo-man.png",
@@ -865,6 +885,10 @@ function renderProfile() {
 
 function modal() {
   if (!state.ui.modal) return "";
+  if (state.ui.modal === "install") {
+    const english = getLanguage() === "en";
+    return `<div class="modal-backdrop install-backdrop"><section class="modal install-modal" role="dialog" aria-modal="true" aria-labelledby="install-title"><button class="modal-close" data-install-dismiss aria-label="${english ? "Close" : "Schließen"}">×</button><img class="install-logo" src="assets/app-icon-192.png?v=5" alt=""><small>${english ? "REDScore DESKTOP-APP" : "REDSCORE DESKTOP-APP"}</small><h2 id="install-title">${english ? "RedScore always at hand" : "RedScore immer griffbereit"}</h2><p>${english ? "Install RedScore as a desktop app for fast access to your preparedness status, supplies and live situation updates." : "Installiere RedScore als Desktop-App und erreiche Vorsorgestand, Vorräte und Live-Lage schneller."}</p><button class="green full" data-install-app>${english ? "Download and install" : "Download & installieren"} →</button><button class="install-later" data-install-dismiss>${english ? "Maybe later" : "Später"}</button></section></div>`;
+  }
   if (state.ui.modal.startsWith("legal:")) {
     const page = state.ui.modal.slice(6);
     const contents = {
@@ -944,6 +968,20 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
+  if (button.matches("[data-install-app]")) {
+    if (!deferredInstallPrompt) { state.ui.modal = null; return render(); }
+    const prompt = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    try { await prompt.prompt(); await prompt.userChoice; } catch { /* the browser may cancel the native prompt */ }
+    localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+    state.ui.modal = null;
+    return render();
+  }
+  if (button.matches("[data-install-dismiss]")) {
+    localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+    state.ui.modal = null;
+    return render();
+  }
   if (button.dataset.language) {
     const nextLanguage = button.dataset.language === "en" ? "en" : "de";
     const changed = getLanguage() !== nextLanguage;
@@ -1117,6 +1155,7 @@ async function initialize() {
   }
   if (authRedirect.failed) state.ui.modal = "login";
   else if (authRedirect.confirmed && !state.authenticated) state.ui.modal = "login";
+  else if (!state.authenticated && deferredInstallPrompt && !installPromptDismissed() && !isStandaloneApp()) state.ui.modal = "install";
   render();
   if (authRedirect.failed) toast("Der Bestätigungslink ist ungültig oder abgelaufen.");
   else if (authRedirect.confirmed) toast(state.authenticated ? "E-Mail bestätigt. Willkommen bei RedScore." : "E-Mail bestätigt. Du kannst dich jetzt anmelden.");
