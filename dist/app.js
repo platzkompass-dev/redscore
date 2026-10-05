@@ -275,6 +275,30 @@ function toast(message) {
   setTimeout(() => node.remove(), 3200);
 }
 
+async function shareRedScore() {
+  const english = getLanguage() === "en";
+  const share = {
+    title: english ? "RedScore – Are you prepared?" : "RedScore – Bist du vorbereitet?",
+    text: english ? "Prepare for emergencies for free with RedScore." : "Mit RedScore kostenlos auf Krisen und Notlagen vorbereiten.",
+    url: "https://www.redscore.de/",
+  };
+  try {
+    if (navigator.share) {
+      await navigator.share(share);
+      toast("Danke fürs Weiterempfehlen.");
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(share.url);
+      toast("Link wurde kopiert.");
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+  }
+  toast("https://www.redscore.de/");
+}
+
 function relevantAssessmentQuestions() {
   return assessmentQuestions.filter(([id]) => id !== "pet" || petCount() > 0);
 }
@@ -384,6 +408,7 @@ function renderPublic() {
       <div class="public-hero-copy"><h1>Wie gut bist du<br>wirklich <em>vorbereitet?</em></h1><p>RedScore zeigt dir auf einen Blick, welche Bereiche du für Katastrophen und Versorgungsausfälle bereits geprüft hast – und was du noch verbessern kannst.</p>
         <div class="cta-row"><button class="green large" data-open-auth="register">Jetzt kostenlos prüfen <span>→</span></button><button class="outline large" data-scroll="how">So funktioniert’s</button></div>
         <div class="trust-row"><span>✓ Kostenlos</span><span>✓ Unverbindlich</span><span>✓ Datenschutzfreundlich</span></div>
+        <button class="public-share" data-share-redscore aria-label="RedScore kostenlos weiterempfehlen">RedScore weiterempfehlen</button>
       </div>
       <aside class="public-score-card"><small>Dein Vorsorgestand</small><div class="empty-score">–</div><strong>Noch nicht berechnet</strong><p>Erst deine vollständigen Antworten ergeben einen Wert.</p></aside>
       <div class="script-note">Niemand kann es sich leisten,<br>unvorbereitet zu sein.</div>
@@ -935,6 +960,7 @@ app.addEventListener("click", async event => {
     if (changed && state.authenticated) requestLiveLage(true);
     return;
   }
+  if (button.matches("[data-share-redscore]")) return shareRedScore();
   if (button.dataset.legal) { state.ui.modal = `legal:${button.dataset.legal}`; return render(); }
   if (button.dataset.route) return navigate(button.dataset.route);
   if (button.dataset.packFilter) { state.ui.packFilter = button.dataset.packFilter; save(); return render(); }

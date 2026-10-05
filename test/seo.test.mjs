@@ -9,9 +9,12 @@ test("publishes complete search and social metadata", async () => {
   assert.match(html, /name="robots" content="index, follow/);
   assert.match(html, /property="og:image:width" content="1200"/);
   assert.match(html, /name="twitter:card" content="summary_large_image"/);
+  assert.match(html, /property="og:locale:alternate" content="en_GB"/);
+  assert.match(html, /name="twitter:url" content="https:\/\/www\.redscore\.de\/"/);
   assert.match(html, /"@type": "WebApplication"/);
   assert.match(html, /"price": "0"/);
   assert.match(app, /Jetzt kostenlos starten/);
+  assert.match(app, /data-share-redscore/);
 });
 
 test("publishes crawler controls and the canonical sitemap", async () => {

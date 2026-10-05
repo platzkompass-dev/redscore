@@ -18,6 +18,33 @@ Entwicklung, Vorschau-Hosts und fremde Domains erzeugen keine Seitenaufrufe.
 Werbenetzwerk-Pixel werden ohne Anbieter-ID, Rechtsgrundlage und passende
 Einwilligungsverwaltung nicht geladen.
 
+## Kostenlose Reichweite und nächste Schritte
+
+RedScore bietet auf der öffentlichen Startseite eine freiwillige Teilen-Funktion
+an. Sie verwendet ausschließlich die vom Nutzer selbst gewählte Share-Funktion
+des Geräts; ohne diese Funktion wird nur die URL kopiert. Dabei werden keine
+E-Mail-Adressen, Profil- oder Haushaltsdaten übertragen.
+
+Die technische Grundlage für organische Auffindbarkeit ist vollständig
+ausgeliefert: kanonische URL, robots.txt, XML-Sitemap, strukturierte Daten,
+Social-Preview-Metadaten und eine JavaScript-freie Inhaltszusammenfassung.
+Die folgenden kostenlosen Schritte erfordern den Zugriff der Inhaberin auf die
+jeweiligen Dienste und werden deshalb nicht automatisiert im Namen der Website
+ausgeführt:
+
+1. `https://www.redscore.de/sitemap.xml` in der Google Search Console
+   einreichen und die Startseite über die URL-Prüfung zur Indexierung anfragen.
+2. Dieselbe Sitemap in Bing Webmaster Tools hinterlegen; Bing kann Sitemaps
+   auch aus der Google Search Console importieren.
+3. Regelmäßig die Indexierungs- und Suchanfragenberichte prüfen und die
+   Wissensinhalte daran ausrichten – nie mit alarmistischen oder irreführenden
+   Schlagzeilen arbeiten.
+
+Vercel Web Analytics bleibt für Seitenaufrufe aktiv. Custom Events und
+UTM-Auswertungen werden nicht eingebaut, weil sie im aktuellen Vercel-Hobby-
+Tarif nicht kostenlos verfügbar sind. Dadurch bleibt die Messung
+datensparsam und es entstehen keine unerwarteten Kosten.
+
 Web Analytics ist im getrennten Vercel-Projekt `redscore` aktiviert. Die
 Sitemap kann anschließend kostenlos in Google Search Console und
 Bing Webmaster Tools hinterlegt werden. Verifikations-Tokens gehören in die
