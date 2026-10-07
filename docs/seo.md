@@ -25,7 +25,7 @@ an. Sie verwendet ausschließlich die vom Nutzer selbst gewählte Share-Funktion
 des Geräts; ohne diese Funktion wird nur die URL kopiert. Dabei werden keine
 E-Mail-Adressen, Profil- oder Haushaltsdaten übertragen.
 
-Die technische Grundlage für organische Auffindbarkeit ist vollständig
+Die technische Grundlage für organische Auffindbarkeit ist
 ausgeliefert: kanonische URL, robots.txt, XML-Sitemap, strukturierte Daten,
 Social-Preview-Metadaten und eine JavaScript-freie Inhaltszusammenfassung.
 Die folgenden kostenlosen Schritte erfordern den Zugriff der Inhaberin auf die
@@ -50,3 +50,18 @@ Sitemap kann anschließend kostenlos in Google Search Console und
 Bing Webmaster Tools hinterlegt werden. Verifikations-Tokens gehören in die
 Deployment-Konfiguration beziehungsweise DNS-Verwaltung und niemals als
 erfundene Werte in den Quellcode.
+
+## Öffentliche Ratgeber und aktuelles Suchlogo
+
+Seit 7. Oktober 2026 gibt es einen öffentlichen Ratgeber-Einstieg sowie drei
+Artikel auf Deutsch und Englisch. Sie sind als vollständiges HTML erreichbar,
+intern verlinkt und in der Sitemap mit gegenseitigen Sprachverweisen enthalten.
+Die Beiträge enthalten Quellen, Druck-/Teilen-Funktionen und kostenlose
+Einstiegswerkzeuge. Weitere Maßnahmen und fertige Beitragstexte: `marketing.md`.
+
+Das aktuelle rote Radar wird als 192×192-PNG unter der stabilen Adresse
+`/favicon.png` und zusätzlich als `/favicon.ico` ausgeliefert. Die Startseite und
+Ratgeber verweisen darauf; das Organisationslogo ist ebenfalls das Radar.
+Eine sofortige Aktualisierung des Google-Suchergebnisses ist nicht erzwingbar.
+Die erneute Indexierung wird über die Search Console angefordert, sobald der
+Zugang wieder verfügbar ist.

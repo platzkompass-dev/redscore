@@ -9,6 +9,7 @@
     "url": "https://github.com/platzkompass-dev/redscore.git"
   },
   "scripts": {
+    "build:guides": "node scripts/build-public-guides.mjs",
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test"

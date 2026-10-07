@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=4";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=11";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=13";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -12,6 +12,8 @@ const icon = (name, className = "icon3d") => `<img class="${className}" src="ass
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 const fmt = n => new Intl.NumberFormat(getLanguage() === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 1 }).format(n);
 const customSupplyCategories = ["Versorgung", "Gesundheit", "Haushalt", "Sonstiges"];
+const requestedLanguage = new URLSearchParams(location.search).get("lang");
+if (["de", "en"].includes(requestedLanguage)) setLanguage(requestedLanguage);
 
 function normalizeCustomSupplies(items) {
   if (!Array.isArray(items)) return [];
@@ -110,7 +112,7 @@ const INSTALL_DISMISSED_KEY = "redscore-install-prompt-dismissed-v1";
 const isStandaloneApp = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
 const installPromptDismissed = () => localStorage.getItem(INSTALL_DISMISSED_KEY) === "1";
 function maybeShowInstallPrompt() {
-  if (!state.authenticated && hashRoute() === "home" && deferredInstallPrompt && !isStandaloneApp() && !installPromptDismissed() && state.ui.modal !== "install") {
+  if (!state.authenticated && hashRoute() === "home" && deferredInstallPrompt && !isStandaloneApp() && !installPromptDismissed() && !state.ui.modal) {
     state.ui.modal = "install";
     render();
   }
@@ -397,17 +399,18 @@ function languageControl() {
 function brand(light = false) {
   return `<button class="wordmark ${light ? "light" : ""}" data-route="${state.authenticated ? "home" : "public"}" aria-label="RedScore Startseite"><img src="assets/redscore-logo.png?v=5" alt="" /><span><em>Red</em>Score</span><small>Weil der Ernstfall nicht fragt, ob du bereit bist.</small></button>`;
 }
+const publicGuideUrl = () => getLanguage() === "en" ? "/en/guides/index.html" : "/ratgeber/index.html";
 function footer(dark = false) {
   return `<footer class="site-footer ${dark ? "dark" : ""}">
     ${brand(false)}
-    <nav><button data-legal="about">Über RedScore</button><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button></nav>
+    <nav><button data-legal="about">Über RedScore</button><a href="${publicGuideUrl()}">Ratgeber</a><a href="${sources.bbkChecklist}" target="_blank" rel="noreferrer">BBK-Quellen</a><button data-legal="privacy">Datenschutz</button><button data-legal="imprint">Impressum</button></nav>
     <a class="bbk-source-badge" href="${sources.bbkChecklist}" target="_blank" rel="noreferrer" aria-label="Zu den offiziellen Informationen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe"><img class="bbk-source-logo" src="assets/bbk-logo.svg?v=2" alt="Bundesamt für Bevölkerungsschutz und Katastrophenhilfe"><span><small class="bbk-note-wide">Deine Aufgaben beruhen auf den Empfehlungen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe. Es existiert keine behördliche Zusammenarbeit.</small><small class="bbk-note-mobile">Offizielle Informationsquelle · keine behördliche Partnerschaft</small></span></a>
   </footer>`;
 }
 
 function publicHeader() {
   return `<header class="public-header">${brand(true)}<nav>
-    <button data-scroll="top" class="active">Start</button><button data-scroll="how">So funktioniert’s</button><button data-route="knowledge">Wissen</button><button data-scroll="about">Über RedScore</button>
+    <button data-scroll="top" class="active">Start</button><button data-scroll="how">So funktioniert’s</button><a href="${publicGuideUrl()}">Wissen</a><button data-scroll="about">Über RedScore</button>
   </nav><div class="public-actions"><button class="search-button" aria-label="Suche">⌕</button><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button>${languageControl()}</div></header>`;
 }
 function categoryCard(iconName, title, copy, route) {
@@ -439,6 +442,7 @@ function renderPublic() {
       <article class="why-card"><small>WARUM VORSORGEN?</small><h2>Krisen kommen<br>meist ungeplant.</h2><p>Ob Stromausfall, Unwetter oder eine andere Notlage: Vorbereitung schützt Handlungsspielraum und reduziert Risiken.</p><div class="benefits"><span>🛡️ <b>Mehr Sicherheit</b></span><span>🌱 <b>Weniger Abhängigkeit</b></span><span>🤝 <b>Ruhe und Klarheit</b></span><span>▥ <b>Schritt für Schritt</b></span></div></article>
     </section>
     <section class="how-strip" id="how"><h2>So einfach geht’s</h2><div><article><b>1</b><span><strong>Konto anlegen</strong><small>E-Mail bestätigen und sicher anmelden.</small></span></article><i>›</i><article><b>2</b><span><strong>Haushalt einrichten</strong><small>Personen, Kinder, Haustiere und Standort erfassen.</small></span></article><i>›</i><article><b>3</b><span><strong>Vorsorge starten</strong><small>Passende Mengen, Aufgaben und Lagehinweise erhalten.</small></span></article></div></section>
+    <section class="public-guide-section"><h2>Kleine Schritte. Mehr Vorbereitung.</h2><p>Praktische Ratgeber – kostenlos und ohne Anmeldung.</p><div>${[["notvorrat", "emergency-supplies", "Notvorrat anlegen", "Wasser und Lebensmittel für deinen Haushalt planen."], ["notfallrucksack", "emergency-backpack", "Notfallrucksack packen", "Die wichtigsten Dinge vorbereiten und abhaken."], ["stromausfall", "power-outage", "Auf Stromausfall vorbereiten", "Licht, Information und Versorgung im Blick behalten."]].map(([de, en, title, copy]) => `<a href="${getLanguage() === "en" ? `/en/guides/${en}.html` : `/ratgeber/${de}.html`}"><h3>${title}</h3><p>${copy}</p><span>Ratgeber lesen →</span></a>`).join("")}</div></section>
     <section class="public-band"><article>👥<span><b>Für alle Lebenslagen</b><small>Inklusive Haushaltsmodelle ohne Annahmen.</small></span></article><article>🛡️<span><b>Offizielle Grundlagen</b><small>BBK und DWD als Quellen.</small></span></article><article>🔒<span><b>Datensparsam</b><small>Keine privaten Fotos und keine Gesichtsanalyse.</small></span></article><article>🍃<span><b>Mehr Resilienz</b><small>Praktisch statt alarmistisch.</small></span></article></section>
     ${footer()}
   </div>${modal()}`;
@@ -1155,6 +1159,8 @@ async function initialize() {
   }
   if (authRedirect.failed) state.ui.modal = "login";
   else if (authRedirect.confirmed && !state.authenticated) state.ui.modal = "login";
+  else if (["impressum", "datenschutz"].includes(hashRoute())) state.ui.modal = hashRoute() === "impressum" ? "legal:imprint" : "legal:privacy";
+  else if (hashRoute() === "register" && !state.authenticated) state.ui.modal = "register";
   else if (!state.authenticated && deferredInstallPrompt && !installPromptDismissed() && !isStandaloneApp()) state.ui.modal = "install";
   render();
   if (authRedirect.failed) toast("Der Bestätigungslink ist ungültig oder abgelaufen.");
