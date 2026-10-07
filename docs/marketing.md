@@ -53,10 +53,26 @@ https://www.redscore.de/ratgeber/stromausfall.html
 4. In Bing Webmaster Tools dieselbe Sitemap einreichen. Einen vorhandenen
    Zugang verwenden; keine Konten ohne bestätigte Eigentümerschaft anlegen.
 
-Der Search-Console-Zugang ist am 7. Oktober wieder verfügbar. Eine separate
-URL-Präfix-Property für `https://www.redscore.de/` wurde angelegt. Der von Google
-bereitgestellte öffentliche Bestätigungs-Tag steht im Head der Startseite.
-Nach dem Deployment werden die Inhaberschaft und Sitemap in Google geprüft.
+Am 7. Oktober 2026 wurde eine separate URL-Präfix-Property für
+`https://www.redscore.de/` angelegt und die Inhaberschaft per HTML-Tag bestätigt.
+Die vorhandene PlatzKompass-Property wurde nicht verändert. Die Startseite ist
+bereits im Google-Index. Der Live-Test meldet „URL ist für Google verfügbar“ und
+„Seite kann indexiert werden“. Die erneute Indexierung der aktualisierten
+Startseite wurde von Google bestätigt und in die Crawling-Warteschlange gestellt.
+
+Die Sitemap wurde eingereicht. Google meldet beim ersten Abruf noch
+„Konnte nicht abgerufen werden“; nach dem erfolgreichen Live-Test wurde sie
+einmal erneut eingereicht. Der unabhängige öffentliche Abruf liefert HTTP 200,
+`application/xml` und gültiges XML mit neun URLs, auch mit Googlebot-User-Agent.
+Eine erfolgreiche Verarbeitung durch Google ist damit noch nicht nachgewiesen.
+Den Sitemap-Status bei der nächsten Search-Console-Auswertung erneut prüfen;
+keine wiederholten Indexierungsanträge für dieselbe URL senden.
+
+Das neue Radar-Favicon liegt unter stabilen öffentlichen URLs. Wann Google das
+Suchergebnis-Symbol erneuert, entscheidet Google beim erneuten Crawlen; eine
+sofortige Änderung oder bestimmte Positionen in den Suchergebnissen sind nicht
+garantiert. Bing-Einreichung und tatsächliche Social-Media-Veröffentlichungen
+sind noch offen.
 
 ## Wirkung prüfen
 
