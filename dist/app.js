@@ -1079,12 +1079,17 @@ async function requestWarnings(force = false) {
     if (key !== `${mapLocationKey()}|${state.household.district}|${getLanguage()}`) return;
     const regionTerms = [state.household.city, state.household.district].filter(Boolean).map(value => value.replace(/^Landkreis\s+/i, "").toLowerCase());
     if (!regionTerms.length && state.household.state) regionTerms.push(state.household.state.toLowerCase());
-    const warnings = (Array.isArray(payload.events) ? payload.events : []).filter(event => event.verification_status === "official" && regionTerms.some(term => [event.region,event.city,...(event.affected_regions || [])].join(" ").toLowerCase().includes(term)));
+    const matchesRegion = event => regionTerms.some(term => [event.region,event.city,...(event.affected_regions || [])].join(" ").toLowerCase().includes(term));
+    const warnings = (Array.isArray(payload.events) ? payload.events : []).filter(event => event.verification_status === "official" && matchesRegion(event));
     const weatherSource = (Array.isArray(payload.sources) ? payload.sources : []).find(source => /Wetterdienst|\bDWD\b|German Weather Service/i.test(source.name || ""));
     const sourceSyncAt = weatherSource?.last_successful_fetch;
     const sourceAge = Date.now() - Date.parse(sourceSyncAt || "");
     const fresh = Number.isFinite(sourceAge) && sourceAge >= -60_000 && sourceAge < 15 * 60_000 && !weatherSource.last_error;
-    warningState = { status: fresh ? "ok" : "fallback", key, attemptedAt: Date.now(), checkedAt: sourceSyncAt || null, warnings: warnings.map(event => ({ headline: event.title, regionName: event.region || event.city || state.household.state })) };
+    warningState = { status: fresh ? "ok" : "fallback", key, attemptedAt: Date.now(), checkedAt: sourceSyncAt || null, warnings: warnings.map(event => {
+      const localReport = (Array.isArray(event.related_events) ? event.related_events : []).find(matchesRegion);
+      const localRegion = (Array.isArray(event.affected_regions) ? event.affected_regions : []).find(region => regionTerms.some(term => String(region).toLowerCase().includes(term)));
+      return { headline: localReport?.title || event.title, regionName: localReport?.region || localReport?.city || localRegion || event.region || event.city || state.household.state };
+    }) };
   } catch { warningState = { ...warningState, status: warningState.checkedAt ? "fallback" : "error", key }; }
   finally {
     warningRequested = false;

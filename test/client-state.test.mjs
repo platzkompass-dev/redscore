@@ -170,6 +170,14 @@ test("current regional warnings use the DWD source timestamp", async () => {
   assert.equal(c.run("warningState.warnings.length"), 1);
 });
 
+test("a grouped weather warning names the matching local report, not the representative's town", async () => {
+  const c = client({ fetch: async () => Response.json({ events: [{ title: "Wind warning", region: "Flensburg", affected_regions: ["Flensburg","Berlin"], verification_status: "official", related_events: [{ title: "Wind warning for Berlin", region: "Berlin" }] }], sources: [{ name: "Deutscher Wetterdienst", last_successful_fetch: new Date().toISOString() }] }) });
+  c.run("state.household.city='Berlin'");
+  await c.run("requestWarnings()");
+  assert.equal(c.run("warningState.warnings[0].regionName"), "Berlin");
+  assert.equal(c.run("warningState.warnings[0].headline"), "Wind warning for Berlin");
+});
+
 test("a successful empty SafePlaces response is cached without a request loop", async () => {
   let calls = 0;
   const c = client({ fetch: async () => { calls++; return Response.json({ places: [], center: { lat: 52, lon: 13 }, generatedAt: new Date().toISOString() }); } });

@@ -20,7 +20,7 @@ Vorrat oder Packliste bearbeiten → auf dem Gerät speichern → bestehende `/a
 
 ## Nachweise
 
-- `npm test`: 47 Tests bestanden; Auth-Proxy, Konto-/Offline-Zustand, Feed-Rennen, Warnaktualität, SafePlaces, Routing, Übersetzungen und SEO.
+- `npm test`: 48 Tests bestanden; Auth-Proxy, Konto-/Offline-Zustand, Feed-Rennen, Warnaktualität, SafePlaces, Routing, Übersetzungen und SEO. Gebündelte Warnungen zeigen die passende regionale Teilmeldung und nicht den Ort einer fremden Hauptmeldung.
 - `npm run build:guides`: acht öffentliche Ratgeberseiten plus Sitemap generiert.
 - `node --check dist/app.js` und `git diff --check`: ohne Fehler.
 - Edge, 390 Pixel: vollständiges Familienmotiv; Eingabe 12,25 Liter; simulierter HTTP-503-Speicherfehler mit sichtbarer Wiederholung; Menge nach Neuladen erhalten.
