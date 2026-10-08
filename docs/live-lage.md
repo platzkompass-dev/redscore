@@ -28,10 +28,27 @@ Lesemodell der Security-Definer-RPCs.
 
 `NewsSourceAdapter` normalisiert strukturierte öffentliche Feeds. Im MVP sind
 `dwd.ts`, `gdacs.ts`, `eonet.ts`, `usgs.ts`, `nws.ts`, `rss.ts` und `gdelt.ts` registriert. Der RSS-Adapter verarbeitet
-BBK-, Behörden- und UN-News-Feeds. Kriegs- und Konfliktmeldungen werden nur bei
+BBK-, Behörden-, UN-News- und RTL-News-Feeds. UN News wird über den spezifischen
+RSS-Feed „Peace and Security“ statt über den kurzen allgemeinen Nachrichtenfeed
+abgerufen. Dadurch werden unter anderem Russland/Ukraine und USA/Iran erfasst.
+Kriegs- und Konfliktmeldungen werden nur bei
 konkreten Ereignissignalen wie Angriffen, Beschuss, Gefechten oder Waffenruhen
 aufgenommen; allgemeine Außenpolitik und Meinungsbeiträge werden verworfen. Der
-GDELT-Adapter verarbeitet ausschließlich Treffer etablierter
+Adapter erkennt auch „Ukraine attacks“, „greift … an“ und Meldungen zur Beendigung
+eines laufenden Krieges. Jahrestage, Analysen und Meldungen ohne Publikationszeit
+werden verworfen. Fehlende Zeitangaben werden niemals durch die Abrufzeit ersetzt.
+Explizite Quellensprachen und Konfliktthemen bleiben als Tags erhalten; bei
+fremdsprachigen Quellen erscheinen eigene lokalisierte Kurzbeschreibungen, keine
+behauptete vollständige Artikelübersetzung.
+
+RTL stellt unter seinen [RSS-Nutzungsbedingungen](https://www.rtl.de/cms/rss-feed-abonnieren-sie-die-rtl-de-auf-ihrem-feedreader-4476976.html)
+Feeds zum Einbinden bereit und kann diese Freigabe widerrufen. RedScore übernimmt
+keine Bilder, Videos oder vollständigen Artikel. Tagesschau und Deutschlandfunk
+wurden **nicht** ungeprüft aktiviert: Ihre aktuellen Bedingungen verlangen für
+Wiederveröffentlichung beziehungsweise kommerzielle Drittplattformen eine Freigabe.
+Eine spätere Einbindung setzt geklärte Nutzungsrechte voraus.
+
+Der GDELT-Adapter verarbeitet ausschließlich Treffer etablierter
 Originalquellen aus einer Domain-Allowlist. Unterstützte Erweiterungen sind REST, RSS,
 Atom, JSON Feed und CAP. HTML-Scraping ist nicht Bestandteil des MVP.
 
@@ -75,6 +92,25 @@ Die modulare Bewertung kombiniert in dieser Reihenfolge:
 Das Ergebnis wird als `KRITISCH`, `HOCH`, `MITTEL` oder `GERING` angezeigt. Die
 Gewichte liegen getrennt in `relevance.ts` und können später ohne Änderungen an den
 Adaptern ersetzt werden.
+
+Die RPC `get_filtered_live_lage_events` filtert Kategorie, geografische Auswahl,
+Aktivität, Ablaufzeit und Publikationszeit **vor** der Ergebnisbegrenzung. Die
+begrenzte Kandidatenmenge wird reihum aus allen Kategorien befüllt; passende
+Landkreise und Bundesländer werden innerhalb jeder Kategorie zuerst berücksichtigt.
+Das verhindert die bisherige Verdrängung aller anderen Kategorien durch neue
+Wetterwarnungen. Der abschließende Rang wird weiterhin im Relevanzmodell berechnet.
+
+In gemischten Übersichten reserviert `selection.ts` bis zu zwei der zwölf Plätze
+für schwerwiegende Konfliktmeldungen, falls vorhanden. Die erste Meldung und nahe
+kritische Ereignisse werden dabei nicht ersetzt. Ein expliziter Kategorienfilter
+bekommt keine Beimischung. Fehlende Koordinaten werden nicht mehr zu `(0,0)`;
+Koordinaten müssen als gültiges, vollständiges Paar übergeben werden.
+
+Dies ist keine Garantie vollständiger oder sekundengenauer Kriegsberichterstattung:
+Quellen berichten unterschiedlich schnell; jede Meldung zeigt ihren tatsächlichen
+Veröffentlichungszeitpunkt und ihre Quelle. Mehrere Feeds eines einzigen Herausgebers
+gelten nicht als unabhängige Bestätigung. Daher wurde der bestehende UN-Quelleneintrag
+umgestellt, kein zusätzlicher vermeintlich unabhängiger UN-Eintrag angelegt.
 
 ## Offline-Verhalten
 

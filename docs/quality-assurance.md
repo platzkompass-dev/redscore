@@ -45,7 +45,32 @@ Der Testserver bindet ausschließlich an die Loopback-Adresse. Kontodaten liegen
 - Reale Registrierung mit Zustellung und Klick auf eine Bestätigungsmail wurde in diesem Durchgang nicht erneut durchgeführt; dafür ist ein kontrolliertes echtes Testkonto erforderlich.
 - SafePlaces-Routen und Warnimporte haben eigene automatisierte Tests; die lokale Browserumgebung prüft hier bewusst einen leeren Ortsdatensatz, keine reale Navigationsstrecke.
 - Konflikte bei gleichzeitigen Änderungen auf mehreren Geräten benötigen langfristig serverseitige Versionsprüfung. Aktuell hat eine zuletzt erfolgreiche vollständige Speicherung Vorrang.
-- Die Koordinatenparameter des Supabase-Lage-Endpunkts benötigen noch strengere Validierung: fehlende Werte dürfen dort nicht über `Number(null)` zu 0 werden. In diesem Durchgang wurde keine Supabase-Funktion neu bereitgestellt.
+- Die Koordinatenparameter wurden beim nachfolgenden Live-Lage-Fix als vollständiges Paar mit Wertebereich validiert; fehlende Werte werden nicht mehr zu 0. Beide Lage-Funktionen wurden mit unverändert aktivierter JWT-Prüfung neu bereitgestellt.
 - Die regionale Wetterübersicht ist keine vollständige amtliche Warn-App. Datenabdeckung, Importverzögerungen und die begrenzte Ergebnismenge können Meldungen auslassen; deshalb gibt es keine automatische Entwarnung.
 
 Die Prüfung folgt den Skills `vercel:verification` (gesamter Datenfluss und Fehlerfälle) und `vercel:deployments-cicd` (getrenntes Projekt, Commit-/Produktionsnachweis). Die Plattform ist damit verbessert, nicht pauschal als fehlerfrei zertifiziert.
+
+## Nachprüfung Kriegsnachrichten — 8. Oktober 2026
+
+- Ursache nachgewiesen: Die bisherige gemischte Datenbankabfrage enthielt **0**
+  Konfliktmeldungen unter den letzten 200 Meldungen, die neue kategorienbalancierte
+  Abfrage enthielt bereits vor dem nächsten Import **3**. Ein expliziter Konfliktfilter
+  liefert auch mit `limit=1` eine Konfliktmeldung statt einer Wetterwarnung.
+- Der allgemeine UN-Feed wurde durch den thematischen „Peace and Security“-Feed
+  ersetzt. Der echte Quellenabruf enthält Meldungen zur Ukraine vom 7. Oktober und
+  zum USA-Iran-Konflikt vom 6. Oktober. Keine erfundenen Produktivmeldungen.
+- Die produktive API liefert diese Meldungen sowohl für `scope=world` als auch
+  `scope=for_you`, mit Quellenstatus `verified` und unveränderten Publikationszeiten.
+- `npm test`: **57 Tests bestanden**, darunter neue Fälle für Konflikterkennung,
+  politische Nicht-Ereignisse, fehlende Zeitangaben, Quellensprachen, deutsche/englische
+  Konfliktthemen, Kategorienauswahl und Erhalt naher kritischer Warnungen.
+- Die Supabase-Sicherheitsprüfung wurde ausgeführt. Die Nachrichten-Tabellen bleiben
+  ohne direkten öffentlichen Tabellenzugriff; das absichtlich öffentliche,
+  begrenzte Security-Definer-Lesemodell hat einen leeren `search_path` und explizite
+  Execute-Grants. Die entsprechenden Advisor-Warnungen wurden daher nicht durch
+  Öffnung der Tabellen „behoben“. Bereits vorhandene Hinweise zu `pg_net` im öffentlichen
+  Schema und deaktiviertem Passwort-Leak-Schutz bleiben separate Härtungspunkte.
+- Edge-Browser, Produktionsdashboard: „Weltlage“ → „Kriege“ zeigt die echten
+  Meldungen für Russland/Ukraine und USA/Iran mit Quellenbezeichnung und Alter.
+  Die öffentliche gemischte API-Antwort enthält beide Konfliktthemen bei zwölf
+  angeforderten Meldungen; der reine Wetterfilter enthält keine Kriegsbeimischung.

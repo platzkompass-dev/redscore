@@ -21,6 +21,24 @@ test("defaults invalid language values to German", () => {
   assert.equal(liveLanguage("en"), "en");
 });
 
+test("German conflict labels preserve the Russia-Ukraine and US-Iran topic", () => {
+  const event = {...base, category:"international_security", title:"UN calls for end to US-Iran conflict", country:"Iran", tags:["source-language:en", "conflict:us-iran"]};
+  assert.match(localizeLiveEvent(event,"de").title, /USA \/ Iran/);
+  assert.equal(localizeLiveEvent(event,"en").title, event.title);
+  const german = {...event, title:"USA: Iran meldet Luftangriff", tags:["source-language:de"]};
+  assert.equal(localizeLiveEvent(german,"de").title, german.title);
+});
+
+test("translates supported conflict statements without converting an appeal into an attack", () => {
+  const event = {...base, category:"international_security", country:"Iran", tags:["source-language:en", "conflict:us-iran"], title:"In Islamabad, Guterres calls for end to US-Iran conflict"};
+  const translated = localizeLiveEvent(event,"de");
+  assert.equal(translated.title, "Guterres fordert ein Ende des USA-Iran-Konflikts");
+  assert.doesNotMatch(translated.summary, /Luftangriff|Raketenangriff/);
+  const ukraine = {...event, country:"Ukraine", title:"Ukraine: UN condemns latest attacks and calls for civilian protection", tags:["source-language:en", "conflict:russia-ukraine"]};
+  assert.match(localizeLiveEvent(ukraine,"de").title, /UN verurteilt neue Angriffe in der Ukraine/);
+  assert.equal(localizeLiveEvent(ukraine,"en").title, ukraine.title);
+});
+
 test("localizes descriptive source names while preserving brands", () => {
   assert.equal(localizedSourceName("UN News · Kriege und Konflikte", "en"), "UN News · Wars and conflicts");
   assert.equal(localizedSourceName("Deutscher Wetterdienst", "en"), "Deutscher Wetterdienst");

@@ -657,7 +657,7 @@ async function requestLiveLage(force = false) {
   if (!force && liveAttempt.key === requestedKey && Date.now() - liveAttempt.at < LIVE_REFRESH_MS) return;
   liveAttempt = { key: requestedKey, at: Date.now() };
   liveState.status = liveState.events.length ? "refreshing" : "loading";
-  const params = new URLSearchParams({ scope: liveState.scope, filter: liveState.filter, limit: "30", country: "Deutschland", language: requestedLanguage });
+  const params = new URLSearchParams({ scope: liveState.scope, filter: liveState.filter, limit: "12", country: "Deutschland", language: requestedLanguage });
   if (state.household.state) params.set("region", state.household.state);
   if (state.household.district) params.set("district", state.household.district.replace(/^Landkreis\s+/i, ""));
   if (placesState.key === mapLocationKey() && placesState.center) { params.set("lat", String(placesState.center.lat)); params.set("lon", String(placesState.center.lon)); }

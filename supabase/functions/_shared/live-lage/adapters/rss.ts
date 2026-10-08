@@ -4,14 +4,26 @@ import { assertAllowedHttpsUrl, fetchStructured, plainText, safePublicUrl } from
 function field(block: string, names: string[]): string {
   for (const name of names) {
     const match = block.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i"));
-    if (match?.[1]) return plainText(match[1].replace(/^<!\\[CDATA\\[/, "").replace(/\\]\\]>$/, ""), 4000);
+    if (match?.[1]) return plainText(match[1].trim().replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, ""), 4000);
   }
   return "";
 }
 
+function isConflictIncident(value: string): boolean {
+  const text = value.toLowerCase();
+  const explicit = /luftangriff|raketenangriff|drohnenangriff|militärschlag|bombardement|beschuss|gefechte?|kampfhandlungen|waffenruhe|waffenstillstand|invasion|militäroffensive|air\s?strikes?|missile attacks?|drone attacks?|military strikes?|bombardment|shelling|armed clashes?|ceasefires?/;
+  const context = /\bwar\b|krieg|militär|military|armee|army|armed forces|ukrain|russland|russian?|iran|israel|gaza|huthi|houthis|hamas|hezbollah|hisbollah|\busa\b|u\.s\.|united states|amerikanisch/;
+  const action = /angriff|attack|greif\w*\b.{0,100}\ban\b|griff\w*\b.{0,100}\ban\b|offensive|fighting|strikes?|eskalation|escalat|vorrück|advance|raketen|missiles?|drohneneinschlag|töte|getötet|killed|verwundet|wounded|kampf|kämpfe|combat/;
+  // Country names alone are not a war incident. Liveblogs on an actual conflict
+  // are admitted, but elections, interviews and general diplomacy are not.
+  return explicit.test(text) || (context.test(text) && action.test(text)) ||
+    (context.test(text) && /(?:end to|end of|halt|stop|ende|beenden|beendigung).{0,80}(?:conflict|war|krieg|konflikt)/.test(text)) ||
+    (/liveblog|liveticker|live updates/.test(text) && /krieg|\bwar\b|konflikt|conflict/.test(text));
+}
+
 function categoryFor(value: string): NewsCategory | null {
   const text = value.toLowerCase();
-  if (/luftangriff|raketenangriff|drohnenangriff|militärschlag|bombardement|beschuss|gefechte?|kampfhandlungen|waffenruhe|waffenstillstand|invasion|offensive|raketen (?:treffen|töten|zerstören)|airstrikes?|missile attacks?|missiles? (?:hit|strike|kill|damage|launched|fired)|drone attacks?|military strikes?|bombardment|shelling|armed clashes?|fighting|ceasefires?|invasion|military offensive/.test(text)) return "international_security";
+  if (isConflictIncident(text)) return "international_security";
   if (/drohn|drone|uav/.test(text)) return "drones";
   if (/cyber|ransomware|hacker|it-ausfall|it.?ausfall/.test(text)) return "cyber";
   if (/stromausfall|blackout|power outage/.test(text)) return "power_outage";
@@ -39,11 +51,11 @@ function categoryFor(value: string): NewsCategory | null {
 
 function isCurrentIncident(category: NewsCategory, value: string): boolean {
   const text = value.toLowerCase();
-  if (/ratgeber|gebärdensprache|\bdgs\b|warntag|bilanz|veranstaltung|projekt|forschung|fähigkeitsmanagement|publikation|interview|erklärvideo|tipps? (?:für|zur)|wie (?:kann|können|funktioniert)|vorsorge(?:n|tipps|ratgeber)/.test(text)) return false;
   if (category === "international_security") {
-    if (/analyse|kommentar|meinung|podcast|dokumentation|jahrestag|rückblick|geschichte|wahlkampf|fordert? (?:mehr|neue)|debattiert|berät über/.test(text)) return false;
-    return /luftangriff|raketenangriff|drohnenangriff|militärschlag|bombardement|beschuss|gefechte?|kampfhandlungen|waffenruhe|waffenstillstand|invasion|offensive|explosion|raketen (?:treffen|töten|zerstören)|airstrikes?|missile attacks?|missiles? (?:hit|strike|kill|damage|launched|fired)|drone attacks?|military strikes?|bombardment|shelling|armed clashes?|fighting|ceasefires?|invasion|military offensive|explosion|killed|dead|verwundet|tote/.test(text);
+    if (/^(?:analysis|opinion|analyse|kommentar|meinung|podcast|dokumentation|interview|rückblick)\b|jahrestag|anniversary|years on from|wahlkampf|ratgeber/.test(text)) return false;
+    return isConflictIncident(text);
   }
+  if (/ratgeber|gebärdensprache|\bdgs\b|warntag|bilanz|veranstaltung|projekt|forschung|fähigkeitsmanagement|publikation|interview|erklärvideo|tipps? (?:für|zur)|wie (?:kann|können|funktioniert)|vorsorge(?:n|tipps|ratgeber)/.test(text)) return false;
   const active = /aktuell|heute|gestern|meldet|gemeldet|ereignis|vorfall|alarm|warnung|gefahr|ausgefallen|beeinträchtigt|unterbrochen|gesperrt|evakuiert|ausgetreten|brennt|überschwemmt|überflutet|tritt auf|erwartet|angriff|attacke|sichtung|gesichtet|explosion/.test(text);
   if (!active) return false;
   if (category === "drones") return /sichtung|gesichtet|alarm|vorfall|gesperrt/.test(text) && /flughafen|airport|militär|bundeswehr|kritische infrastr|kraftwerk|hafen|bahn|polizei/.test(text);
@@ -59,7 +71,7 @@ function severityFor(category: NewsCategory, value: string): Severity {
   return "medium";
 }
 
-function locationFor(value: string): { country: string; region?: string; city?: string } {
+function locationFor(value: string, international = false): { country: string; region?: string; city?: string } {
   const text = value.toLowerCase();
   const countries: Array<[RegExp, string]> = [
     [/ukraine|kyiv|kiew|kharkiv|charkiw|odesa|odessa|dnipro|donetsk|luhansk|saporischschja|zaporizhzhia/, "Ukraine"],
@@ -70,8 +82,10 @@ function locationFor(value: string): { country: string; region?: string; city?: 
     [/jemen|yemen|sanaa/, "Jemen"], [/sudan|khartum|khartoum|darfur/, "Sudan"],
     [/taiwan|taipei/, "Taiwan"], [/myanmar|burma/, "Myanmar"],
     [/kongo|congo|kinshasa|goma/, "Demokratische Republik Kongo"],
+    [/\busa\b|\bu\.s\.|united states|vereinigte staaten|washington/, "USA"],
   ];
   const countryHit = countries.find(([pattern]) => pattern.test(text));
+  if (international && countryHit) return { country: countryHit[1] };
   const regions: Array<[RegExp, string, string?]> = [
     [/\bschönefeld\b|flughafen ber|airport ber|berlin brandenburg airport/, "Brandenburg", "Schönefeld"],
     [/\bberlin\b/, "Berlin", "Berlin"], [/brandenburg|potsdam/, "Brandenburg"],
@@ -104,14 +118,17 @@ export const rssAdapter: NewsSourceAdapter = {
       const combined = `${title} ${summary}`;
       const category = categoryFor(combined);
       if (title.length < 8 || !category || !isCurrentIncident(category, combined) || (configuredTerms.length && !configuredTerms.some(term => combined.toLowerCase().includes(term)))) return [];
+      if (source.config.categories?.length && !source.config.categories.includes(category)) return [];
       const linkRaw = field(block, ["link", "guid", "id"]);
       let sourceUrl: string;
       try { sourceUrl = safePublicUrl(linkRaw || String(source.config.canonical_url || endpoint), source.allowed_hosts); }
       catch { return []; }
       const publishedRaw = field(block, ["pubDate", "published", "updated", "dc:date"]);
-      const publishedDate = new Date(publishedRaw || Date.now());
+      if (!publishedRaw) return []; // Never turn an undated report into "breaking" news.
+      const publishedDate = new Date(publishedRaw);
       if (Number.isNaN(publishedDate.getTime())) return [];
-      const location = locationFor(combined);
+      const location = locationFor(title, category === "international_security");
+      if (location.country === "International") Object.assign(location, locationFor(combined, category === "international_security"));
       return [{
         externalId: field(block, ["guid", "id"]) || sourceUrl,
         title,
@@ -130,7 +147,9 @@ export const rssAdapter: NewsSourceAdapter = {
         city: location.city,
         geographicScope: location.region || location.country,
         organizations: [source.name],
-        tags: [category, "RSS", source.trust_level === "official" ? "offizielle Quelle" : "bestätigte Quelle"],
+        tags: [category, "RSS", source.trust_level === "official" ? "offizielle Quelle" : "bestätigte Quelle", ...(source.config.language ? [`source-language:${source.config.language}`] : []),
+          ...(category === "international_security" && /ukrain/i.test(combined) && /russ|moscow|moskau/i.test(combined) ? ["conflict:russia-ukraine"] : []),
+          ...(category === "international_security" && /iran/i.test(combined) && /\busa?\b|u\.s\.|united states|amerikan/i.test(combined) ? ["conflict:us-iran"] : [])],
         rawPayload: { title, publishedRaw },
       } satisfies NormalizedNewsItem];
     });

@@ -154,7 +154,17 @@ function translatedTitle(event: LiveEvent, language: LiveLanguage): string {
       ? `${strength ? `Erdbeben der Stärke ${strength.replace(".", ",")}` : "Erdbeben"} – ${location}`
       : `${strength ? `Magnitude ${strength} earthquake` : "Earthquake"} – ${location}`;
   }
-  if (event.category === "international_security") return `${conflictKind(event, language)} – ${location}`;
+  if (event.category === "international_security") {
+    // Translate narrowly recognized statements without inventing attack details.
+    // Unrecognized headlines keep the conservative category/topic fallback.
+    const headline = String(event.title || "");
+    if (language === "de" && /Guterres calls for (?:an? )?end to (?:US-Iran|U\.S\.-Iran) conflict/i.test(headline))
+      return "Guterres fordert ein Ende des USA-Iran-Konflikts";
+    if (language === "de" && /^Ukraine:.*UN condemns (?:latest|new) attacks.*civilian protection/i.test(headline))
+      return "UN verurteilt neue Angriffe in der Ukraine und fordert Schutz der Zivilbevölkerung";
+    const topic = event.tags?.includes("conflict:us-iran") ? "USA / Iran" : event.tags?.includes("conflict:russia-ukraine") ? (language === "de" ? "Russland / Ukraine" : "Russia / Ukraine") : location;
+    return `${conflictKind(event, language)} – ${topic}`;
+  }
   const label = CATEGORY_LABELS[String(event.category)]?.[language] || (language === "de" ? "Sicherheitsrelevante Meldung" : "Safety-related report");
   return `${label} – ${location}`;
 }
@@ -165,6 +175,7 @@ function translatedSummary(event: LiveEvent, language: LiveLanguage): string {
   const label = CATEGORY_LABELS[String(event.category)]?.[language] || (language === "de" ? "sicherheitsrelevantes Ereignis" : "safety-related incident");
   const severity = SEVERITY_WORDS[String(event.severity)]?.[language] || SEVERITY_WORDS.medium[language];
   if (language === "de") {
+    if (event.category === "international_security") return `${translatedTitle(event, language)}. Quelle: ${source}. Einzelheiten und die ursprüngliche Meldung stehen in der verlinkten Originalquelle.`;
     return `${source} meldet für ${location} eine Lage der Kategorie „${label}“. Die Gefahrenstufe wird als ${severity} eingeordnet. Weitere Einzelheiten stehen in der verlinkten Originalquelle.`;
   }
   return `${source} reports an incident in the “${label}” category for ${location}. The severity level is classified as ${severity}. Further details are available from the linked original source.`;
@@ -172,7 +183,7 @@ function translatedSummary(event: LiveEvent, language: LiveLanguage): string {
 
 function localizedField(value: unknown, event: LiveEvent, language: LiveLanguage, field: "title" | "summary"): string {
   const text = String(value || "").trim();
-  if (text && sourceLanguage(text) === language) return text;
+  if (text && (event.tags?.includes(`source-language:${language}`) || sourceLanguage(text) === language)) return text;
   return field === "title" ? translatedTitle(event, language) : translatedSummary(event, language);
 }
 
