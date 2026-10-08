@@ -30,3 +30,24 @@ test("keeps source-provided reports unchanged", () => {
   const report = "Amtliche WARNUNG vor STURMBÖEN";
   assert.equal(translateText(report), report);
 });
+
+test("translates packing-list items, status, search and accessibility labels", () => {
+  setLanguage("en");
+  assert.equal(translateText("Geladene Powerbank"), "Charged power bank");
+  assert.equal(translateText("Warme Kleidung"), "Warm clothing");
+  assert.equal(translateText("1 von 13 bereit"), "1 of 13 ready");
+  assert.equal(translateText("12 Punkte fehlen noch."), "12 items remain.");
+  assert.equal(translateText("1 Punkt fehlt."), "1 item remains.");
+  assert.equal(translateText("1 abgehakt · 12 offen"), "1 checked · 12 remaining");
+  assert.equal(translateText("Als vorhanden markieren"), "Mark as available");
+  assert.equal(translateText("Suchen"), "Search");
+});
+
+test("translates every authored knowledge article including its details", async () => {
+  const { knowledgeArticles } = await import("../dist/data.js");
+  setLanguage("en");
+  for (const article of knowledgeArticles) {
+    for (const copy of [article.title,article.summary,...article.bullets]) assert.notEqual(translateText(copy), copy);
+  }
+  assert.equal(translateText("Krisen & Gefahrenlagen · 8 Min."), "Crises & hazards · 8 min.");
+});

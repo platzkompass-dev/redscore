@@ -1,6 +1,104 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "schützt.": "protects.",
+  "Krisen & Gefahrenlagen": "Crises & hazards",
+  "Notfallvorsorge": "Emergency preparedness",
+  "Zuhause & Alltag": "Home & everyday life",
+  "Stromausfall – vorbereitet bleiben": "Power outage – stay prepared",
+  "Licht, Wärme, Information und sichere Lebensmittel.": "Light, warmth, information and safe food.",
+  "Taschenlampen statt offener Flammen verwenden.": "Use flashlights instead of open flames.",
+  "Kühl- und Gefriergeräte geschlossen halten.": "Keep refrigerators and freezers closed.",
+  "Radio und amtliche Warnkanäle verfolgen.": "Follow the radio and official warning channels.",
+  "Empfindliche Geräte vom Netz trennen.": "Unplug sensitive devices.",
+  "Lebensmittel richtig bevorraten": "Store food supplies properly",
+  "Vorräte, die ihr ohnehin esst, sinnvoll rotieren.": "Rotate supplies of food your household normally eats.",
+  "Mit drei Tagen beginnen und auf zehn Tage ausbauen.": "Start with three days and build up to ten days.",
+  "Haltbarkeit und Zubereitung ohne Strom berücksichtigen.": "Consider shelf life and preparation without electricity.",
+  "Verbrauchtes regelmäßig ersetzen.": "Regularly replace supplies you have used.",
+  "Notgepäck – die BBK-Checkliste": "Emergency bag – the BBK checklist",
+  "Tragbar, persönlich und griffbereit.": "Portable, personal and within reach.",
+  "Persönliche Medikamente und Erste Hilfe einpacken.": "Pack personal medication and first-aid supplies.",
+  "Radio, Batterien, Taschenlampe und Powerbank bereithalten.": "Keep a radio, batteries, flashlight and power bank ready.",
+  "Dokumentenkopien, Kleidung, Wasser und Verpflegung ergänzen.": "Add document copies, clothing, water and food.",
+  "Kinder in Krisenzeiten begleiten": "Support children during a crisis",
+  "Routinen, Nähe und altersgerechte Information.": "Routines, reassurance and age-appropriate information.",
+  "Ruhig und ehrlich erklären, was passiert.": "Explain calmly and honestly what is happening.",
+  "Vertraute Gegenstände und Routinen einplanen.": "Plan for familiar objects and routines.",
+  "Kontakt- und Treffpunktplan gemeinsam üben.": "Practice your contact and meeting-point plan together.",
+  "Wasser ist Leben": "Water is life",
+  "Zwei Liter pro Person und Tag als BBK-Richtwert.": "Two liters per person per day as a BBK guideline.",
+  "Trinkwasser kühl und dunkel lagern.": "Store drinking water in a cool, dark place.",
+  "Gebinde beschriften und regelmäßig prüfen.": "Label containers and check them regularly.",
+  "Brauchwasser getrennt halten.": "Keep non-drinking water separate.",
+  "BBK-Ratgeber": "BBK guide", "Notgepäck": "Emergency bag", "Dokumente sichern": "Protect documents", "Warn-App NINA": "NINA warning app",
+  "Zu den offiziellen Informationen des Bundesamts für Bevölkerungsschutz und Katastrophenhilfe": "Official information from the Federal Office of Civil Protection and Disaster Assistance",
+  "BBK-ORIENTIERT · PERSÖNLICH": "BASED ON BBK GUIDANCE · PERSONAL",
+  "Suchen": "Search",
+  "Als vorhanden markieren": "Mark as available",
+  "Als nicht vorhanden markieren": "Mark as unavailable",
+  "Für den Notfallrucksack abgehakt.": "Checked off for your emergency backpack.",
+  "Eintrag wieder geöffnet.": "Item reopened.",
+  "hoch": "high", "mittel": "medium", "niedrig": "low",
+  "Eine kleine Flasche pro Person für den Weg; Vorrat separat planen.": "A small bottle per person for the journey; plan household supplies separately.",
+  "persönlicher Bedarf": "individual needs",
+  "Haltbare Verpflegung": "Shelf-stable food",
+  "Kompakt, energiereich und ohne Kühlung genießbar.": "Compact, energy-rich food that does not need refrigeration.",
+  "für unterwegs": "for the journey",
+  "Regelmäßige Medikamente und wichtige Hilfsmittel einpacken.": "Pack regular medication and essential medical aids.",
+  "persönlich": "personal",
+  "Kleine Reiseapotheke inklusive Pflastern und Verbandmaterial.": "A small first-aid kit including plasters and dressings.",
+  "Batterie-, Solar- oder Kurbelradio für amtliche Informationen.": "A battery, solar or hand-crank radio for official information.",
+  "1 Gerät": "1 device",
+  "Robuste Lampe und passende Ersatzbatterien.": "A sturdy flashlight and compatible spare batteries.",
+  "1 je Person": "1 per person",
+  "Geladene Powerbank": "Charged power bank",
+  "Mit passendem Ladekabel und regelmäßig geprüftem Ladezustand.": "With a compatible charging cable; check the charge regularly.",
+  "1–2 Stück": "1–2 items",
+  "Ausweise, Versicherungen und medizinische Informationen geschützt kopieren.": "Keep protected copies of IDs, insurance and medical information.",
+  "1 Mappe": "1 folder",
+  "Bargeld": "Cash",
+  "Kleine Scheine und Münzen für Situationen ohne Kartenzahlung.": "Small banknotes and coins for situations without card payments.",
+  "Warme Kleidung": "Warm clothing",
+  "Wetterfeste Wechselkleidung, feste Schuhe und eine Rettungsdecke.": "Weatherproof spare clothing, sturdy shoes and an emergency blanket.",
+  "pro Person": "per person",
+  "Hygieneartikel": "Hygiene items",
+  "Handdesinfektion, Feuchttücher und persönliche Hygieneartikel.": "Hand sanitizer, wet wipes and personal hygiene items.",
+  "Signalpfeife": "Emergency whistle",
+  "Klein, leicht und bei eingeschränkter Sicht hörbar.": "Small, light and audible when visibility is limited.",
+  "1 Stück": "1 item",
+  "Ersatzschlüssel": "Spare keys",
+  "Wohnung, Keller, Fahrzeug oder wichtige Zugangskarten prüfen.": "Check keys for your home, basement, vehicle and important access cards.",
+  "nach Bedarf": "as needed",
+  "Haustierbedarf": "Pet supplies",
+  "Futter, Wasser, Leine/Transportbox, Medikamente und Unterlagen.": "Food, water, leash or carrier, medication and documents.",
+  "je Tier": "per animal",
+  "Dein Rucksack ist vollständig geprüft.": "Your backpack has been fully checked.",
+  "Mit deinem Konto synchronisiert": "Synced with your account",
+  "Auf diesem Gerät gespeichert · Synchronisierung ausstehend": "Saved on this device · sync pending",
+  "Kontodaten werden gespeichert …": "Saving account data …",
+  "Offline · Änderungen bleiben auf diesem Gerät": "Offline · changes stay on this device",
+  "Lokal gespeichert · Kontosynchronisierung fehlgeschlagen": "Saved locally · account sync failed",
+  "Lokal gespeichert · bitte erneut anmelden": "Saved locally · please sign in again",
+  "Erneut versuchen": "Try again",
+  "Regionaler Warnabgleich läuft": "Checking regional warnings",
+  "Warnstatus nicht aktuell": "Warning status is not current",
+  "Offline · keine Entwarnung": "Offline · not an all-clear",
+  "Keine regionale Warnung in der Lageübersicht": "No regional warning in the situation overview",
+  "Keine Entwarnung · amtliche Warnwege prüfen": "Not an all-clear · check official warning channels",
+  "70 % Vorsorge-Check · 30 % erfasster Vorratsfortschritt": "70% preparedness check · 30% recorded supply progress",
+  "Keine passenden Artikel gefunden": "No matching articles found",
+  "Versuche einen anderen Suchbegriff.": "Try a different search term.",
+  "Suche zurücksetzen": "Clear search",
+  "Trinkwasser erfassen": "Record drinking water",
+  "Erfassungsart": "Entry method",
+  "Gebinde zählen": "Count containers",
+  "Liter direkt eingeben": "Enter liters directly",
+  "Filterwechsel benötigt eine Internetverbindung. Gespeicherte Meldungen bleiben sichtbar.": "Changing filters requires an internet connection. Saved reports remain visible.",
+  "Gesamtmenge in Litern": "Total volume in liters",
+  "Bitte eine gültige Menge eingeben.": "Please enter a valid quantity.",
+  "Du kannst bis zu 100 eigene Vorräte speichern.": "You can save up to 100 custom supplies.",
+  "Es gibt noch nicht synchronisierte Änderungen auf diesem Gerät. Beim Abmelden werden sie entfernt. Trotzdem abmelden?": "This device has changes that have not been synced. Signing out will remove them. Sign out anyway?",
   "DEIN VORSPRUNG IM ERNSTFALL": "YOUR EDGE IN AN EMERGENCY",
   "Weil der Ernstfall nicht fragt, ob du bereit bist.": "Because emergencies do not ask whether you are ready.",
   "Start": "Home",
@@ -571,6 +669,13 @@ export function translateText(value) {
     .replace(/× Tier/g, "× animal")
     .replace(/^Person (\d+) – freiwillige Selbstbezeichnung$/, "Person $1 – voluntary self-identification")
     .replace(/^(\d+) von (\d+) beantwortet$/, "$1 of $2 answered")
+    .replace(/^(\d+) von (\d+) bereit$/, "$1 of $2 ready")
+    .replace(/^(\d+) Punkte fehlen noch\.$/, "$1 items remain.")
+    .replace(/^(\d+) Punkt fehlt\.$/, "$1 item remains.")
+    .replace(/^(\d+) Einträge$/, "$1 items")
+    .replace(/^(\d+) Eintrag$/, "$1 item")
+    .replace(/^(Krisen & Gefahrenlagen|Notfallvorsorge|Zuhause & Alltag|Infrastruktur) · (\d+) Min\.$/, (_, category, minutes) => `${EN.get(category) || category} · ${minutes} min.`)
+    .replace(/^(\d+) abgehakt · (\d+) offen$/, "$1 checked · $2 remaining")
     .replace(/^(\d+) Aufgaben offen$/, "$1 open tasks")
     .replace(/^Trinkwasser für (\d+) Tage$/, "Drinking water for $1 days")
     .replace(/^10-Tage-Ziel: ([\d,.]+) Liter für deinen Haushalt$/, "10-day target: $1 liters for your household")
@@ -584,6 +689,8 @@ export function translateText(value) {
     .replace(/^Ergebnisse \((\d+)\)$/, "Results ($1)")
     .replace(/^Zuletzt aktualisiert /, "Last updated ")
     .replace(/^Letzter Lageabgleich /, "Last situation sync ")
+    .replace(/^Lageabgleich: /, "Situation sync: ")
+    .replace(/ · gespeicherter Stand · keine Entwarnung$/, " · saved status · not an all-clear")
     .replace(/vor (\d+) Sek\.$/, "$1 sec. ago")
     .replace(/vor (\d+) Min\.$/, "$1 min. ago")
     .replace(/vor (\d+) Std\.$/, "$1 hr. ago")

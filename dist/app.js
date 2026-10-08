@@ -1,5 +1,5 @@
-import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=4";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=13";
+import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=5";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=14";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -10,7 +10,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const esc = (value = "") => String(value).replace(/[&<>'"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]);
 const icon = (name, className = "icon3d") => `<img class="${className}" src="assets/icons-3d/${name}.png" alt="" />`;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
-const fmt = n => new Intl.NumberFormat(getLanguage() === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 1 }).format(n);
+const fmt = n => new Intl.NumberFormat(getLanguage() === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 3 }).format(n);
 const customSupplyCategories = ["Versorgung", "Gesundheit", "Haushalt", "Sonstiges"];
 const requestedLanguage = new URLSearchParams(location.search).get("lang");
 if (["de", "en"].includes(requestedLanguage)) setLanguage(requestedLanguage);
@@ -56,9 +56,10 @@ function loadState() {
       supplies: { ...defaultState.supplies, ...saved.supplies },
       supplyDetails: { ...defaultState.supplyDetails, ...saved.supplyDetails },
       customSupplies: normalizeCustomSupplies(saved.customSupplies),
+      sync: { ...defaultState.sync, ...saved.sync },
       settings: { ...defaultState.settings, ...saved.settings },
       packlist: { ...defaultState.packlist, ...saved.packlist },
-      ui: { ...defaultState.ui, ...saved.ui },
+      ui: { ...defaultState.ui, ...saved.ui, modal: null },
     };
   } catch { return clone(defaultState); }
 }
@@ -86,7 +87,8 @@ let liveState = {
   error: null,
 };
 let liveRequest = null;
-let liveRequestLanguage = null;
+let liveRequestKey = null;
+let liveAttempt = { key: null, at: 0 };
 let liveRefreshTimer = null;
 let liveClockTimer = null;
 const placesCache = (() => {
@@ -102,9 +104,15 @@ let placesState = {
   error: null,
 };
 let placesRequest = null;
+let placesAttempt = { key: "", at: 0 };
 let mapRouteState = { status: "idle", placeId: null, route: null, error: null };
 let session = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; } })();
 let syncTimer = null;
+let syncRequest = null;
+let syncStatus = "saved";
+let renderedModal = null;
+let renderedModalLanguage = null;
+let modalReturnFocus = null;
 let accountBusy = false;
 let languageMenuOpen = false;
 let deferredInstallPrompt = null;
@@ -189,8 +197,10 @@ function chooseScene(adults, children) {
   return "neutral-household";
 }
 const save = () => {
+  if (state.authenticated) state.sync = { ...state.sync, pending: true, revision: (Number(state.sync.revision) || 0) + 1 };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch { toast("Diese Änderung konnte lokal nicht gespeichert werden."); }
+  updateSyncStatus(navigator.onLine ? "pending" : "offline");
   if (state.authenticated && session?.access_token) {
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => syncAccount().catch(() => {}), 900);
@@ -199,17 +209,18 @@ const save = () => {
 
 async function accountRequest(action, payload = {}, accessToken = session?.access_token) {
   const response = await fetch("/api/account", {
-    method: "POST", cache: "no-store", headers: { "content-type": "application/json", ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
+    method: "POST", cache: "no-store", signal: AbortSignal.timeout(15_000), headers: { "content-type": "application/json", ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
     body: JSON.stringify({ action, ...payload }),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || "Kontodienst nicht erreichbar.");
+  if (!response.ok) { const error = new Error(result.error || "Kontodienst nicht erreichbar."); error.status = response.status; throw error; }
   return result;
 }
 
 function persistSession(value) {
   session = value;
-  if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value)); else localStorage.removeItem(SESSION_KEY);
+  try { if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value)); else localStorage.removeItem(SESSION_KEY); }
+  catch { toast("Diese Änderung konnte lokal nicht gespeichert werden."); }
 }
 
 function consumeAuthRedirect() {
@@ -237,13 +248,15 @@ async function refreshSessionIfNeeded() {
   if (!session?.refresh_token) return false;
   const expiresAt = Number(session.expires_at || 0) * 1000;
   if (session.access_token && expiresAt > Date.now() + 60_000) return true;
-  try { const result = await accountRequest("refresh", { refreshToken: session.refresh_token }, ""); persistSession(result.session); return true; }
-  catch { persistSession(null); return false; }
+  try { const result = await accountRequest("refresh", { refreshToken: session.refresh_token }, ""); persistSession({ ...result.session, user: result.session.user || session.user }); return true; }
+  catch (error) { if ([400, 401, 403].includes(error.status)) persistSession(null); throw error; }
 }
 
 async function loadAccount() {
   if (!(await refreshSessionIfNeeded())) return false;
   const result = await accountRequest("load");
+  const pending = state.sync?.pending && state.profile.id === result.user.id ? clone(state) : null;
+  persistSession({ ...session, user: result.user });
   const profile = result.profile;
   state.authenticated = true;
   state.profile = {
@@ -263,6 +276,7 @@ async function loadAccount() {
   state.customSupplies = clone(defaultState.customSupplies);
   state.settings = clone(defaultState.settings);
   state.packlist = clone(defaultState.packlist);
+  state.sync = clone(defaultState.sync);
   state.ui = clone(defaultState.ui);
   if (result.appState) {
     state.assessment = { ...state.assessment, ...(result.appState.assessment || {}) };
@@ -273,14 +287,23 @@ async function loadAccount() {
     state.settings = { ...state.settings, ...(result.appState.settings || {}) };
     state.packlist = { ...state.packlist, ...(result.appState.packlist || {}) };
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (pending) {
+    for (const key of ["profile", "household", "assessment", "taskStatus", "supplies", "supplyDetails", "customSupplies", "settings", "packlist", "sync"]) state[key] = pending[key];
+  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* Keep the loaded state in memory. */ }
+  updateSyncStatus(state.sync.pending ? "pending" : "saved");
+  if (state.sync.pending) { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncAccount().catch(() => {}), 900); }
   return true;
 }
 
 async function syncAccount() {
-  if (!state.authenticated || !session?.access_token || !navigator.onLine) return;
-  await refreshSessionIfNeeded();
-  await accountRequest("save", {
+  if (syncRequest) return syncRequest;
+  if (!state.authenticated || !state.sync.pending) return;
+  if (!navigator.onLine) { updateSyncStatus("offline"); return; }
+  if (!session?.access_token) { updateSyncStatus("expired"); return; }
+  clearTimeout(syncTimer);
+  const owner = state.profile.id, revision = state.sync.revision;
+  const payload = clone({
     profile: {
       display_name: state.profile.name, adults: state.household.adults, children_count: state.household.children, pets: state.household.pets,
       postal_code: state.household.postalCode, city: state.household.city, state: state.household.state, district: state.household.district,
@@ -288,6 +311,46 @@ async function syncAccount() {
     },
     appState: { assessment: state.assessment, task_status: state.taskStatus, supplies: state.supplies, supply_details: state.supplyDetails, custom_supplies: normalizeCustomSupplies(state.customSupplies), packlist: state.packlist, settings: state.settings },
   });
+  updateSyncStatus("saving");
+  syncRequest = (async () => {
+    try {
+      if (!(await refreshSessionIfNeeded())) throw new Error("Bitte erneut anmelden.");
+      if (state.profile.id !== owner || session?.user?.id !== owner) return;
+      await accountRequest("save", payload);
+      if (state.profile.id !== owner) return;
+      if (state.sync.revision === revision) {
+        state.sync.pending = false;
+        state.sync.lastSavedAt = new Date().toISOString();
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* The server copy is already saved. */ }
+      }
+      updateSyncStatus(state.sync.pending ? "pending" : "saved");
+    } catch (error) {
+      if (state.profile.id === owner) updateSyncStatus(!session || [400,401,403].includes(error.status) ? "expired" : navigator.onLine ? "error" : "offline");
+      throw error;
+    } finally {
+      syncRequest = null;
+      if (state.authenticated && state.profile.id === owner && state.sync.pending && navigator.onLine && session?.access_token) {
+        syncTimer = setTimeout(() => syncAccount().catch(() => {}), syncStatus === "pending" ? 900 : 30_000);
+      }
+    }
+  })();
+  return syncRequest;
+}
+
+function updateSyncStatus(status = syncStatus) {
+  syncStatus = status;
+  const labels = { saved: "Mit deinem Konto synchronisiert", pending: "Auf diesem Gerät gespeichert · Synchronisierung ausstehend", saving: "Kontodaten werden gespeichert …", offline: "Offline · Änderungen bleiben auf diesem Gerät", error: "Lokal gespeichert · Kontosynchronisierung fehlgeschlagen", expired: "Lokal gespeichert · bitte erneut anmelden" };
+  const region = document.querySelector("[data-sync-status]");
+  if (!region) return;
+  region.dataset.status = status;
+  const text = region.querySelector("span");
+  if (text) text.textContent = translateText(labels[status]);
+  const button = region.querySelector("button");
+  if (button) { button.hidden = !["error", "expired"].includes(status); button.textContent = translateText(status === "expired" ? "Einloggen" : "Erneut versuchen"); }
+}
+
+function canResumeOffline() {
+  return Boolean(session?.user?.id && session.user.id === state.profile.id && state.profile.onboardingCompleted);
 }
 function toast(message) {
   const node = document.createElement("div");
@@ -370,7 +433,8 @@ function supplyInput(group, value) {
     const containerCount = Number.isFinite(Number(details.containerCount))
       ? Number(details.containerCount)
       : value === null ? "" : Math.max(0, Math.round(value / containerSize));
-    return `<fieldset class="quantity-fields"><legend>Wassergebinde erfassen</legend><label><span>Anzahl Gebinde</span><input type="number" name="containerCount" min="0" max="200" step="1" inputmode="numeric" value="${containerCount}" placeholder="z. B. 12" required></label><label><span>Liter je Gebinde</span><select name="containerSize">${group.packageSizes.map(size => `<option value="${size}" ${size===containerSize?"selected":""}>${fmt(size)} Liter</option>`).join("")}</select></label><output data-supply-total>${value === null ? "Gesamtmenge wird beim Speichern berechnet" : `Bisher erfasst: ${fmt(value)} Liter`}</output></fieldset>`;
+    const direct = details.mode === "liters" || (value !== null && details.containerCount === undefined);
+    return `<fieldset class="quantity-fields"><legend>Trinkwasser erfassen</legend><label><span>Erfassungsart</span><select name="quantityMode"><option value="packages" ${direct ? "" : "selected"}>Gebinde zählen</option><option value="liters" ${direct ? "selected" : ""}>Liter direkt eingeben</option></select></label><div data-water-packages ${direct ? "hidden" : ""}><label><span>Anzahl Gebinde</span><input type="number" name="containerCount" min="0" max="200" step="1" inputmode="numeric" value="${containerCount}" placeholder="z. B. 12" ${direct ? "disabled" : "required"}></label><label><span>Liter je Gebinde</span><select name="containerSize" ${direct ? "disabled" : ""}>${group.packageSizes.map(size => `<option value="${size}" ${size===containerSize?"selected":""}>${fmt(size)} Liter</option>`).join("")}</select></label></div><label data-water-liters ${direct ? "" : "hidden"}><span>Gesamtmenge in Litern</span><input type="number" name="liters" min="0" max="${group.max}" step="any" inputmode="decimal" value="${value===null?"":value}" ${direct ? "required" : "disabled"}></label><output data-supply-total>${value === null ? "Gesamtmenge wird beim Speichern berechnet" : `Bisher erfasst: ${fmt(value)} Liter`}</output></fieldset>`;
   }
   if (group.inputMode === "level") {
     return `<fieldset class="quantity-fields"><legend>Ausstattungsstand</legend><label><span>Status</span><select name="value" required><option value="" ${value===null?"selected":""} disabled>Bitte auswählen</option><option value="0" ${value===0?"selected":""}>Nicht vorhanden</option><option value="0.5" ${value===0.5?"selected":""}>Teilweise vorhanden</option><option value="1" ${value===1?"selected":""}>Vollständig und einsatzbereit</option></select></label></fieldset>`;
@@ -378,7 +442,8 @@ function supplyInput(group, value) {
   return `<fieldset class="quantity-fields"><legend>Reichweite in Tagen</legend><label><span>Für wie viele Tage reicht dein Bestand?</span><input type="number" name="value" min="0" max="${group.max}" step="1" inputmode="numeric" value="${value===null?"":value}" placeholder="z. B. 7" required></label><div class="quantity-suggestions" aria-label="Schnellauswahl">${group.suggestions.map(day => `<button type="button" data-supply-suggestion="${day}">${day} Tage</button>`).join("")}</div></fieldset>`;
 }
 function hashRoute() {
-  const route = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
+  let route;
+  try { route = decodeURIComponent(location.hash.replace(/^#\/?/, "")); } catch { return "home"; }
   return route || "home";
 }
 function navigate(route) {
@@ -411,7 +476,7 @@ function footer(dark = false) {
 function publicHeader() {
   return `<header class="public-header">${brand(true)}<nav>
     <button data-scroll="top" class="active">Start</button><button data-scroll="how">So funktioniert’s</button><a href="${publicGuideUrl()}">Wissen</a><button data-scroll="about">Über RedScore</button>
-  </nav><div class="public-actions"><button class="search-button" aria-label="Suche">⌕</button><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button>${languageControl()}</div></header>`;
+  </nav><div class="public-actions"><a class="search-button" href="${publicGuideUrl()}" aria-label="Wissen durchsuchen">⌕</a><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button>${languageControl()}</div></header>`;
 }
 function categoryCard(iconName, title, copy, route) {
   return `<button class="public-category" data-route="${route}">${icon(iconName, "public-icon")}<strong>${title}</strong><span>${copy}</span></button>`;
@@ -449,11 +514,11 @@ function renderPublic() {
 }
 
 function appHeader(active) {
-  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools">${languageControl()}<button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">${esc(state.profile.initials || initials(state.profile.name))}</button><button class="user-name" data-route="profile">${esc((state.profile.name || "Profil").split(" ")[0])}⌄</button></div></header>`;
+  return `<header class="app-header">${brand(true)}<nav>${navItems.map(item => `<button data-route="${item.id}" aria-label="${esc(item.label)}" title="${esc(item.label)}" class="${active === item.id ? "active" : ""}">${icon(item.icon, "nav-icon")}<span>${item.label}</span></button>`).join("")}</nav><div class="user-tools">${languageControl()}<button class="search-button" data-route="knowledge" aria-label="Wissen durchsuchen">⌕</button><button class="bell" data-route="warnschutz" aria-label="Warnschutz öffnen">${icon("bell", "nav-icon")}<i></i></button><button class="avatar" data-route="profile" aria-label="Profil öffnen">${esc(state.profile.initials || initials(state.profile.name))}</button><button class="user-name" data-route="profile">${esc((state.profile.name || "Profil").split(" ")[0])}⌄</button></div></header>`;
 }
 function loggedShell(active, content, pageClass = "") {
   document.body.className = "logged-mode";
-  return `<div class="logged-page ${pageClass}">${appHeader(active)}<main>${content}</main>${footer(true)}</div>${modal()}`;
+  return `<div class="logged-page ${pageClass}">${appHeader(active)}<div class="sync-status" data-sync-status role="status"><span></span><button data-sync-retry hidden>Erneut versuchen</button></div><main>${content}</main>${footer(true)}</div>${modal()}`;
 }
 function scoreRing(value, red = false) {
   if (value === null) return `<div class="score-ring empty"><div><small>DEIN STAND</small><strong>–</strong><span>nicht berechnet</span></div></div>`;
@@ -461,12 +526,13 @@ function scoreRing(value, red = false) {
 }
 function warningSummary(compact = false) {
   const region = state.household.district || state.household.state || state.household.city || "deinen Standort";
-  if (warningState.status === "loading") return `<span><b>DWD-Live-Abfrage läuft</b><small>Für ${esc(region)}</small></span>`;
-  if (warningState.status === "fallback") return `<span><b>Keine DWD-Wetterwarnung beim letzten Abruf</b><small>${esc(region)} · gespeicherter Stand</small></span>`;
+  if (!navigator.onLine) return `<span><b>Warnstatus nicht aktuell</b><small>Offline · keine Entwarnung</small></span>`;
+  if (warningState.status === "loading") return `<span><b>Regionaler Warnabgleich läuft</b><small>Für ${esc(region)}</small></span>`;
+  if (warningState.status === "fallback") return `<span><b>Warnstatus nicht aktuell</b><small>${esc(region)} · gespeicherter Stand · keine Entwarnung</small></span>`;
   if (warningState.status === "error") return `<span><b>Warnstatus nicht verfügbar</b><small>Bitte direkt beim DWD prüfen.</small></span>`;
-  if (!warningState.warnings.length) return `<span><b>Keine DWD-Wetterwarnung</b><small>${esc(region)} · zuletzt live geprüft</small></span>`;
+  if (!warningState.warnings.length) return `<span><b>Keine regionale Warnung in der Lageübersicht</b><small>Keine Entwarnung · amtliche Warnwege prüfen</small></span>`;
   const first = warningState.warnings[0];
-  return `<span><b>${esc(first.headline || first.event || "DWD-Wetterwarnung")}</b><small>${esc(first.regionName || "Landkreis Stade")}</small></span>`;
+  return `<span><b>${esc(first.headline || first.event || "DWD-Wetterwarnung")}</b><small>${esc(first.regionName || region)}</small></span>`;
 }
 
 const liveScopeLabels = { for_you: "Für dich", germany: "Deutschland", world: "Weltlage", all: "Alle" };
@@ -575,31 +641,32 @@ function storeLiveCache() {
   } catch { /* The feed remains usable in memory. */ }
 }
 
+function liveSelectionKey() { return `${getLanguage()}|${liveState.scope}|${liveState.filter}|${mapLocationKey()}|${state.household.district}`; }
 async function requestLiveLage(force = false) {
   if (!state.authenticated) return;
   if (!navigator.onLine) {
     liveState.status = "offline";
-    if (["home","warnschutz"].includes(hashRoute())) render();
     return;
   }
   const requestedLanguage = getLanguage();
+  const requestedKey = liveSelectionKey();
   if (liveRequest) {
-    if (liveRequestLanguage === requestedLanguage) return liveRequest;
-    return liveRequest.finally(() => requestLiveLage(true));
+    if (liveRequestKey === requestedKey) return liveRequest;
+    return liveRequest.finally(() => requestLiveLage());
   }
-  const received = liveState.receivedAt ? new Date(liveState.receivedAt).getTime() : 0;
-  if (!force && received && Date.now() - received < 30_000) return;
+  if (!force && liveAttempt.key === requestedKey && Date.now() - liveAttempt.at < LIVE_REFRESH_MS) return;
+  liveAttempt = { key: requestedKey, at: Date.now() };
   liveState.status = liveState.events.length ? "refreshing" : "loading";
   const params = new URLSearchParams({ scope: liveState.scope, filter: liveState.filter, limit: "30", country: "Deutschland", language: requestedLanguage });
   if (state.household.state) params.set("region", state.household.state);
   if (state.household.district) params.set("district", state.household.district.replace(/^Landkreis\s+/i, ""));
-  if (/freiburg/i.test(state.household.city || "")) { params.set("lat", "53.823008"); params.set("lon", "9.285572"); }
-  liveRequestLanguage = requestedLanguage;
-  liveRequest = fetch(`/api/live-lage?${params}`, { cache: "no-store", headers: { accept: "application/json", "accept-language": requestedLanguage } })
+  if (placesState.key === mapLocationKey() && placesState.center) { params.set("lat", String(placesState.center.lat)); params.set("lon", String(placesState.center.lon)); }
+  liveRequestKey = requestedKey;
+  liveRequest = fetch(`/api/live-lage?${params}`, { cache: "no-store", signal: AbortSignal.timeout(15_000), headers: { accept: "application/json", "accept-language": requestedLanguage } })
     .then(async response => {
       if (!response.ok) throw new Error("Live-Lage API unavailable");
       const payload = await response.json();
-      if (getLanguage() !== requestedLanguage) return;
+      if (!state.authenticated || liveSelectionKey() !== requestedKey) return;
       liveState.events = Array.isArray(payload.events) ? payload.events : [];
       liveState.sources = Array.isArray(payload.sources) ? payload.sources : [];
       liveState.lastSyncAt = payload.lastSyncAt || null;
@@ -607,20 +674,17 @@ async function requestLiveLage(force = false) {
       liveState.status = "live";
       liveState.error = null;
       storeLiveCache();
-      const regionTerms = [state.household.city, state.household.district, state.household.state].filter(Boolean).map(value => value.replace(/^Landkreis\s+/i, "").toLowerCase());
-      const regionalWarnings = liveState.events.filter(event => ["official_warning","storm","heavy_rain","flood","severe_weather","extreme_heat"].includes(event.category) && regionTerms.some(term => `${event.region || ""} ${event.city || ""}`.toLowerCase().includes(term)));
-      warningState = { status: "ok", warnings: regionalWarnings.map(event => ({ headline: event.title, regionName: event.region || event.city || state.household.state })), checkedAt: liveState.receivedAt, fallback: false };
     })
     .catch(() => {
+      if (liveSelectionKey() !== requestedKey) return;
       liveState.status = liveState.events.length ? "offline" : "error";
       liveState.error = "Die Live-Lage konnte nicht aktualisiert werden.";
-      warningState = { status: "error", warnings: [], checkedAt: liveState.lastSyncAt, fallback: false };
     })
     .finally(() => {
       liveRequest = null;
-      liveRequestLanguage = null;
+      liveRequestKey = null;
       clearTimeout(liveRefreshTimer);
-      liveRefreshTimer = setTimeout(() => requestLiveLage(true), LIVE_REFRESH_MS);
+      if (state.authenticated) liveRefreshTimer = setTimeout(() => { if (!document.hidden) { requestLiveLage(true); requestWarnings(true); } }, LIVE_REFRESH_MS);
       if (state.authenticated && ["home","warnschutz"].includes(hashRoute())) render();
     });
   return liveRequest;
@@ -667,11 +731,11 @@ function renderHome() {
   const water = state.supplies.water;
   const dailyWater = Math.max(1, householdPeople()) * 2;
   const waterDays = water === null ? null : Math.floor(water / dailyWater);
-  const statusTone = warningState.status === "ok" && !warningState.warnings.length ? "safe" : ["loading", "fallback"].includes(warningState.status) ? "neutral" : "danger";
+  const statusTone = warningState.warnings.length && warningState.status === "ok" ? "danger" : "neutral";
   const heroPhoto = sceneStyle("dashboard", "--hero-photo");
   const content = `<div class="home-live-layout"><div class="home-core"><section class="dashboard-hero" ${heroPhoto}>
     <div class="dashboard-copy"><h1>Heute vorsorgen.<br><em>Morgen sicherer.</em></h1><p>Krisen kommen oft unerwartet.<br>Sei vorbereitet – für deine Familie,<br>dein Zuhause und deine Zukunft.</p><blockquote>„Sicherheit ist planbar – Schritt für Schritt.“</blockquote></div>
-    <div class="dashboard-score">${scoreRing(value, value !== null && value < 50)}<div class="score-message"><strong>${value === null ? "Noch nicht bewertet." : value >= 70 ? "Gut vorbereitet." : "Es gibt wichtige Lücken."}</strong><p>${value === null ? `Beantworte zuerst alle ${relevantAssessmentQuestions().length} Fragen. Wir zeigen niemals einen erfundenen Beispielwert.` : "Der Wert basiert ausschließlich auf deinen Antworten."}</p><button class="${value !== null && value < 50 ? "red" : "green"}" data-open-assessment>${value === null ? "Jetzt ehrlich prüfen" : "Angaben aktualisieren"} →</button></div></div>
+    <div class="dashboard-score">${scoreRing(value, value !== null && value < 50)}<div class="score-message"><strong>${value === null ? "Noch nicht bewertet." : value >= 70 ? "Gut vorbereitet." : "Es gibt wichtige Lücken."}</strong><p>${value === null ? `Beantworte zuerst alle ${relevantAssessmentQuestions().length} Fragen. Wir zeigen niemals einen erfundenen Beispielwert.` : "70 % Vorsorge-Check · 30 % erfasster Vorratsfortschritt"}</p><button class="${value !== null && value < 50 ? "red" : "green"}" data-open-assessment>${value === null ? "Jetzt ehrlich prüfen" : "Angaben aktualisieren"} →</button></div></div>
   </section>
   <section class="status-grid">
     <button class="status-card ${statusTone}" data-route="warnschutz">${icon("weather-warning", "status-icon")}${warningSummary(true)}<b>›</b></button>
@@ -690,6 +754,7 @@ function renderHome() {
   ].map(([img,title,copy,route]) => `<button data-route="${route}" style="--feature:url('assets/${img}')"><span><b>${title}</b><small>${copy}</small></span><strong>›</strong></button>`).join("")}</section></div>${liveLagePanel()}</div>`;
   app.innerHTML = loggedShell("home", content, "home-page");
   requestLiveLage();
+  requestWarnings();
 }
 
 function taskRow(task) {
@@ -725,7 +790,7 @@ function renderPacklist() {
   const { items, checked, total, percent } = packProgress();
   const categories = ["Alle", ...new Set(items.map(item => item.category))];
   const query = String(state.ui.packSearch || "").trim().toLowerCase();
-  const shown = items.filter(item => (state.ui.packFilter === "Alle" || item.category === state.ui.packFilter) && (!query || `${item.label} ${item.detail} ${item.category}`.toLowerCase().includes(query)));
+  const shown = items.filter(item => (state.ui.packFilter === "Alle" || item.category === state.ui.packFilter) && (!query || `${item.label} ${item.detail} ${item.category} ${translateText(item.label)} ${translateText(item.detail)} ${translateText(item.category)}`.toLowerCase().includes(query)));
   const readyText = percent === 100 ? "Dein Rucksack ist vollständig geprüft." : `${total - checked} ${total - checked === 1 ? "Punkt fehlt" : "Punkte fehlen noch"}.`;
   const content = `<section class="subhero compact packlist-hero"><div><small>BBK-ORIENTIERT · PERSÖNLICH</small><h1>Notfallrucksack</h1><h2>Alles Wichtige griffbereit.</h2><p>Packe nur, was du selbst tragen kannst. Hake ab, was bereits vorhanden und einsatzbereit ist.</p><a href="${sources.bbkBag}" target="_blank" rel="noreferrer">Offizielle BBK-Empfehlungen öffnen →</a></div></section>
     <div class="content-wrap packlist-layout"><aside class="packlist-visual"><div class="pack-visual-art">${icon("backpack", "pack-bag-icon")}</div><div class="pack-ring" style="--pack-progress:${percent * 3.6}deg"><strong>${percent}%</strong><small>geprüft</small></div><h2>${checked} von ${total} bereit</h2><p>${readyText}</p><div class="bar"><i style="width:${percent}%"></i></div><small class="packlist-note">Die Liste wird lokal gespeichert und mit deinem Konto synchronisiert. Sie ersetzt keine individuelle Beratung.</small></aside><section class="packlist-content"><div class="packlist-toolbar"><form data-pack-search><label><span>Packliste durchsuchen</span><input name="query" value="${esc(state.ui.packSearch)}" placeholder="z. B. Medikamente"></label><button class="outline">Suchen</button></form><div class="filter-row pack-filters">${categories.map(category => `<button data-pack-filter="${category}" class="${category===state.ui.packFilter?"active":""}">${category}</button>`).join("")}</div></div><div class="packlist-summary"><span>${shown.length} ${shown.length === 1 ? "Eintrag" : "Einträge"}</span><span>${checked} abgehakt · ${total - checked} offen</span></div><div class="pack-items">${shown.length ? shown.map(packItemCard).join("") : `<div class="no-data">${icon("backpack", "big-icon")}<h3>Keine Einträge gefunden</h3><p>Ändere die Suche oder wähle eine andere Kategorie.</p></div>`}</div></section></div>`;
@@ -763,7 +828,9 @@ async function requestNearbyPlaces(force = false) {
   const key = mapLocationKey();
   if (!state.authenticated || !state.household.city || !state.household.postalCode || placesRequest) return placesRequest;
   if (!navigator.onLine) { placesState.status = placesState.places.length && placesState.key === key ? "offline" : "error"; return; }
-  if (!force && placesState.key === key && placesState.places.length && Date.now() - Date.parse(placesState.fetchedAt || 0) < 6 * 60 * 60_000) return;
+  if (!force && placesState.key === key && placesState.fetchedAt && Date.now() - Date.parse(placesState.fetchedAt) < 6 * 60 * 60_000) return;
+  if (!force && placesAttempt.key === key && Date.now() - placesAttempt.at < 60_000) return;
+  placesAttempt = { key, at: Date.now() };
   placesState.status = placesState.places.length && placesState.key === key ? "refreshing" : "loading";
   const params = new URLSearchParams({ postalCode: state.household.postalCode, city: state.household.city, state: state.household.state || "" });
   placesRequest = fetch(`/api/places?${params}`, { cache: "no-store", headers: { accept: "application/json" } })
@@ -774,7 +841,7 @@ async function requestNearbyPlaces(force = false) {
       storePlacesCache();
     })
     .catch(error => { placesState.status = placesState.places.length && placesState.key === key ? "offline" : "error"; placesState.error = error instanceof Error ? error.message : "Ortsdaten nicht verfügbar"; })
-    .finally(() => { placesRequest = null; if (state.authenticated && hashRoute() === "map") renderMap(); });
+    .finally(() => { placesRequest = null; if (state.authenticated && hashRoute() === "map") render(); });
   return placesRequest;
 }
 function placeIcon(category) {
@@ -813,10 +880,10 @@ async function requestPlaceRoute(placeId) {
   if (!place || !center) return toast("Start oder Routenziel ist nicht verfügbar.");
   if (!navigator.onLine) {
     mapRouteState = { status: "error", placeId, route: null, error: "Die Routenberechnung benötigt eine Internetverbindung." };
-    return renderMap();
+    return render();
   }
   mapRouteState = { status: "loading", placeId, route: null, error: null };
-  renderMap();
+  render();
   try {
     const response = await fetch("/api/route", {
       method: "POST",
@@ -832,7 +899,7 @@ async function requestPlaceRoute(placeId) {
     if (mapRouteState.placeId !== placeId) return;
     mapRouteState = { status: "error", placeId, route: null, error: error instanceof Error ? error.message : "Route nicht verfügbar" };
   }
-  renderMap();
+  render();
   document.querySelector(".route-overview")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 function renderMap() {
@@ -863,7 +930,7 @@ function renderMap() {
 function renderWarnschutz() {
   const checked = warningState.checkedAt ? new Date(warningState.checkedAt).toLocaleTimeString(getLanguage() === "en" ? "en-GB" : "de-DE",{hour:"2-digit",minute:"2-digit"}) : "–";
   const content = `<section class="image-hero warning-hero"><div><h1>Früh informiert.<br><em>Besser vorbereitet.</em></h1><p>Amtliche Wetterwarnungen und belastbare Warnwege für ${esc(state.household.city || "deinen Standort")}.</p></div></section>
-    <div class="warning-layout"><section><article class="current-warning ${warningState.status==="ok"&&!warningState.warnings.length?"safe":warningState.status==="fallback"?"neutral":""}">${icon(warningState.warnings.length?"weather-warning":"health","warning-large")}${warningSummary()}<span>Live-Prüfung: ${checked}</span><a href="${sources.dwd}" target="_blank" rel="noreferrer">Beim DWD öffnen ↗</a></article>
+    <div class="warning-layout"><section><article class="current-warning ${warningState.status==="ok"&&warningState.warnings.length?"":"neutral"}">${icon("weather-warning","warning-large")}${warningSummary()}<span>Lageabgleich: ${checked}</span><a href="${sources.dwd}" target="_blank" rel="noreferrer">Beim DWD öffnen ↗</a></article>
       <div class="warning-cards"><article>${icon("bell","big-icon")}<h3>Cell Broadcast</h3><p>Warnungen werden auf kompatiblen, eingeschalteten Mobiltelefonen ohne App ausgesendet.</p></article><article>${icon("weather-warning","big-icon")}<h3>NINA</h3><p>Die offizielle Warn-App des BBK bündelt Zivil-, Polizei-, Wetter- und Hochwasserwarnungen.</p><a href="${sources.nina}" target="_blank">NINA beim BBK ↗</a></article><article>${icon("radio","big-icon")}<h3>Radio</h3><p>Ein Batterie-, Solar- oder Kurbelradio bleibt bei Strom- und Internetausfall wichtig.</p></article></div>
     </section><aside><h3>Benachrichtigungen</h3><p>RedScore kann den Browserzugriff anfragen. Eine Freigabe ersetzt keine Warn-App.</p><button class="green" data-notifications>${"Notification" in window && Notification.permission === "granted" ? "Browser-Mitteilungen erlaubt" : "Berechtigung prüfen"}</button><h3>Verhalten bei Unwetter</h3><ul><li>Amtliche Meldungen verfolgen</li><li>Fenster und Türen schließen</li><li>Lose Gegenstände sichern</li><li>Überflutete Bereiche meiden</li></ul></aside></div>`;
   app.innerHTML = loggedShell("warnschutz", content, "warn-page");
@@ -874,7 +941,7 @@ function renderKnowledge() {
   const query = state.ui.knowledgeSearch.toLowerCase();
   const shown = knowledgeArticles.filter(a => !query || `${a.title} ${a.summary} ${translateText(a.title)} ${translateText(a.summary)}`.toLowerCase().includes(query));
   const content = `<section class="image-hero knowledge-hero" ${sceneStyle("knowledge")}><div><h1>Wissen <em>schützt.</em></h1><h2>Verstehen. Vorbereiten. Handeln.</h2><p>Verständliche Hinweise und offizielle Quellen für mehr Sicherheit in allen Lebenslagen.</p><form data-knowledge-search><input name="query" value="${esc(state.ui.knowledgeSearch)}" placeholder="Thema suchen …"><button>⌕</button></form></div><span class="sign-copy">WISSEN<br>VON HEUTE.<br>SICHERHEIT<br>VON MORGEN.</span></section>
-    <div class="content-wrap knowledge-content"><section><h2>Empfehlungen für dich</h2><div class="article-grid">${shown.map(article => `<article><div class="article-visual">${icon(article.icon,"article-icon")}</div><small>${article.category} · ${article.minutes} Min.</small><h3>${article.title}</h3><p>${article.summary}</p><button data-article="${article.id}">Ansehen →</button></article>`).join("")}</div></section>
+    <div class="content-wrap knowledge-content"><section><h2>Empfehlungen für dich</h2><div class="article-grid">${shown.map(article => `<article><div class="article-visual">${icon(article.icon,"article-icon")}</div><small>${article.category} · ${article.minutes} Min.</small><h3>${article.title}</h3><p>${article.summary}</p><button data-article="${article.id}">Ansehen →</button></article>`).join("") || `<div class="no-data"><h3>Keine passenden Artikel gefunden</h3><p>Versuche einen anderen Suchbegriff.</p><button class="outline" data-clear-knowledge-search>Suche zurücksetzen</button></div>`}</div></section>
       <aside class="knowledge-side"><h3>Offizielle Ressourcen</h3><a href="${sources.bbkGuide}" target="_blank">BBK-Ratgeber ↗</a><a href="${sources.bbkBag}" target="_blank">Notgepäck ↗</a><a href="${sources.bbkDocuments}" target="_blank">Dokumente sichern ↗</a><a href="${sources.nina}" target="_blank">Warn-App NINA ↗</a></aside></div>`;
   app.innerHTML = loggedShell("knowledge", content, "knowledge-page");
 }
@@ -922,7 +989,7 @@ function modal() {
     const item = id === "new" ? null : normalizeCustomSupplies(state.customSupplies).find(entry => entry.id === id);
     if (id !== "new" && !item) return "";
     const selectedCategory = item?.category || (customSupplyCategories.includes(state.ui.supplyFilter) && state.ui.supplyFilter !== "Alle" ? state.ui.supplyFilter : "Versorgung");
-    return `<div class="modal-backdrop"><section class="modal supply-modal custom-supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(customSupplyIcon(selectedCategory),"modal-icon")}<small>PERSÖNLICHER VORRAT</small><h2>${item ? "Eigenen Eintrag bearbeiten" : "Eigenen Vorrat hinzufügen"}</h2><p>Ergänze Dinge, die für deinen Haushalt wichtig sind, mit ihrer tatsächlichen Menge.</p><form data-custom-supply-form="${item ? esc(item.id) : "new"}"><label><span>Bezeichnung</span><input name="label" value="${esc(item?.label || "")}" maxlength="80" placeholder="z. B. Babynahrung" required></label><label><span>Kategorie</span><select name="category" required>${customSupplyCategories.map(category => `<option value="${category}" ${category === selectedCategory ? "selected" : ""}>${category}</option>`).join("")}</select></label><div class="custom-supply-quantity"><label><span>Menge</span><input name="quantity" type="number" min="0" max="999999" step="0.1" inputmode="decimal" value="${item ? esc(item.quantity) : ""}" placeholder="0" required></label><label><span>Einheit</span><input name="unit" list="supply-unit-options" value="${esc(item?.unit || "Stück")}" maxlength="30" placeholder="Stück" required><datalist id="supply-unit-options"><option value="Stück"><option value="Liter"><option value="kg"><option value="g"><option value="Packungen"><option value="Dosen"><option value="Flaschen"><option value="Tage"><option value="Sets"></datalist></label></div><label><span>Notiz (optional)</span><input name="note" value="${esc(item?.note || "")}" maxlength="160" placeholder="z. B. kühl und trocken lagern"></label><button class="green full">Eintrag speichern</button>${item ? `<button class="delete-custom-supply" type="button" data-delete-custom-supply="${esc(item.id)}">Eintrag löschen</button>` : ""}</form><em>Eigene Einträge werden offline gespeichert und mit deinem Konto synchronisiert. Sie verändern den RedScore nicht.</em></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal supply-modal custom-supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(customSupplyIcon(selectedCategory),"modal-icon")}<small>PERSÖNLICHER VORRAT</small><h2>${item ? "Eigenen Eintrag bearbeiten" : "Eigenen Vorrat hinzufügen"}</h2><p>Ergänze Dinge, die für deinen Haushalt wichtig sind, mit ihrer tatsächlichen Menge.</p><form data-custom-supply-form="${item ? esc(item.id) : "new"}"><label><span>Bezeichnung</span><input name="label" value="${esc(item?.label || "")}" maxlength="80" placeholder="z. B. Babynahrung" required></label><label><span>Kategorie</span><select name="category" required>${customSupplyCategories.map(category => `<option value="${category}" ${category === selectedCategory ? "selected" : ""}>${category}</option>`).join("")}</select></label><div class="custom-supply-quantity"><label><span>Menge</span><input name="quantity" type="number" min="0" max="999999" step="any" inputmode="decimal" value="${item ? esc(item.quantity) : ""}" placeholder="0" required></label><label><span>Einheit</span><input name="unit" list="supply-unit-options" value="${esc(item?.unit || "Stück")}" maxlength="30" placeholder="Stück" required><datalist id="supply-unit-options"><option value="Stück"><option value="Liter"><option value="kg"><option value="g"><option value="Packungen"><option value="Dosen"><option value="Flaschen"><option value="Tage"><option value="Sets"></datalist></label></div><label><span>Notiz (optional)</span><input name="note" value="${esc(item?.note || "")}" maxlength="160" placeholder="z. B. kühl und trocken lagern"></label><button class="green full">Eintrag speichern</button>${item ? `<button class="delete-custom-supply" type="button" data-delete-custom-supply="${esc(item.id)}">Eintrag löschen</button>` : ""}</form><em>Eigene Einträge werden offline gespeichert und mit deinem Konto synchronisiert. Sie verändern den RedScore nicht.</em></section></div>`;
   }
   if (state.ui.modal.startsWith("supply:")) {
     const id = state.ui.modal.split(":")[1], group = supplyGroups.find(g => g.id === id), value = state.supplies[id];
@@ -950,28 +1017,90 @@ function modal() {
 }
 
 function render() {
+  const oldDialog = app.querySelector(".modal");
+  const active = document.activeElement;
+  const sameDialog = oldDialog && renderedModal === state.ui.modal && renderedModalLanguage === getLanguage();
+  const fields = sameDialog ? [...oldDialog.querySelectorAll("input,select,textarea")].map(field => ({ name: field.name, value: field.value, checked: field.checked })) : [];
+  const oldScroll = oldDialog?.scrollTop || 0;
+  const focusName = sameDialog && oldDialog.contains(active) ? active.name : null;
+  const focusAttributes = active && app.contains(active) ? [...active.attributes].filter(attribute => attribute.name.startsWith("data-")).map(attribute => [attribute.name, attribute.value]) : [];
+  if (!renderedModal && state.ui.modal && active && app.contains(active)) modalReturnFocus = focusAttributes;
   if (!state.authenticated) renderPublic();
   else {
     const route = hashRoute();
     ({ home: renderHome, plan: renderPlan, packliste: renderPacklist, supplies: renderSupplies, map: renderMap, warnschutz: renderWarnschutz, knowledge: renderKnowledge, profile: renderProfile }[route] || renderHome)();
   }
+  const dialog = app.querySelector(".modal");
+  if (dialog) {
+    dialog.setAttribute("role", "dialog"); dialog.setAttribute("aria-modal", "true"); dialog.tabIndex = -1;
+    const title = dialog.querySelector("h2");
+    if (title) { title.id = "dialog-title"; dialog.setAttribute("aria-labelledby", title.id); }
+    dialog.querySelector(".modal-close")?.setAttribute("aria-label", "Schließen");
+    if (state.ui.modal === "onboarding" && state.profile.onboardingCompleted) {
+      const close = document.createElement("button"); close.className = "modal-close"; close.dataset.closeModal = ""; close.setAttribute("aria-label", "Schließen"); close.textContent = "×"; dialog.prepend(close);
+    }
+    for (const field of fields) {
+      const element = [...dialog.querySelectorAll("input,select,textarea")].find(input => input.name === field.name);
+      if (element) { element.value = field.value; if (["checkbox", "radio"].includes(element.type)) element.checked = field.checked; }
+    }
+    if (sameDialog) dialog.scrollTop = oldScroll;
+    if (state.ui.modal === "onboarding") {
+      const count = Number(dialog.querySelector('[name="adultCount"]')?.value || 1);
+      dialog.querySelectorAll("[data-adult-index]").forEach((label, index) => { label.hidden = index >= count; });
+    }
+    const waterForm = dialog.querySelector('form[data-supply-form="water"]');
+    if (waterForm) updateWaterMode(waterForm);
+  }
+  app.querySelector(".public-page,.logged-page")?.toggleAttribute("inert", Boolean(dialog));
+  document.body.classList.toggle("modal-open", Boolean(dialog));
   applyLanguage(app);
+  updateSyncStatus();
+  const findControl = attributes => [...app.querySelectorAll("button,a,input,select,textarea")].find(element => attributes.length && attributes.every(([name,value]) => element.getAttribute(name) === value));
+  let nextFocus = focusName ? [...(dialog?.querySelectorAll("input,select,textarea") || [])].find(input => input.name === focusName) : findControl(focusAttributes);
+  if (dialog && !sameDialog) nextFocus = dialog.querySelector("input:not([type=hidden]),select,button") || dialog;
+  if (!dialog && renderedModal) { nextFocus = findControl(modalReturnFocus || []); modalReturnFocus = null; }
+  nextFocus?.focus({ preventScroll: true });
+  renderedModal = state.ui.modal; renderedModalLanguage = getLanguage();
 }
 
-async function requestWarnings() {
-  if (warningRequested) return;
+async function requestWarnings(force = false) {
+  if (!state.authenticated || warningRequested) return;
+  const key = `${mapLocationKey()}|${state.household.district}|${getLanguage()}`;
+  if (!force && warningState.key === key && Date.now() - (warningState.attemptedAt || 0) < LIVE_REFRESH_MS) return;
+  if (!navigator.onLine) { warningState.status = "fallback"; return; }
   warningRequested = true;
-  await requestLiveLage();
-  warningRequested = false;
+  warningState.key = key;
+  warningState.attemptedAt = Date.now();
+  const params = new URLSearchParams({ scope: "germany", filter: "weather", limit: "30", country: "Deutschland", language: getLanguage(), region: state.household.state || "", district: state.household.district || "" });
+  try {
+    const response = await fetch(`/api/live-lage?${params}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) throw new Error("Warnings unavailable");
+    const payload = await response.json();
+    if (key !== `${mapLocationKey()}|${state.household.district}|${getLanguage()}`) return;
+    const regionTerms = [state.household.city, state.household.district].filter(Boolean).map(value => value.replace(/^Landkreis\s+/i, "").toLowerCase());
+    if (!regionTerms.length && state.household.state) regionTerms.push(state.household.state.toLowerCase());
+    const warnings = (Array.isArray(payload.events) ? payload.events : []).filter(event => event.verification_status === "official" && regionTerms.some(term => [event.region,event.city,...(event.affected_regions || [])].join(" ").toLowerCase().includes(term)));
+    const weatherSource = (Array.isArray(payload.sources) ? payload.sources : []).find(source => /Wetterdienst|\bDWD\b|German Weather Service/i.test(source.name || ""));
+    const sourceSyncAt = weatherSource?.last_successful_fetch;
+    const sourceAge = Date.now() - Date.parse(sourceSyncAt || "");
+    const fresh = Number.isFinite(sourceAge) && sourceAge >= -60_000 && sourceAge < 15 * 60_000 && !weatherSource.last_error;
+    warningState = { status: fresh ? "ok" : "fallback", key, attemptedAt: Date.now(), checkedAt: sourceSyncAt || null, warnings: warnings.map(event => ({ headline: event.title, regionName: event.region || event.city || state.household.state })) };
+  } catch { warningState = { ...warningState, status: warningState.checkedAt ? "fallback" : "error", key }; }
+  finally {
+    warningRequested = false;
+    if (state.authenticated && ["home", "warnschutz"].includes(hashRoute())) render();
+  }
 }
 
 app.addEventListener("click", async event => {
   const button = event.target.closest("button");
   if (!button) {
-    if (event.target.classList.contains("modal-backdrop")) { state.ui.modal = null; render(); }
+    if (event.target.classList.contains("modal-backdrop") && !(state.ui.modal === "onboarding" && !state.profile.onboardingCompleted)) { state.ui.modal = null; render(); }
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
+  if (button.matches("[data-sync-retry]")) { if (syncStatus === "expired") { state.ui.modal = "login"; return render(); } return syncAccount().catch(() => toast("Lokal gespeichert · Kontosynchronisierung fehlgeschlagen")); }
+  if (button.matches("[data-clear-knowledge-search]")) { state.ui.knowledgeSearch = ""; return render(); }
   if (button.matches("[data-install-app]")) {
     if (!deferredInstallPrompt) { state.ui.modal = null; return render(); }
     const prompt = deferredInstallPrompt;
@@ -1012,18 +1141,24 @@ app.addEventListener("click", async event => {
     if (input) { input.value = button.dataset.supplySuggestion; input.focus(); }
     return;
   }
-  if (button.dataset.liveScope) { liveState.scope = button.dataset.liveScope; liveState.events = []; render(); return requestLiveLage(true); }
-  if (button.dataset.liveFilter) { liveState.filter = button.dataset.liveFilter; liveState.events = []; render(); return requestLiveLage(true); }
+  if (button.dataset.liveScope || button.dataset.liveFilter) {
+    if (!navigator.onLine) return toast("Filterwechsel benötigt eine Internetverbindung. Gespeicherte Meldungen bleiben sichtbar.");
+    if (button.dataset.liveScope) liveState.scope = button.dataset.liveScope;
+    if (button.dataset.liveFilter) liveState.filter = button.dataset.liveFilter;
+    liveState.events = []; liveState.status = "loading"; liveState.receivedAt = null; render(); return requestLiveLage(true);
+  }
   if (button.matches("[data-live-refresh]")) return requestLiveLage(true);
   if (button.dataset.liveDetail) { state.ui.modal = `live:${button.dataset.liveDetail}`; return render(); }
   if (button.dataset.scroll) return document.querySelector("#"+button.dataset.scroll)?.scrollIntoView({ behavior: "smooth" });
   if (button.dataset.openAuth) { state.ui.modal = button.dataset.openAuth; return render(); }
   if (button.matches("[data-edit-household]")) { state.ui.modal = "onboarding"; return render(); }
   if (button.matches("[data-logout]")) {
+    if (state.sync.pending && !globalThis.confirm(translateText("Es gibt noch nicht synchronisierte Änderungen auf diesem Gerät. Beim Abmelden werden sie entfernt. Trotzdem abmelden?"))) return;
+    clearTimeout(syncTimer); clearTimeout(liveRefreshTimer);
     try { if (session?.access_token) await accountRequest("sign_out"); } catch { /* local logout still succeeds */ }
-    persistSession(null); state = clone(defaultState); localStorage.removeItem(STORAGE_KEY); location.hash = ""; return render();
+    persistSession(null); state = clone(defaultState); syncStatus = "saved"; localStorage.removeItem(STORAGE_KEY); location.hash = ""; return render();
   }
-  if (button.matches("[data-close-modal]") || event.target.classList.contains("modal-backdrop")) { state.ui.modal = null; return render(); }
+  if (button.matches("[data-close-modal]") || event.target.classList.contains("modal-backdrop")) { if (state.ui.modal === "onboarding" && !state.profile.onboardingCompleted) return; state.ui.modal = null; return render(); }
   if (button.matches("[data-open-packlist]")) { state.ui.modal = null; return navigate("packliste"); }
   if (button.matches("[data-open-assessment]")) { state.ui.modal = "assessment"; return render(); }
   if (button.dataset.answer) { const [id,val] = button.dataset.answer.split(":"); state.assessment.answers[id] = val === "true"; save(); return render(); }
@@ -1042,7 +1177,7 @@ app.addEventListener("click", async event => {
   }
   if (button.dataset.mapFilter) { state.ui.mapFilter = button.dataset.mapFilter; save(); return render(); }
   if (button.dataset.mapRoute) return requestPlaceRoute(button.dataset.mapRoute);
-  if (button.matches("[data-map-route-close]")) { mapRouteState = { status: "idle", placeId: null, route: null, error: null }; return renderMap(); }
+  if (button.matches("[data-map-route-close]")) { mapRouteState = { status: "idle", placeId: null, route: null, error: null }; return render(); }
   if (button.matches("[data-map-refresh]")) return requestNearbyPlaces(true);
   if (button.dataset.article) { state.ui.modal = "article:"+button.dataset.article; return render(); }
   if (button.matches("[data-save-offline]")) { state.settings.offlinePlacesSaved = true; storePlacesCache(); save(); toast("Die aktuelle Ortsliste ist offline gespeichert. Kartenkacheln benötigen weiterhin Internet."); return render(); }
@@ -1073,11 +1208,11 @@ app.addEventListener("submit", async event => {
   }
   if (form.matches("[data-onboarding-form]")) {
     const formData = new FormData(form);
-    const adultCount = clamp(Number(formData.get("adultCount")) || 1, 1, 8);
+    const adultCount = clamp(Math.floor(Number(formData.get("adultCount"))) || 1, 1, 8);
     const adults = Array.from({ length: adultCount }, (_, index) => ({ gender: String(formData.get(`adultGender${index}`) || "unspecified") }));
     const petTypes = ["dog", "cat", "bird", "small_animal", "fish", "reptile", "other"];
-    const pets = petTypes.map(type => ({ type, count: clamp(Number(formData.get(`pet_${type}`)) || 0, 0, 20), label: "" })).filter(pet => pet.count > 0);
-    const children = clamp(Number(formData.get("children")) || 0, 0, 12);
+    const pets = petTypes.map(type => ({ type, count: clamp(Math.floor(Number(formData.get(`pet_${type}`))) || 0, 0, 20), label: "" })).filter(pet => pet.count > 0);
+    const children = clamp(Math.floor(Number(formData.get("children"))) || 0, 0, 12);
     state.profile.name = String(formData.get("displayName") || "").trim();
     state.profile.initials = initials(state.profile.name);
     state.profile.onboardingCompleted = true;
@@ -1087,6 +1222,8 @@ app.addEventListener("submit", async event => {
       state: String(formData.get("state") || "").trim(), district: String(formData.get("district") || "").trim(),
       location: `${String(formData.get("postalCode") || "").trim()} ${String(formData.get("city") || "").trim()}`.trim(),
     };
+    warningState = { status: "loading", warnings: [], checkedAt: null };
+    mapRouteState = { status: "idle", placeId: null, route: null, error: null };
     state.ui.modal = null; save();
     try { await syncAccount(); toast("Haushalt gespeichert. Empfehlungen und Motiv wurden angepasst."); }
     catch { toast("Lokal gespeichert. Die Kontosynchronisierung wird bei Verbindung nachgeholt."); }
@@ -1096,11 +1233,11 @@ app.addEventListener("submit", async event => {
     const group = supplyGroups.find(item => item.id === form.dataset.supplyForm);
     const formData = new FormData(form);
     const value = group.inputMode === "packages"
-      ? Number(formData.get("containerCount")) * Number(formData.get("containerSize"))
+      ? formData.get("quantityMode") === "liters" ? Number(formData.get("liters")) : Number(formData.get("containerCount")) * Number(formData.get("containerSize"))
       : Number(formData.get("value"));
-    if (!Number.isFinite(value) || value < 0) return;
+    if (!Number.isFinite(value) || value < 0 || value > (group.max || 1)) return toast("Bitte eine gültige Menge eingeben.");
     state.supplies[form.dataset.supplyForm] = value;
-    if (group.inputMode === "packages") state.supplyDetails[group.id] = { containerCount: Number(formData.get("containerCount")), containerSize: Number(formData.get("containerSize")) };
+    if (group.inputMode === "packages") state.supplyDetails[group.id] = formData.get("quantityMode") === "liters" ? { mode: "liters" } : { mode: "packages", containerCount: Number(formData.get("containerCount")), containerSize: Number(formData.get("containerSize")) };
     state.ui.modal = null; save(); toast("Tatsächlicher Bestand gespeichert."); return render();
   }
   if (form.dataset.customSupplyForm) {
@@ -1114,6 +1251,7 @@ app.addEventListener("submit", async event => {
     if (!label || !unit || !Number.isFinite(quantity) || quantity < 0 || quantity > 999999) return toast("Bitte Bezeichnung, Menge und Einheit vollständig angeben.");
     const items = normalizeCustomSupplies(state.customSupplies);
     const existingIndex = items.findIndex(item => item.id === form.dataset.customSupplyForm);
+    if (existingIndex < 0 && items.length >= 100) return toast("Du kannst bis zu 100 eigene Vorräte speichern.");
     const now = new Date().toISOString();
     const entry = { id: existingIndex >= 0 ? items[existingIndex].id : createCustomSupplyId(), label, category, quantity, unit, note, createdAt: existingIndex >= 0 ? items[existingIndex].createdAt : now, updatedAt: now };
     if (existingIndex >= 0) items[existingIndex] = entry; else items.push(entry);
@@ -1139,23 +1277,56 @@ app.addEventListener("input", event => {
   const count = Number(form.elements.containerCount?.value);
   const size = Number(form.elements.containerSize?.value);
   const output = form.querySelector("[data-supply-total]");
-  if (output) output.textContent = translateText(Number.isFinite(count) && Number.isFinite(size) ? `Gesamt: ${fmt(count * size)} Liter` : "Gesamtmenge wird beim Speichern berechnet");
+  const raw = form.elements.quantityMode?.value === "liters" ? form.elements.liters?.value : form.elements.containerCount?.value;
+  const total = form.elements.quantityMode?.value === "liters" ? Number(raw) : count * size;
+  if (output) output.textContent = translateText(raw !== "" && Number.isFinite(total) ? `Gesamt: ${fmt(total)} Liter` : "Gesamtmenge wird beim Speichern berechnet");
 });
 
+function updateWaterMode(form) {
+  const direct = form.elements.quantityMode.value === "liters";
+  form.querySelector("[data-water-packages]").hidden = direct; form.querySelector("[data-water-liters]").hidden = !direct;
+  form.elements.containerCount.disabled = direct; form.elements.containerCount.required = !direct; form.elements.containerSize.disabled = direct;
+  form.elements.liters.disabled = !direct; form.elements.liters.required = direct;
+}
 app.addEventListener("change", event => {
+  if (event.target.matches('select[name="quantityMode"]')) {
+    updateWaterMode(event.target.closest("form"));
+    event.target.dispatchEvent(new Event("input", { bubbles: true }));
+  }
   if (event.target.matches('select[name="containerSize"]')) event.target.dispatchEvent(new Event("input", { bubbles: true }));
 });
 
 window.addEventListener("hashchange", render);
-window.addEventListener("offline", () => { liveState.status = "offline"; placesState.status = placesState.places.length ? "offline" : "error"; if (state.authenticated && ["home","map"].includes(hashRoute())) render(); });
-window.addEventListener("online", () => { if (state.authenticated) { requestLiveLage(true); if (hashRoute() === "map") requestNearbyPlaces(true); syncAccount().catch(() => {}); } });
+window.addEventListener("offline", () => { liveState.status = "offline"; warningState.status = "fallback"; updateSyncStatus("offline"); placesState.status = placesState.places.length ? "offline" : "error"; if (state.authenticated) render(); });
+window.addEventListener("online", () => { if (state.authenticated) { updateSyncStatus(state.sync.pending ? "pending" : "saved"); requestLiveLage(true); requestWarnings(true); if (hashRoute() === "map") requestNearbyPlaces(true); syncAccount().catch(() => {}); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state.authenticated) { requestLiveLage(); requestWarnings(); if (state.sync.pending) syncAccount().catch(() => {}); } });
+document.addEventListener("keydown", event => {
+  const dialog = app.querySelector(".modal");
+  if (event.key === "Escape") {
+    if (languageMenuOpen) { languageMenuOpen = false; render(); return; }
+    if (!dialog || (state.ui.modal === "onboarding" && !state.profile.onboardingCompleted)) return;
+    state.ui.modal = null; render(); return;
+  }
+  if (event.key !== "Tab" || !dialog) return;
+  const controls = [...dialog.querySelectorAll("button,a[href],input,select,textarea,[tabindex='0']")].filter(element => !element.disabled && !element.hidden && element.getClientRects().length);
+  if (!controls.length) { event.preventDefault(); dialog.focus(); return; }
+  const first = controls[0], last = controls.at(-1);
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+});
 liveClockTimer = setInterval(updateLiveClock, 1000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 async function initialize() {
   const authRedirect = consumeAuthRedirect();
   if (session) {
-    try { await loadAccount(); if (!state.profile.onboardingCompleted) state.ui.modal = "onboarding"; }
-    catch { persistSession(null); state.authenticated = false; }
+    try {
+      if (!navigator.onLine && canResumeOffline()) { state.authenticated = true; updateSyncStatus("offline"); }
+      else { await loadAccount(); if (!state.profile.onboardingCompleted) state.ui.modal = "onboarding"; }
+    }
+    catch (error) {
+      if (canResumeOffline() && ![400,401,403].includes(error.status)) { state.authenticated = true; updateSyncStatus(navigator.onLine ? "error" : "offline"); }
+      else { if ([400,401,403].includes(error.status)) persistSession(null); state.authenticated = false; }
+    }
   }
   if (authRedirect.failed) state.ui.modal = "login";
   else if (authRedirect.confirmed && !state.authenticated) state.ui.modal = "login";
