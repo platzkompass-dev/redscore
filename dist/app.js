@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=5";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=17";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=18";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -114,7 +114,6 @@ let localSaveFailed = false;
 // Public sandbox only: never persisted or copied into a household's assessment.
 const scoreLabSelection = new Set();
 let scoreLabPointer = null;
-let scoreLabSuppressClickUntil = 0;
 const scoreLabSteps = [
   { id: "water", icon: "water", label: "Wasser einplanen", detail: "Trinkwasser für drei Tage", answers: ["water"], supplies: { water: 0.3 }, effect: "Wasser ist eingeplant. Ein erster Baustein für deine Versorgung." },
   { id: "food", icon: "food", label: "Vorrat aufbauen", detail: "Haltbare Lebensmittel für drei Tage", answers: ["food"], supplies: { food: 0.3 }, effect: "Ein Vorrat für drei Tage schafft einen ersten Handlungsspielraum." },
@@ -513,8 +512,11 @@ function endScoreLabGesture(event) {
   gesture.button.classList.remove("dragging");
   scoreLabPointer = null;
   if (gesture.moved && Math.abs(deltaX) >= 42) {
-    scoreLabSuppressClickUntil = Date.now() + 350;
     updateScoreLab(gesture.id);
+  } else if (!gesture.moved) {
+    const root = app.querySelector("[data-score-lab]");
+    const effect = root?.querySelector("[data-lab-effect]");
+    if (effect) effect.textContent = translateText("Wische den Schritt nach links oder rechts ins Radar.");
   }
 }
 
@@ -528,7 +530,7 @@ function scoreLab() {
       ${scoreLabSteps.map((step,i) => `<span class="lab-node ${scoreLabSelection.has(step.id) ? "ready" : ""}" data-lab-node="${step.id}" style="--node-angle:${i*72}deg" aria-hidden="true">${icon(step.icon)}</span>`).join("")}
     </div><p data-lab-effect>Wähle einen Schritt. Sieh, was sich verändert.</p><small class="lab-disclaimer">Beispiel-Simulation, nicht dein persönlicher RedScore.</small></div>
     <div class="score-lab-actions"><div class="lab-actions-head"><span><b>Deine Schritte im Szenario</b><small class="lab-gesture-hint">Wische einen Schritt ins Radar ↔</small></span><button data-score-lab-reset ${result.count ? "" : "disabled"}>Zurücksetzen</button></div>
-      ${scoreLabSteps.map(step => `<button class="lab-step" data-score-lab-step="${step.id}" aria-pressed="${scoreLabSelection.has(step.id)}">${icon(step.icon)}<span><b>${step.label}</b><small>${step.detail}</small></span><strong data-lab-gain>${scoreLabSelection.has(step.id) ? "✓" : `+${scoreLabGain(step.id)}`}</strong></button>`).join("")}
+      ${scoreLabSteps.map(step => `<button class="lab-step" data-score-lab-step="${step.id}" aria-label="${step.label} – Wische einen Schritt ins Radar" aria-pressed="${scoreLabSelection.has(step.id)}">${icon(step.icon)}<span><b>${step.label}</b><small>${step.detail}</small></span><strong data-lab-gain>${scoreLabSelection.has(step.id) ? "✓" : `+${scoreLabGain(step.id)}`}</strong></button>`).join("")}
       <button class="green lab-cta" data-open-auth="register">Jetzt meinen echten Score kostenlos prüfen →</button>
     </div>
     <details class="lab-model" id="score-lab-model"><summary>Beispielannahmen & Berechnung</summary><p>Die Vorschau startet bei null: Beispielhaushalt ohne Haustiere, alle Check-Antworten zunächst „Nein“, keine erfassten Vorräte. Jeder gewählte Schritt setzt die genannten Voraussetzungen im Beispiel auf „Ja“. Wasser, Lebensmittel und Medikamente entsprechen drei von zehn Vorratstagen; Licht und Energie gelten als einsatzbereit. Hygiene bleibt offen.</p><p>Wie im persönlichen RedScore: 70 % vollständig beantworteter Vorsorge-Check + 30 % Vorratsfortschritt. Die fünf Schritte decken nicht die gesamte Vorsorge ab. Der Score ist keine Gefahrenprognose oder Sicherheitsgarantie. Deinen tatsächlichen Stand berechnen wir erst nach deinem vollständigen Check.</p></details>
@@ -1258,7 +1260,12 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
-  if (button.dataset.scoreLabStep) { if (Date.now() < scoreLabSuppressClickUntil) return; return updateScoreLab(button.dataset.scoreLabStep); }
+  if (button.dataset.scoreLabStep) {
+    // Pointer clicks are intentionally not score actions. The lab is gesture-driven;
+    // keyboard/screen-reader activation remains available through detail === 0.
+    if (event.detail === 0) return updateScoreLab(button.dataset.scoreLabStep);
+    return;
+  }
   if (button.hasAttribute("data-score-lab-reset")) return updateScoreLab(null, true);
   if (button.matches("[data-sync-retry]")) { if (syncStatus === "expired") { state.ui.modal = "login"; return render(); } return retryStorageAndSync().catch(() => toast("Kontosynchronisierung fehlgeschlagen. Bitte Speicherstatus beachten.")); }
   if (button.matches("[data-clear-knowledge-search]")) { state.ui.knowledgeSearch = ""; return render(); }

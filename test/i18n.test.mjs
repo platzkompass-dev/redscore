@@ -24,6 +24,8 @@ test("translates fixed and dynamic interface copy", () => {
   assert.equal(translateText("3 Aufgaben offen"), "3 open tasks");
   assert.equal(translateText("10-Tage-Ziel: 60 Liter für deinen Haushalt"), "10-day target: 60 liters for your household");
   assert.equal(translateText("Zuletzt aktualisiert vor 26 Sek."), "Last updated 26 sec. ago");
+  assert.equal(translateText("Wische einen Schritt ins Radar"), "Swipe a step into the radar");
+  assert.equal(translateText("Wische den Schritt nach links oder rechts ins Radar."), "Swipe the step left or right into the radar.");
 });
 
 test("keeps source-provided reports unchanged", () => {

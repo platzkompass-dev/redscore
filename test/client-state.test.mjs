@@ -160,6 +160,7 @@ test("public score lab exposes a gesture affordance while retaining keyboard con
   const c = client();
   const html = c.run("scoreLab()");
   assert.match(html, /Wische einen Schritt ins Radar/);
+  assert.match(html, /aria-label="Wasser einplanen – Wische einen Schritt ins Radar"/);
   assert.match(html, /data-score-lab-step="water"[^>]*aria-pressed="false"/);
   assert.match(html, /Jetzt meinen echten Score kostenlos prüfen/);
 });
