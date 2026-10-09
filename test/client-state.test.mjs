@@ -156,6 +156,14 @@ test("public score lab changes only its sandbox and exposes selected buttons", (
   assert.equal(c.run("state.supplies.water"), null);
 });
 
+test("public score lab exposes a gesture affordance while retaining keyboard controls", () => {
+  const c = client();
+  const html = c.run("scoreLab()");
+  assert.match(html, /Wische einen Schritt ins Radar/);
+  assert.match(html, /data-score-lab-step="water"[^>]*aria-pressed="false"/);
+  assert.match(html, /Jetzt meinen echten Score kostenlos prüfen/);
+});
+
 test("a different account never inherits another account's pending data", async () => {
   const c = client({ fetch: async () => Response.json({ user: { id: "user-b" }, profile: { display_name: "Other", onboarding_completed: true }, appState: { supplies: { water: 8 } } }) });
   c.run("state.supplies.water=42.75; state.sync.pending=true");

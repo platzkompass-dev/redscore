@@ -12,6 +12,7 @@ const EN = new Map(Object.entries({
   "Probiere es aus. Ohne Anmeldung.": "Try it. No sign-up needed.",
   "Score live erleben ↓": "Experience the score ↓",
   "Deine Schritte im Szenario": "Your scenario steps",
+  "Wische einen Schritt ins Radar ↔": "Swipe a step into the radar ↔",
   "Zurücksetzen": "Reset",
   "Wähle einen Schritt. Sieh, was sich verändert.": "Choose a step. See what changes.",
   "Schritt zurückgenommen. Du kannst jederzeit neu kombinieren.": "Step removed. You can combine them again anytime.",

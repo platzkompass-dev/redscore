@@ -212,3 +212,6 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
   .logged-page>main{padding-bottom:calc(70px + env(safe-area-inset-bottom,0px))}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Score-Lab gesture affordance: drag or swipe a step into the radar. */
+.lab-step{touch-action:pan-y;user-select:none}.lab-step.dragging{transform:translateX(8px) scale(1.02);border-color:#68e6b8;background:#0d4650;box-shadow:0 8px 24px #03182088;cursor:grabbing}.lab-actions-head>span{display:grid;gap:3px}.lab-gesture-hint{color:#75cfc0;font-size:9px;font-weight:400}

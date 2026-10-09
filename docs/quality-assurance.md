@@ -133,5 +133,10 @@ als vollständig geprüft ausgewiesen.
 - Die mobile Vorschau ist bei 390 Pixeln 347 Pixel breit, die Dokumentbreite bleibt
   bei 375 Pixeln. Die englische Variante übersetzt Szenario, Schritte, Erläuterung
   und Wirkungstexte.
-- `npm test`: **70 Tests bestanden**, einschließlich Start-/Endwert, Scoregewichtung,
+- `npm test`: **71 Tests bestanden**, einschließlich Start-/Endwert, Scoregewichtung,
   Isolation vom persönlichen Zustand und UI-Aktualisierung.
+- Die Interaktion ist zusätzlich als Geste umgesetzt: Auf Touch-Geräten wird ein
+  Schritt horizontal ins Radar gewischt, auf Desktop kann er gezogen werden. Klick
+  und Tastaturbedienung bleiben als zugängliche Alternativen erhalten. Im mobilen
+  Browser-Test erhöhte ein Swipe „Wasser einplanen“ den Wert von 0 auf 8 und setzte
+  `aria-pressed` korrekt auf `true`.
