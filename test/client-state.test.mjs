@@ -10,14 +10,18 @@ const source = (await readFile(new URL("../dist/app.js", import.meta.url), "utf8
 function client(options = {}) {
   const storage = new Map(Object.entries(options.storage || {}));
   const timers = new Map();
+  const windowEvents = new Map();
+  const syncText = { textContent: "" }, syncButton = { hidden: true, textContent: "" };
+  const syncRegion = { dataset: {}, querySelector: selector => selector === "span" ? syncText : syncButton };
+  const liveElements = Object.fromEntries(["#live-age", "[data-live-title]", "[data-live-dot]", "[data-live-note]"].map(key => [key, { textContent: "", className: "", hidden: false }]));
   const app = { innerHTML: "", addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; }, contains() { return false; } };
   const context = vm.createContext({
     ...data, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
     navigator: { onLine: options.online !== false }, location: { search: "", hash: "#/profile" },
     history: { replaceState() {} },
-    document: { hidden: false, activeElement: null, body: { className: "", classList: { toggle() {} } }, querySelector: selector => selector === "#app" ? app : null, addEventListener() {} },
-    window: { addEventListener() {}, matchMedia: () => ({ matches: false }) },
-    localStorage: { getItem: key => storage.get(key) || null, setItem: (key,value) => storage.set(key,value), removeItem: key => storage.delete(key) },
+    document: { hidden: false, activeElement: null, body: { className: "", classList: { toggle() {} } }, querySelector: selector => selector === "#app" ? app : selector === "[data-sync-status]" ? syncRegion : liveElements[selector] || null, addEventListener() {} },
+    window: { addEventListener: (type, handler) => windowEvents.set(type, handler), matchMedia: () => ({ matches: false }) },
+    localStorage: { getItem: key => { if (options.blockStorage) throw new Error("SecurityError"); return storage.get(key) || null; }, setItem: (key,value) => { if (options.blockStorage || options.failWrites) throw new Error("QuotaExceededError"); storage.set(key,value); }, removeItem: key => storage.delete(key) },
     setTimeout: (fn,delay) => { const id = Symbol(); timers.set(id,{ fn,delay }); return id; }, clearTimeout: id => timers.delete(id), setInterval: () => 0,
     getLanguage: () => "de", setLanguage() {}, applyLanguage() {}, translateText: value => value,
     fetch: options.fetch || (async () => { throw new Error("unexpected network access"); }),
@@ -25,8 +29,103 @@ function client(options = {}) {
   vm.runInContext(source, context);
   const run = code => vm.runInContext(code, context);
   run(`state.authenticated=true; state.profile={...state.profile,id:'user-a',name:'QA',onboardingCompleted:true}; session={access_token:'test-access',refresh_token:'test-refresh',expires_at:4000000000,user:{id:'user-a'}};`);
-  return { run, storage, timers, context, app };
+  return { run, storage, timers, context, app, syncText, syncButton, syncRegion, liveElements, windowEvents };
 }
+
+test("failed local storage never claims pending changes are saved, including offline", () => {
+  const c = client({ failWrites: true, online: false });
+  c.run("state.supplies.water=12.25; save()");
+  assert.equal(c.run("state.supplies.water"), 12.25);
+  assert.equal(c.run("state.sync.pending"), true);
+  assert.equal(c.syncRegion.dataset.status, "storage-error");
+  assert.match(c.syncText.textContent, /noch nicht dauerhaft gespeichert/);
+  assert.equal(c.syncButton.hidden, false);
+  assert.equal(c.storage.has("redscore-state-v1"), false);
+});
+
+test("cloud saving still works when offline storage is unavailable", async () => {
+  const c = client({ failWrites: true, fetch: async () => Response.json({ ok: true }) });
+  c.run("state.supplies.water=18; save()");
+  await c.run("syncAccount()");
+  assert.equal(c.run("state.sync.pending"), false);
+  assert.match(c.syncText.textContent, /Im Konto gespeichert/);
+  assert.match(c.syncText.textContent, /Offline-Speicherung.*nicht verfügbar/);
+});
+
+test("closing warns only when changes exist solely in memory", () => {
+  const c = client({ failWrites: true });
+  c.run("save()");
+  let warned = false;
+  c.windowEvents.get("beforeunload")({ preventDefault() { warned = true; } });
+  assert.equal(warned, true);
+  c.run("state.sync.pending=false");
+  warned = false;
+  c.windowEvents.get("beforeunload")({ preventDefault() { warned = true; } });
+  assert.equal(warned, false);
+});
+
+test("retry restores durable offline saving after storage becomes available", async () => {
+  const options = { failWrites: true, online: false };
+  const c = client(options);
+  c.run("state.supplies.water=23.75; save()");
+  options.failWrites = false;
+  await c.run("retryStorageAndSync()");
+  assert.equal(c.run("localSaveFailed"), false);
+  assert.equal(JSON.parse(c.storage.get("redscore-state-v1")).supplies.water, 23.75);
+  assert.equal(c.syncRegion.dataset.status, "offline");
+  assert.equal(c.syncButton.hidden, true);
+});
+
+test("blocked browser storage cannot interrupt installation prompt dismissal", () => {
+  const c = client({ blockStorage: true });
+  assert.equal(c.run("installPromptDismissed()"), false);
+  c.run("dismissInstallPrompt()");
+  assert.equal(c.run("installPromptDismissed()"), true);
+});
+
+test("loading with a connection is not presented as offline", () => {
+  const c = client();
+  c.run("liveState.status='loading'");
+  assert.equal(c.run("livePresentation().title"), "LAGEABGLEICH");
+  assert.doesNotMatch(c.run("liveLagePanel()"), />OFFLINE</);
+  assert.match(c.run("liveLagePanel()"), /aria-pressed="true"/);
+});
+
+test("freshness expiry updates the title and stops the live pulse without rerendering", () => {
+  const c = client();
+  c.run("liveState.status='live'; liveState.receivedAt=new Date().toISOString(); liveState.lastSyncAt=new Date().toISOString(); updateLiveClock()");
+  assert.equal(c.liveElements["[data-live-title]"].textContent, "LIVE-LAGE");
+  c.run("liveState.lastSyncAt=new Date(Date.now()-11*60_000).toISOString(); updateLiveClock()");
+  assert.equal(c.liveElements["[data-live-title]"].textContent, "NICHT AKTUELL");
+  assert.equal(c.liveElements["[data-live-dot]"].className, "live-dot offline");
+  assert.equal(c.liveElements["[data-live-note]"].hidden, false);
+});
+
+test("refreshing recent data remains live but a server error does not claim an internet outage", async () => {
+  const c = client({ fetch: async () => Response.json({}, { status: 503 }) });
+  c.run("liveState.status='refreshing'; liveState.receivedAt=new Date().toISOString(); liveState.lastSyncAt=new Date().toISOString(); liveState.events=[{id:'cached'}]");
+  assert.equal(c.run("liveConnectionIsFresh()"), true);
+  await c.run("requestLiveLage(true)");
+  assert.equal(c.run("livePresentation().title"), "NICHT AKTUELL");
+  assert.equal(c.run("liveState.events[0].id"), "cached");
+  assert.equal(c.run("liveConnectionIsFresh()"), false);
+});
+
+test("missing or implausible source timestamps never produce a live indicator", () => {
+  const c = client();
+  c.run("liveState.status='live'; liveState.receivedAt=new Date().toISOString(); liveState.lastSyncAt=null");
+  assert.equal(c.run("liveConnectionIsFresh()"), false);
+  c.run("liveState.lastSyncAt='invalid'");
+  assert.equal(c.run("liveConnectionIsFresh()"), false);
+  c.run("liveState.lastSyncAt=new Date(Date.now()+60*60_000).toISOString()");
+  assert.equal(c.run("liveConnectionIsFresh()"), false);
+});
+
+test("the age label shows the source sync age, not the most recent API request", () => {
+  const c = client();
+  c.run("liveState.status='live'; liveState.receivedAt=new Date().toISOString(); liveState.lastSyncAt=new Date(Date.now()-3*60_000).toISOString()");
+  assert.match(c.run("livePresentation().age"), /vor 3 Min\./);
+});
 
 test("pending local supplies survive a cloud load for the same account", async () => {
   const c = client({ fetch: async () => Response.json({ user: { id: "user-a" }, profile: { display_name: "Cloud", onboarding_completed: true }, appState: { supplies: { water: 5 } } }) });

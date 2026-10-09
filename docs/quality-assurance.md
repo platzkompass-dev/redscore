@@ -1,4 +1,4 @@
-# RedScore Qualitätsprüfung — 8. Oktober 2026
+# RedScore Qualitätsprüfung — 9. Oktober 2026
 
 ## Geprüfter Ablauf
 
@@ -74,3 +74,44 @@ Die Prüfung folgt den Skills `vercel:verification` (gesamter Datenfluss und Feh
   Meldungen für Russland/Ukraine und USA/Iran mit Quellenbezeichnung und Alter.
   Die öffentliche gemischte API-Antwort enthält beide Konfliktthemen bei zwölf
   angeforderten Meldungen; der reine Wetterfilter enthält keine Kriegsbeimischung.
+
+## Zuverlässigkeit und mobile Bedienung — 9. Oktober 2026
+
+- Lageanzeige unterscheidet echten Offline-Modus, laufenden Abgleich, nicht erreichbaren
+  Lage-Dienst und veraltete Daten. Der Sekundentimer aktualisiert auch Überschrift,
+  Farbe und Pulsieren: abgelaufene Aktualität bleibt nicht irrtümlich LIVE.
+- Der Aktualitätsnachweis benötigt eine gültige Importzeit und eine kürzlich erhaltene
+  API-Antwort. Fehlende, ungültige oder weit in der Zukunft liegende Zeiten gelten
+  nicht als live. Die Zeitangabe zeigt das Alter des Quellenabgleichs, nicht nur das
+  Alter des letzten API-Aufrufs. Vorhandene Meldungen bleiben bei Abruffehlern sichtbar.
+- Fehler bei lokaler Kontospeicherung sind dauerhaft sichtbar, statt im Anschluss
+  „lokal gespeichert“ zu behaupten. Cloud-Speicherung wird trotzdem versucht; ein
+  erfolgreicher Cloud-Speicherstand ohne Offline-Kopie wird ausdrücklich unterschieden.
+  Wiederholung stellt den lokalen Speicher wieder her, sobald er verfügbar ist.
+  Änderungen ausschließlich im Arbeitsspeicher aktivieren die Browser-Schließwarnung.
+- Installationshinweise lassen sich auch bei gesperrtem Browserspeicher schließen;
+  eine fehlgeschlagene lokale Löschung verhindert nicht mehr die Abmeldung.
+- Der Login-Button bleibt auf der mobilen öffentlichen Startseite sichtbar.
+  Die eingeloggte Navbar passt auch bei 320 Pixeln einschließlich Profil-Schaltfläche;
+  Lagekarten haben größere Texte und eine größere Details-Schaltfläche. Ausgewählte
+  Lagefilter sind zusätzlich über `aria-pressed` erkennbar.
+- Neue Statusmeldungen sowie dynamische Bewertungs- und Prioritätstexte sind auf
+  Englisch ergänzt. App-Shell-Version 47 aktualisiert JS, CSS und Übersetzungen zusammen.
+- `npm test`: **68 Tests bestanden**, darunter Speicher-Quota/gesperrter Speicher,
+  Cloud-Erfolg ohne Offline-Kopie, Wiederholung, Schließwarnung, Zeitablauf ohne Render,
+  fehlende/falsche Zeitangaben sowie englische Statusmeldungen.
+- Edge, isolierter Testserver: Login bei 390 Pixeln; langsamer Filterwechsel zeigt
+  LAGEABGLEICH; 20 Minuten alte Quelldaten zeigen NICHT AKTUELL mit grauem Punkt;
+  HTTP-503 meldet LAGE UNVERFÜGBAR und nicht einen Internetausfall.
+- Edge, 320 Pixel: nach Navbar-Korrektur Seitenbreite und verfügbare Breite jeweils
+  305 Pixel (Scrollbar berücksichtigt), Profil vollständig innerhalb der Navbar.
+  Englische Status- und Bewertungstexte geprüft. Echte Netzwerksimulation zeigt
+  OFFLINE und behält die zuletzt geladenen Testmeldungen. Simulation wird zurückgesetzt.
+
+Zusätzliche lokale Feed-Simulation: `/__qa/feed?mode=slow|stale|error|normal`.
+Diese ausdrücklich als DEVELOPMENT markierten Daten existieren nur im Loopback-
+Testserver; keine Produktionsdaten oder echten Benutzerkonten wurden verändert.
+Die erneute Prüfung folgt `vercel:verification`, die Veröffentlichung
+`vercel:deployments-cicd`. Reale Mailzustellung, zusätzliche internationale
+Quellenabdeckung und geräteübergreifende Konfliktauflösung sind damit nicht erneut
+als vollständig geprüft ausgewiesen.

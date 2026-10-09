@@ -167,15 +167,22 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 
 /* Reliable input, visible saving state and accessible dialogs. */
 .sync-status{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:7px 3%;background:#092330;border-bottom:1px solid #294352;color:#b5cccf;font-size:11px;min-height:32px}
-.sync-status[data-status="error"],.sync-status[data-status="expired"]{color:#ffcf9b;background:#342b20}
+.sync-status[data-status="error"],.sync-status[data-status="expired"],.sync-status[data-status="storage-error"]{color:#ffcf9b;background:#342b20}
 .sync-status[data-status="offline"]{color:#cfdae0;background:#172a34}
 .sync-status button{border:1px solid currentColor;border-radius:6px;padding:5px 9px;background:transparent;color:inherit;font:inherit;white-space:nowrap}
 .sync-status button[hidden],.quantity-fields [hidden]{display:none}
+.live-lage-panel>header .live-dot.offline+h2{color:#aab8c0}
+.live-lage-panel>header [data-live-note][hidden]{display:none}
+.live-lage-panel>header [data-live-note]{line-height:1.45}
+@media(max-width:760px){.live-event h3{font-size:15px;line-height:1.35}.live-event>p{font-size:13px;line-height:1.5}.live-meta,.live-relevance span,.live-evidence span{font-size:11px}.live-evidence em{font-size:10px}.live-relevance button{font-size:12px;min-height:36px}.live-event-top,.live-event-top>b{font-size:10px}.live-dot{flex-shrink:0}}
 .modal-open{overflow:hidden}
 .modal{overscroll-behavior:contain;max-height:calc(100dvh - 32px)}
 :is(button,a,input,select,textarea):focus-visible{outline:3px solid #14b893;outline-offset:3px}
 .modal button:disabled{cursor:not-allowed}
 .public-actions .search-button{display:grid;place-items:center}
+@media(max-width:760px){.public-actions .outline{display:block;padding:8px 9px;font-size:12px;min-height:40px;white-space:nowrap}}
+@media(max-width:480px){.public-actions .search-button{display:none}.public-page{min-width:0}}
+@media(max-width:360px){.app-header{gap:6px;padding-inline:10px}.app-header .user-tools{gap:5px}}
 .knowledge-hero form{min-width:0}.knowledge-hero input{min-width:0}
 .home-live-layout .status-card{min-width:0;height:auto;min-height:94px}
 .status-card span{min-width:0;overflow-wrap:anywhere}.status-icon{flex-shrink:0}

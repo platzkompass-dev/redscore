@@ -1,6 +1,21 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Im Konto gespeichert · Offline-Speicherung auf diesem Gerät nicht verfügbar": "Saved to your account · offline storage on this device is unavailable",
+  "Kontodaten werden gespeichert … · Offline-Speicherung nicht verfügbar": "Saving account data … · offline storage unavailable",
+  "Änderungen noch nicht dauerhaft gespeichert · Seite bitte geöffnet lassen": "Changes are not saved permanently yet · please keep this page open",
+  "Kontosynchronisierung fehlgeschlagen. Bitte Speicherstatus beachten.": "Account sync failed. Please check the save status.",
+  "Lokale Kontodaten konnten nicht entfernt werden. Bitte Browserspeicher prüfen.": "Local account data could not be removed. Please check browser storage.",
+  "LAGEABGLEICH": "SYNCING SITUATION",
+  "LAGE UNVERFÜGBAR": "SITUATION UNAVAILABLE",
+  "NICHT AKTUELL": "NOT UP TO DATE",
+  "Gespeicherter Stand · keine Live-Aktualisierung.": "Saved information · no live updates.",
+  "Lage-Dienst nicht erreichbar · gespeicherter Stand.": "Situation service unavailable · saved information.",
+  "Kein aktueller Lageabgleich · keine Entwarnung.": "No up-to-date situation sync · this is not an all-clear.",
+  "Lagebereich": "Situation scope",
+  "Meldungskategorie": "Report category",
+  "Relevanz für dich:": "Relevance to you:",
+  "Quelle nicht benannt": "Unnamed source",
   "schützt.": "protects.",
   "Krisen & Gefahrenlagen": "Crises & hazards",
   "Notfallvorsorge": "Emergency preparedness",
@@ -652,6 +667,8 @@ export function translateText(value) {
     if (translatedCore) return `${decorated[1] || ""}${translatedCore}${decorated[3] || ""}`;
   }
   return source
+    .replace(/^Beantworte zuerst alle (\d+) Fragen\. Wir zeigen niemals einen erfundenen Beispielwert\.$/, "Answer all $1 questions first. We never display an invented example score.")
+    .replace(/^(HOCH|MITTEL|NIEDRIG) · BBK-ORIENTIERT$/, (_, priority) => `${({ HOCH: "HIGH", MITTEL: "MEDIUM", NIEDRIG: "LOW" })[priority]} · BASED ON BBK GUIDANCE`)
     .replace(/(\d+) erwachsene Person/g, "$1 adult")
     .replace(/(\d+) Erwachsene/g, "$1 adults")
     .replace(/(\d+) Kind(?!er)/g, "$1 child")
@@ -681,10 +698,12 @@ export function translateText(value) {
     .replace(/^10-Tage-Ziel: ([\d,.]+) Liter für deinen Haushalt$/, "10-day target: $1 liters for your household")
     .replace(/^Für (.+)$/, "For $1")
     .replace(/^Quelle: (.+)$/, "Source: $1")
+    .replace(/Quelle nicht benannt/g, "Unnamed source")
     .replace(/^Relevanz für dich: (.+)$/, "Relevance to you: $1")
     .replace(/^(\d+) regionale Meldungen gebündelt$/, "$1 regional reports grouped")
     .replace(/^Bestätigt durch (\d+) Quellen$/, "Confirmed by $1 sources")
     .replace(/^(\d+) strukturierte Quellen aktiv$/, "$1 structured sources active")
+    .replace(/^(\d+) Quellen im Lageabgleich/, "$1 sources in the situation sync")
     .replace(/^(\d+) Wiederholungen gebündelt$/, "$1 duplicates grouped")
     .replace(/^Ergebnisse \((\d+)\)$/, "Results ($1)")
     .replace(/^Zuletzt aktualisiert /, "Last updated ")

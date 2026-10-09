@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=5";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=14";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=15";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -110,6 +110,7 @@ let session = (() => { try { return JSON.parse(localStorage.getItem(SESSION_KEY)
 let syncTimer = null;
 let syncRequest = null;
 let syncStatus = "saved";
+let localSaveFailed = false;
 let renderedModal = null;
 let renderedModalLanguage = null;
 let modalReturnFocus = null;
@@ -117,8 +118,16 @@ let accountBusy = false;
 let languageMenuOpen = false;
 let deferredInstallPrompt = null;
 const INSTALL_DISMISSED_KEY = "redscore-install-prompt-dismissed-v1";
-const isStandaloneApp = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
-const installPromptDismissed = () => localStorage.getItem(INSTALL_DISMISSED_KEY) === "1";
+const isStandaloneApp = () => window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator?.standalone === true;
+let installDismissedInMemory = false;
+const installPromptDismissed = () => {
+  try { return installDismissedInMemory || localStorage.getItem(INSTALL_DISMISSED_KEY) === "1"; }
+  catch { return installDismissedInMemory; }
+};
+function dismissInstallPrompt() {
+  installDismissedInMemory = true;
+  try { localStorage.setItem(INSTALL_DISMISSED_KEY, "1"); } catch { /* Dismissal still works for this visit. */ }
+}
 function maybeShowInstallPrompt() {
   if (!state.authenticated && hashRoute() === "home" && deferredInstallPrompt && !isStandaloneApp() && !installPromptDismissed() && !state.ui.modal) {
     state.ui.modal = "install";
@@ -132,7 +141,7 @@ window.addEventListener("beforeinstallprompt", event => {
 });
 window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
-  localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+  dismissInstallPrompt();
   if (state.ui.modal === "install") { state.ui.modal = null; render(); }
 });
 const householdScenes = {
@@ -198,14 +207,30 @@ function chooseScene(adults, children) {
 }
 const save = () => {
   if (state.authenticated) state.sync = { ...state.sync, pending: true, revision: (Number(state.sync.revision) || 0) + 1 };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  catch { toast("Diese Änderung konnte lokal nicht gespeichert werden."); }
+  writeStateLocally();
   updateSyncStatus(navigator.onLine ? "pending" : "offline");
   if (state.authenticated && session?.access_token) {
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => syncAccount().catch(() => {}), 900);
   }
 };
+
+function writeStateLocally() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localSaveFailed = false;
+    return true;
+  } catch {
+    localSaveFailed = true;
+    return false;
+  }
+}
+
+async function retryStorageAndSync() {
+  if (localSaveFailed) writeStateLocally();
+  updateSyncStatus();
+  return syncAccount();
+}
 
 async function accountRequest(action, payload = {}, accessToken = session?.access_token) {
   const response = await fetch("/api/account", {
@@ -290,7 +315,7 @@ async function loadAccount() {
   if (pending) {
     for (const key of ["profile", "household", "assessment", "taskStatus", "supplies", "supplyDetails", "customSupplies", "settings", "packlist", "sync"]) state[key] = pending[key];
   }
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* Keep the loaded state in memory. */ }
+  writeStateLocally();
   updateSyncStatus(state.sync.pending ? "pending" : "saved");
   if (state.sync.pending) { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncAccount().catch(() => {}), 900); }
   return true;
@@ -321,7 +346,7 @@ async function syncAccount() {
       if (state.sync.revision === revision) {
         state.sync.pending = false;
         state.sync.lastSavedAt = new Date().toISOString();
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* The server copy is already saved. */ }
+        writeStateLocally();
       }
       updateSyncStatus(state.sync.pending ? "pending" : "saved");
     } catch (error) {
@@ -340,13 +365,19 @@ async function syncAccount() {
 function updateSyncStatus(status = syncStatus) {
   syncStatus = status;
   const labels = { saved: "Mit deinem Konto synchronisiert", pending: "Auf diesem Gerät gespeichert · Synchronisierung ausstehend", saving: "Kontodaten werden gespeichert …", offline: "Offline · Änderungen bleiben auf diesem Gerät", error: "Lokal gespeichert · Kontosynchronisierung fehlgeschlagen", expired: "Lokal gespeichert · bitte erneut anmelden" };
+  let label = labels[status];
+  if (localSaveFailed) label = !state.sync.pending
+    ? "Im Konto gespeichert · Offline-Speicherung auf diesem Gerät nicht verfügbar"
+    : status === "saving"
+      ? "Kontodaten werden gespeichert … · Offline-Speicherung nicht verfügbar"
+      : "Änderungen noch nicht dauerhaft gespeichert · Seite bitte geöffnet lassen";
   const region = document.querySelector("[data-sync-status]");
   if (!region) return;
-  region.dataset.status = status;
+  region.dataset.status = localSaveFailed ? "storage-error" : status;
   const text = region.querySelector("span");
-  if (text) text.textContent = translateText(labels[status]);
+  if (text) text.textContent = translateText(label);
   const button = region.querySelector("button");
-  if (button) { button.hidden = !["error", "expired"].includes(status); button.textContent = translateText(status === "expired" ? "Einloggen" : "Erneut versuchen"); }
+  if (button) { button.hidden = !localSaveFailed && !["error", "expired"].includes(status); button.textContent = translateText(status === "expired" ? "Einloggen" : "Erneut versuchen"); }
 }
 
 function canResumeOffline() {
@@ -620,16 +651,36 @@ function visibleLiveEvents() { return collapseLiveEvents(liveState.events).slice
 
 function liveConnectionIsFresh() {
   const received = liveState.receivedAt ? new Date(liveState.receivedAt).getTime() : 0;
-  const synced = liveState.lastSyncAt ? new Date(liveState.lastSyncAt).getTime() : received;
-  return navigator.onLine && liveState.status === "live" && Date.now() - received < 150_000 && Date.now() - synced < 10 * 60_000;
+  const synced = liveState.lastSyncAt ? new Date(liveState.lastSyncAt).getTime() : 0;
+  const now = Date.now();
+  return navigator.onLine && ["live", "refreshing"].includes(liveState.status)
+    && received > 0 && synced > 0 && received <= now + 60_000 && synced <= now + 60_000
+    && now - received < 150_000 && now - synced < 10 * 60_000;
+}
+
+function livePresentation() {
+  const isLive = liveConnectionIsFresh();
+  const loading = ["idle", "loading", "refreshing"].includes(liveState.status);
+  const title = !navigator.onLine ? "OFFLINE" : isLive ? "LIVE-LAGE" : loading ? "LAGEABGLEICH" : liveState.error && !liveState.events.length ? "LAGE UNVERFÜGBAR" : "NICHT AKTUELL";
+  const note = !navigator.onLine ? "Gespeicherter Stand · keine Live-Aktualisierung."
+    : loading ? "Lageabgleich läuft …"
+    : liveState.error ? "Lage-Dienst nicht erreichbar · gespeicherter Stand."
+    : !isLive ? "Kein aktueller Lageabgleich · keine Entwarnung."
+    : "";
+  const age = `${translateText(isLive ? "Zuletzt aktualisiert" : "Letzter Lageabgleich")} ${relativeTime(liveState.lastSyncAt || liveState.receivedAt)}`;
+  return { isLive, title, note, age };
 }
 
 function updateLiveClock() {
+  const presentation = livePresentation();
   const label = document.querySelector("#live-age");
-  if (!label) return;
-  const online = liveConnectionIsFresh();
-  const stamp = online ? liveState.receivedAt : (liveState.lastSyncAt || liveState.receivedAt);
-  label.textContent = `${translateText(online ? "Zuletzt aktualisiert" : "Letzter Lageabgleich")} ${relativeTime(stamp)}`;
+  if (label) label.textContent = presentation.age;
+  const title = document.querySelector("[data-live-title]");
+  if (title) title.textContent = translateText(presentation.title);
+  const dot = document.querySelector("[data-live-dot]");
+  if (dot) dot.className = `live-dot ${presentation.isLive ? "live" : "offline"}`;
+  const note = document.querySelector("[data-live-note]");
+  if (note) { note.textContent = translateText(presentation.note); note.hidden = !presentation.note; }
 }
 
 function storeLiveCache() {
@@ -657,6 +708,7 @@ async function requestLiveLage(force = false) {
   if (!force && liveAttempt.key === requestedKey && Date.now() - liveAttempt.at < LIVE_REFRESH_MS) return;
   liveAttempt = { key: requestedKey, at: Date.now() };
   liveState.status = liveState.events.length ? "refreshing" : "loading";
+  updateLiveClock();
   const params = new URLSearchParams({ scope: liveState.scope, filter: liveState.filter, limit: "12", country: "Deutschland", language: requestedLanguage });
   if (state.household.state) params.set("region", state.household.state);
   if (state.household.district) params.set("district", state.household.district.replace(/^Landkreis\s+/i, ""));
@@ -670,14 +722,14 @@ async function requestLiveLage(force = false) {
       liveState.events = Array.isArray(payload.events) ? payload.events : [];
       liveState.sources = Array.isArray(payload.sources) ? payload.sources : [];
       liveState.lastSyncAt = payload.lastSyncAt || null;
-      liveState.receivedAt = payload.generatedAt || new Date().toISOString();
+      liveState.receivedAt = new Date().toISOString();
       liveState.status = "live";
       liveState.error = null;
       storeLiveCache();
     })
     .catch(() => {
       if (liveSelectionKey() !== requestedKey) return;
-      liveState.status = liveState.events.length ? "offline" : "error";
+      liveState.status = navigator.onLine ? "error" : "offline";
       liveState.error = "Die Live-Lage konnte nicht aktualisiert werden.";
     })
     .finally(() => {
@@ -710,16 +762,15 @@ function liveEventCard(event) {
 }
 
 function liveLagePanel() {
-  const isLive = liveConnectionIsFresh();
-  const stateTitle = isLive ? "LIVE-LAGE" : "OFFLINE";
+  const presentation = livePresentation();
   const events = visibleLiveEvents();
   const hiddenDuplicates = Math.max(0, liveState.events.length - events.length);
   return `<aside class="live-lage-panel" aria-label="Aktuelle Sicherheits- und Krisenlage">
-    <header><div><span class="live-dot ${isLive ? "live" : "offline"}"></span><h2>${stateTitle}</h2></div><button data-live-refresh aria-label="Live-Lage aktualisieren">↻</button><small id="live-age">${isLive ? "Zuletzt aktualisiert" : "Letzter Lageabgleich"} ${relativeTime(isLive ? liveState.receivedAt : (liveState.lastSyncAt || liveState.receivedAt))}</small></header>
-    <div class="live-scope">${Object.entries(liveScopeLabels).map(([key,label]) => `<button data-live-scope="${key}" class="${liveState.scope===key?"active":""}">${label}</button>`).join("")}</div>
-    <div class="live-filters">${Object.entries(liveFilterLabels).map(([key,label]) => `<button data-live-filter="${key}" class="${liveState.filter===key?"active":""}">${label}</button>`).join("")}</div>
+    <header><div><span data-live-dot aria-hidden="true" class="live-dot ${presentation.isLive ? "live" : "offline"}"></span><h2 data-live-title>${presentation.title}</h2></div><button data-live-refresh aria-label="Live-Lage aktualisieren">↻</button><small id="live-age">${presentation.age}</small><small data-live-note role="status" ${presentation.note ? "" : "hidden"}>${presentation.note}</small></header>
+    <div class="live-scope" role="group" aria-label="Lagebereich">${Object.entries(liveScopeLabels).map(([key,label]) => `<button data-live-scope="${key}" aria-pressed="${liveState.scope===key}" class="${liveState.scope===key?"active":""}">${label}</button>`).join("")}</div>
+    <div class="live-filters" role="group" aria-label="Meldungskategorie">${Object.entries(liveFilterLabels).map(([key,label]) => `<button data-live-filter="${key}" aria-pressed="${liveState.filter===key}" class="${liveState.filter===key?"active":""}">${label}</button>`).join("")}</div>
     <div class="live-list ${liveState.status}">${events.length ? events.map(liveEventCard).join("") : `<div class="live-empty">${icon("radio","big-icon")}<h3>${liveState.status === "loading" ? "Lageabgleich läuft …" : liveState.status === "error" ? "Lage-Dienst nicht erreichbar" : "Keine aktiven Meldungen in dieser Auswahl"}</h3><p>${liveState.status === "error" ? "Gespeicherte Meldungen würden hier offline weiter angezeigt. Bitte später erneut versuchen." : "Das ist kein Entwarnungssignal. Im Ereignisfall gelten amtliche Warnungen und Anweisungen."}</p></div>`}</div>
-    <footer><span>${liveState.sources.length} strukturierte Quellen aktiv${hiddenDuplicates ? ` · ${hiddenDuplicates} Wiederholungen gebündelt` : ""}</span><small>Keine Boulevard- oder allgemeinen Politikmeldungen.</small></footer>
+    <footer><span>${liveState.sources.length} Quellen im Lageabgleich${hiddenDuplicates ? ` · ${hiddenDuplicates} Wiederholungen gebündelt` : ""}</span><small>Keine Boulevard- oder allgemeinen Politikmeldungen.</small></footer>
   </aside>`;
 }
 function nextTask() { return relevantTasks().find(task => !state.taskStatus[task.id]) || null; }
@@ -1104,19 +1155,19 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
-  if (button.matches("[data-sync-retry]")) { if (syncStatus === "expired") { state.ui.modal = "login"; return render(); } return syncAccount().catch(() => toast("Lokal gespeichert · Kontosynchronisierung fehlgeschlagen")); }
+  if (button.matches("[data-sync-retry]")) { if (syncStatus === "expired") { state.ui.modal = "login"; return render(); } return retryStorageAndSync().catch(() => toast("Kontosynchronisierung fehlgeschlagen. Bitte Speicherstatus beachten.")); }
   if (button.matches("[data-clear-knowledge-search]")) { state.ui.knowledgeSearch = ""; return render(); }
   if (button.matches("[data-install-app]")) {
     if (!deferredInstallPrompt) { state.ui.modal = null; return render(); }
     const prompt = deferredInstallPrompt;
     deferredInstallPrompt = null;
     try { await prompt.prompt(); await prompt.userChoice; } catch { /* the browser may cancel the native prompt */ }
-    localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+    dismissInstallPrompt();
     state.ui.modal = null;
     return render();
   }
   if (button.matches("[data-install-dismiss]")) {
-    localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+    dismissInstallPrompt();
     state.ui.modal = null;
     return render();
   }
@@ -1161,7 +1212,9 @@ app.addEventListener("click", async event => {
     if (state.sync.pending && !globalThis.confirm(translateText("Es gibt noch nicht synchronisierte Änderungen auf diesem Gerät. Beim Abmelden werden sie entfernt. Trotzdem abmelden?"))) return;
     clearTimeout(syncTimer); clearTimeout(liveRefreshTimer);
     try { if (session?.access_token) await accountRequest("sign_out"); } catch { /* local logout still succeeds */ }
-    persistSession(null); state = clone(defaultState); syncStatus = "saved"; localStorage.removeItem(STORAGE_KEY); location.hash = ""; return render();
+    persistSession(null); state = clone(defaultState); syncStatus = "saved"; localSaveFailed = false;
+    try { localStorage.removeItem(STORAGE_KEY); } catch { toast("Lokale Kontodaten konnten nicht entfernt werden. Bitte Browserspeicher prüfen."); }
+    location.hash = ""; return render();
   }
   if (button.matches("[data-close-modal]") || event.target.classList.contains("modal-backdrop")) { if (state.ui.modal === "onboarding" && !state.profile.onboardingCompleted) return; state.ui.modal = null; return render(); }
   if (button.matches("[data-open-packlist]")) { state.ui.modal = null; return navigate("packliste"); }
@@ -1302,6 +1355,9 @@ app.addEventListener("change", event => {
 });
 
 window.addEventListener("hashchange", render);
+window.addEventListener("beforeunload", event => {
+  if (localSaveFailed && state.sync.pending) { event.preventDefault(); event.returnValue = ""; }
+});
 window.addEventListener("offline", () => { liveState.status = "offline"; warningState.status = "fallback"; updateSyncStatus("offline"); placesState.status = placesState.places.length ? "offline" : "error"; if (state.authenticated) render(); });
 window.addEventListener("online", () => { if (state.authenticated) { updateSyncStatus(state.sync.pending ? "pending" : "saved"); requestLiveLage(true); requestWarnings(true); if (hashRoute() === "map") requestNearbyPlaces(true); syncAccount().catch(() => {}); } });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && state.authenticated) { requestLiveLage(); requestWarnings(); if (state.sync.pending) syncAccount().catch(() => {}); } });

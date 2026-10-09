@@ -51,3 +51,15 @@ test("translates every authored knowledge article including its details", async 
   }
   assert.equal(translateText("Krisen & Gefahrenlagen · 8 Min."), "Crises & hazards · 8 min.");
 });
+
+test("translates truthful feed and storage failure states", () => {
+  setLanguage("en");
+  assert.equal(translateText("LAGEABGLEICH"), "SYNCING SITUATION");
+  assert.equal(translateText("NICHT AKTUELL"), "NOT UP TO DATE");
+  assert.equal(translateText("Lage-Dienst nicht erreichbar · gespeicherter Stand."), "Situation service unavailable · saved information.");
+  assert.equal(translateText("Änderungen noch nicht dauerhaft gespeichert · Seite bitte geöffnet lassen"), "Changes are not saved permanently yet · please keep this page open");
+  assert.equal(translateText("Beantworte zuerst alle 11 Fragen. Wir zeigen niemals einen erfundenen Beispielwert."), "Answer all 11 questions first. We never display an invented example score.");
+  assert.equal(translateText("HOCH · BBK-ORIENTIERT"), "HIGH · BASED ON BBK GUIDANCE");
+  assert.equal(translateText("Relevanz für dich:"), "Relevance to you:");
+  assert.equal(translateText("Quelle: Quelle nicht benannt"), "Source: Unnamed source");
+});
