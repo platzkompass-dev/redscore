@@ -136,6 +136,26 @@ test("pending local supplies survive a cloud load for the same account", async (
   assert.equal(c.run("state.profile.name"), "QA");
 });
 
+test("public score lab starts at zero and uses the same transparent score weighting", () => {
+  const c = client();
+  assert.equal(c.run("scoreLabResult().value"), 0);
+  assert.equal(c.run("scoreLabResult().count"), 0);
+  const water = c.run("scoreLabResult(new Set(['water']))");
+  assert.equal(water.count, 1);
+  assert.equal(water.value, 8);
+  const complete = c.run("scoreLabResult(new Set(scoreLabSteps.map(step => step.id)))");
+  assert.equal(complete.count, 5);
+  assert.equal(complete.value, 81);
+});
+
+test("public score lab changes only its sandbox and exposes selected buttons", () => {
+  const c = client();
+  c.run("state.assessment.completedAt=null; state.supplies.water=null; updateScoreLab('energy')");
+  assert.equal(c.run("scoreLabSelection.has('energy')"), true);
+  assert.equal(c.run("state.assessment.completedAt"), null);
+  assert.equal(c.run("state.supplies.water"), null);
+});
+
 test("a different account never inherits another account's pending data", async () => {
   const c = client({ fetch: async () => Response.json({ user: { id: "user-b" }, profile: { display_name: "Other", onboarding_completed: true }, appState: { supplies: { water: 8 } } }) });
   c.run("state.supplies.water=42.75; state.sync.pending=true");

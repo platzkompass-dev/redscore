@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=5";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=15";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=16";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -111,6 +111,15 @@ let syncTimer = null;
 let syncRequest = null;
 let syncStatus = "saved";
 let localSaveFailed = false;
+// Public sandbox only: never persisted or copied into a household's assessment.
+const scoreLabSelection = new Set();
+const scoreLabSteps = [
+  { id: "water", icon: "water", label: "Wasser einplanen", detail: "Trinkwasser für drei Tage", answers: ["water"], supplies: { water: 0.3 }, effect: "Wasser ist eingeplant. Ein erster Baustein für deine Versorgung." },
+  { id: "food", icon: "food", label: "Vorrat aufbauen", detail: "Haltbare Lebensmittel für drei Tage", answers: ["food"], supplies: { food: 0.3 }, effect: "Ein Vorrat für drei Tage schafft einen ersten Handlungsspielraum." },
+  { id: "energy", icon: "light-bulb", label: "Licht & Energie sichern", detail: "Taschenlampe, Batterien und geladene Powerbank", answers: ["light", "power"], supplies: { power: 1 }, effect: "Licht und eine geladene Powerbank helfen, wenn der Strom ausfällt." },
+  { id: "information", icon: "radio", label: "Verbunden bleiben", detail: "Radio, Warnweg, Papierkontakte und Treffpunkt", answers: ["radio", "warnings", "contacts", "meeting"], supplies: {}, effect: "Information und ein Kontaktplan helfen auch ohne Mobilfunk." },
+  { id: "bag", icon: "backpack", label: "Notgepäck vorbereiten", detail: "Rucksack, Dokumente, Erste Hilfe und Medikamente für drei Tage", answers: ["backpack", "documents", "medicine"], supplies: { medicine: 0.3 }, effect: "Griffbereites Notgepäck erleichtert das geordnete Verlassen deines Zuhauses." },
+];
 let renderedModal = null;
 let renderedModalLanguage = null;
 let modalReturnFocus = null;
@@ -431,7 +440,72 @@ function score() {
   // transparently once the assessment is complete; the supplies page shows only
   // its own progress, never a second score.
   const supplies = supplyPercent() ?? 0;
-  return Math.round(preparedness * 0.7 + supplies * 0.3);
+  return combineReadinessScore(preparedness, supplies);
+}
+function combineReadinessScore(preparedness, supplies) { return Math.round(clamp(preparedness, 0, 100) * 0.7 + clamp(supplies, 0, 100) * 0.3); }
+
+function scoreLabResult(selection = scoreLabSelection) {
+  const questions = assessmentQuestions.filter(([id]) => id !== "pet");
+  const groups = supplyGroups.filter(group => group.id !== "pet");
+  const answers = new Set(), progress = {};
+  for (const step of scoreLabSteps) if (selection.has(step.id)) {
+    step.answers.forEach(id => answers.add(id));
+    Object.assign(progress, step.supplies);
+  }
+  const preparedness = questions.filter(([id]) => answers.has(id)).length / questions.length * 100;
+  const supplies = Math.round(groups.reduce((sum, group) => sum + (progress[group.id] || 0), 0) / groups.length * 100);
+  return { value: combineReadinessScore(preparedness, supplies), count: scoreLabSteps.filter(step => selection.has(step.id)).length };
+}
+
+function scoreLabGain(stepId) {
+  const next = new Set(scoreLabSelection);
+  next.add(stepId);
+  return scoreLabResult(next).value - scoreLabResult().value;
+}
+
+function updateScoreLab(stepId, reset = false) {
+  if (reset) scoreLabSelection.clear();
+  else if (scoreLabSteps.some(step => step.id === stepId)) {
+    if (scoreLabSelection.has(stepId)) scoreLabSelection.delete(stepId);
+    else scoreLabSelection.add(stepId);
+  } else return;
+  const root = app.querySelector("[data-score-lab]");
+  if (!root) return;
+  const result = scoreLabResult();
+  root.style.setProperty("--lab-score", result.value);
+  root.querySelector("[data-lab-value]").textContent = result.value;
+  root.querySelector("[data-lab-ring]").style.strokeDashoffset = 100 - result.value;
+  root.querySelectorAll("[data-score-lab-step]").forEach(button => {
+    const selected = scoreLabSelection.has(button.dataset.scoreLabStep);
+    button.setAttribute("aria-pressed", String(selected));
+    button.querySelector("[data-lab-gain]").textContent = selected ? "✓" : `+${scoreLabGain(button.dataset.scoreLabStep)}`;
+  });
+  root.querySelectorAll("[data-lab-node]").forEach(node => node.classList.toggle("ready", scoreLabSelection.has(node.dataset.labNode)));
+  root.querySelector("[data-score-lab-reset]").disabled = !result.count;
+  const step = scoreLabSteps.find(item => item.id === stepId);
+  const copy = reset ? "Wähle einen Schritt. Sieh, was sich verändert." : scoreLabSelection.has(stepId) ? step.effect : "Schritt zurückgenommen. Du kannst jederzeit neu kombinieren.";
+  root.querySelector("[data-lab-effect]").textContent = translateText(copy);
+  root.querySelector("[data-lab-announcement]").textContent = getLanguage() === "en"
+    ? `Simulation: ${result.value} of 100. ${result.count} of 5 steps selected.`
+    : `Simulation: ${result.value} von 100. ${result.count} von 5 Schritten ausgewählt.`;
+}
+
+function scoreLab() {
+  const result = scoreLabResult();
+  return `<section class="score-lab" id="score-lab" data-score-lab style="--lab-score:${result.value}" aria-labelledby="score-lab-title">
+    <div class="score-lab-intro"><span class="lab-eyebrow">INTERAKTIVES SCORE-LAB</span><h2 id="score-lab-title">Ein kleiner Schritt.<br><em>Ein sichtbarer Unterschied.</em></h2><p>Was wäre, wenn der Strom für 72 Stunden ausfällt? Wähle deine Vorsorgeschritte und erlebe, wie Vorbereitung deinen Beispiel-Score verändert.</p><span class="lab-scenario">72-Stunden-Szenario · Stromausfall</span><a href="#score-lab-model" class="lab-model-link">So wird die Vorschau berechnet ↓</a></div>
+    <div class="score-lab-visual"><div class="lab-radar">
+      <div class="lab-grid" aria-hidden="true"></div><svg viewBox="0 0 240 240" aria-hidden="true"><circle class="lab-ring-track" cx="120" cy="120" r="94"/><circle class="lab-ring-value" data-lab-ring cx="120" cy="120" r="94" pathLength="100" stroke-dasharray="100" style="stroke-dashoffset:${100-result.value}"/></svg>
+      <div class="lab-number"><small>SIMULATION</small><strong data-lab-value>${result.value}</strong><span>von 100</span></div>
+      ${scoreLabSteps.map((step,i) => `<span class="lab-node ${scoreLabSelection.has(step.id) ? "ready" : ""}" data-lab-node="${step.id}" style="--node-angle:${i*72}deg" aria-hidden="true">${icon(step.icon)}</span>`).join("")}
+    </div><p data-lab-effect>Wähle einen Schritt. Sieh, was sich verändert.</p><small class="lab-disclaimer">Beispiel-Simulation, nicht dein persönlicher RedScore.</small></div>
+    <div class="score-lab-actions"><div class="lab-actions-head"><b>Deine Schritte im Szenario</b><button data-score-lab-reset ${result.count ? "" : "disabled"}>Zurücksetzen</button></div>
+      ${scoreLabSteps.map(step => `<button class="lab-step" data-score-lab-step="${step.id}" aria-pressed="${scoreLabSelection.has(step.id)}">${icon(step.icon)}<span><b>${step.label}</b><small>${step.detail}</small></span><strong data-lab-gain>${scoreLabSelection.has(step.id) ? "✓" : `+${scoreLabGain(step.id)}`}</strong></button>`).join("")}
+      <button class="green lab-cta" data-open-auth="register">Jetzt meinen echten Score kostenlos prüfen →</button>
+    </div>
+    <details class="lab-model" id="score-lab-model"><summary>Beispielannahmen & Berechnung</summary><p>Die Vorschau startet bei null: Beispielhaushalt ohne Haustiere, alle Check-Antworten zunächst „Nein“, keine erfassten Vorräte. Jeder gewählte Schritt setzt die genannten Voraussetzungen im Beispiel auf „Ja“. Wasser, Lebensmittel und Medikamente entsprechen drei von zehn Vorratstagen; Licht und Energie gelten als einsatzbereit. Hygiene bleibt offen.</p><p>Wie im persönlichen RedScore: 70 % vollständig beantworteter Vorsorge-Check + 30 % Vorratsfortschritt. Die fünf Schritte decken nicht die gesamte Vorsorge ab. Der Score ist keine Gefahrenprognose oder Sicherheitsgarantie. Deinen tatsächlichen Stand berechnen wir erst nach deinem vollständigen Check.</p></details>
+    <span class="lab-announcement" data-lab-announcement role="status" aria-live="polite" aria-atomic="true"></span>
+  </section>`;
 }
 function supplyPercent() {
   const relevant = supplyGroups.filter(group => group.id !== "pet" || petCount() > 0);
@@ -529,9 +603,10 @@ function renderPublic() {
         <div class="trust-row"><span>✓ Kostenlos</span><span>✓ Unverbindlich</span><span>✓ Datenschutzfreundlich</span></div>
         <button class="public-share" data-share-redscore aria-label="RedScore kostenlos weiterempfehlen">RedScore weiterempfehlen</button>
       </div>
-      <aside class="public-score-card"><small>Dein Vorsorgestand</small><div class="empty-score">–</div><strong>Noch nicht berechnet</strong><p>Erst deine vollständigen Antworten ergeben einen Wert.</p></aside>
+      <aside class="public-score-card public-score-invite"><small>Vorbereitung wird sichtbar.</small><button class="score-invite-play" data-scroll="score-lab" aria-label="Interaktive Score-Simulation ausprobieren"><span aria-hidden="true">▶</span></button><strong>Was verändert deinen Score?</strong><p>Probiere es aus. Ohne Anmeldung.</p><button class="score-invite-link" data-scroll="score-lab">Score live erleben ↓</button></aside>
       <div class="script-note">Niemand kann es sich leisten,<br>unvorbereitet zu sein.</div>
     </section>
+    ${scoreLab()}
     <section class="public-categories">${categories.map(item => categoryCard(...item)).join("")}</section>
     <section class="public-info" id="about">
       <article class="lighthouse-card"><div><small>DEIN REDSCORE</small><h2>Ein Check. Mehr Klarheit.</h2><p>RedScore ordnet persönliche Katastrophenvorbereitung übersichtlich nach offiziellen Empfehlungen. Es gibt keinen Beispielwert: Erst vollständig beantwortete Fragen erzeugen deinen eigenen Stand.</p><ul><li>✓ Individuelle Auswertung</li><li>✓ Konkrete Handlungsschritte</li><li>✓ Orientierung an offiziellen Quellen</li><li>✓ Für Bürgerinnen und Bürger in jeder Lebenslage</li><li>✓ Offline nutzbar und kontogebunden</li></ul><button class="green large" data-open-auth="register">Jetzt kostenlos starten →</button></div></article>
@@ -1155,6 +1230,8 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
+  if (button.dataset.scoreLabStep) return updateScoreLab(button.dataset.scoreLabStep);
+  if (button.hasAttribute("data-score-lab-reset")) return updateScoreLab(null, true);
   if (button.matches("[data-sync-retry]")) { if (syncStatus === "expired") { state.ui.modal = "login"; return render(); } return retryStorageAndSync().catch(() => toast("Kontosynchronisierung fehlgeschlagen. Bitte Speicherstatus beachten.")); }
   if (button.matches("[data-clear-knowledge-search]")) { state.ui.knowledgeSearch = ""; return render(); }
   if (button.matches("[data-install-app]")) {

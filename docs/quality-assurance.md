@@ -115,3 +115,23 @@ Die erneute Prüfung folgt `vercel:verification`, die Veröffentlichung
 `vercel:deployments-cicd`. Reale Mailzustellung, zusätzliche internationale
 Quellenabdeckung und geräteübergreifende Konfliktauflösung sind damit nicht erneut
 als vollständig geprüft ausgewiesen.
+
+## Score-Lab auf der öffentlichen Startseite — 9. Oktober 2026
+
+- Die Startseite enthält ein anonymes, nicht persistiertes 72-Stunden-Stromausfall-
+  Szenario. Fünf konkrete Vorsorgeschritte lassen sich einzeln auswählen und wieder
+  abwählen; Radar, Score, Fortschritt, Wirkungstext und `aria-pressed` aktualisieren
+  sich unmittelbar.
+- Die Vorschau nutzt dieselbe nachvollziehbare RedScore-Gewichtung wie das Konto:
+  70 % Vorsorge-Check und 30 % Vorratsfortschritt. Sie startet bei 0, berücksichtigt
+  drei von zehn Vorratstagen bei Wasser, Lebensmitteln und Medikamenten und behandelt
+  Licht/Energie als einsatzbereit. Hygiene bleibt bewusst offen.
+- Die UI kennzeichnet den Wert ausdrücklich als Beispiel-Simulation und nennt die
+  Annahmen sowie die Grenzen (keine Gefahrenprognose, keine Sicherheitsgarantie).
+  Der persönliche Score wird nicht verändert; der CTA führt erst nach Wunsch zur
+  kostenlosen Registrierung.
+- Die mobile Vorschau ist bei 390 Pixeln 347 Pixel breit, die Dokumentbreite bleibt
+  bei 375 Pixeln. Die englische Variante übersetzt Szenario, Schritte, Erläuterung
+  und Wirkungstexte.
+- `npm test`: **70 Tests bestanden**, einschließlich Start-/Endwert, Scoregewichtung,
+  Isolation vom persönlichen Zustand und UI-Aktualisierung.
