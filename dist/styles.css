@@ -213,5 +213,6 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
 
-/* Score-Lab gesture affordance: drag or swipe a step into the radar. */
-.lab-step{touch-action:pan-y;user-select:none}.lab-step.dragging{transform:translateX(8px) scale(1.02);border-color:#68e6b8;background:#0d4650;box-shadow:0 8px 24px #03182088;cursor:grabbing}.lab-actions-head>span{display:grid;gap:3px}.lab-gesture-hint{color:#75cfc0;font-size:9px;font-weight:400}
+/* Score-Lab explanation affordance: each click updates the sandbox and opens context. */
+.lab-step{user-select:none}.lab-actions-head>span{display:grid;gap:3px}.lab-gesture-hint{color:#75cfc0;font-size:9px;font-weight:400}
+.scorelab-why-modal{max-width:520px}.scorelab-why-modal>p{color:#23495a;line-height:1.65}.scorelab-why-note{display:grid;gap:4px;margin:18px 0;padding:14px 16px;border-left:3px solid #e63d47;border-radius:0 10px 10px 0;background:#f0f7f8;color:#12374a}.scorelab-why-note b{color:#d52f3b}.scorelab-why-note span{font-size:13px;color:#47707a}

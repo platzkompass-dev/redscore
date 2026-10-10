@@ -113,13 +113,12 @@ let syncStatus = "saved";
 let localSaveFailed = false;
 // Public sandbox only: never persisted or copied into a household's assessment.
 const scoreLabSelection = new Set();
-let scoreLabPointer = null;
 const scoreLabSteps = [
-  { id: "water", icon: "water", label: "Wasser einplanen", detail: "Trinkwasser für drei Tage", answers: ["water"], supplies: { water: 0.3 }, effect: "Wasser ist eingeplant. Ein erster Baustein für deine Versorgung." },
-  { id: "food", icon: "food", label: "Vorrat aufbauen", detail: "Haltbare Lebensmittel für drei Tage", answers: ["food"], supplies: { food: 0.3 }, effect: "Ein Vorrat für drei Tage schafft einen ersten Handlungsspielraum." },
-  { id: "energy", icon: "light-bulb", label: "Licht & Energie sichern", detail: "Taschenlampe, Batterien und geladene Powerbank", answers: ["light", "power"], supplies: { power: 1 }, effect: "Licht und eine geladene Powerbank helfen, wenn der Strom ausfällt." },
-  { id: "information", icon: "radio", label: "Verbunden bleiben", detail: "Radio, Warnweg, Papierkontakte und Treffpunkt", answers: ["radio", "warnings", "contacts", "meeting"], supplies: {}, effect: "Information und ein Kontaktplan helfen auch ohne Mobilfunk." },
-  { id: "bag", icon: "backpack", label: "Notgepäck vorbereiten", detail: "Rucksack, Dokumente, Erste Hilfe und Medikamente für drei Tage", answers: ["backpack", "documents", "medicine"], supplies: { medicine: 0.3 }, effect: "Griffbereites Notgepäck erleichtert das geordnete Verlassen deines Zuhauses." },
+  { id: "water", icon: "water", label: "Wasser einplanen", detail: "Trinkwasser für drei Tage", answers: ["water"], supplies: { water: 0.3 }, effect: "Wasser ist eingeplant. Ein erster Baustein für deine Versorgung.", why: "Wasser ist im Ernstfall unverzichtbar: Leitungen können ausfallen oder verunreinigt sein. Ein ausreichender Vorrat hält deinen Haushalt handlungsfähig, bis die Versorgung wieder funktioniert." },
+  { id: "food", icon: "food", label: "Vorrat aufbauen", detail: "Haltbare Lebensmittel für drei Tage", answers: ["food"], supplies: { food: 0.3 }, effect: "Ein Vorrat für drei Tage schafft einen ersten Handlungsspielraum.", why: "Haltbare Lebensmittel geben dir Handlungsspielraum, wenn Einkauf, Kühlung oder Zubereitung vorübergehend nicht möglich sind." },
+  { id: "energy", icon: "light-bulb", label: "Licht & Energie sichern", detail: "Taschenlampe, Batterien und geladene Powerbank", answers: ["light", "power"], supplies: { power: 1 }, effect: "Licht und eine geladene Powerbank helfen, wenn der Strom ausfällt.", why: "Licht, Batterien und eine geladene Powerbank helfen dir, sicher zu bleiben, Informationen zu empfangen und erreichbar zu bleiben, wenn der Strom ausfällt." },
+  { id: "information", icon: "radio", label: "Verbunden bleiben", detail: "Radio, Warnweg, Papierkontakte und Treffpunkt", answers: ["radio", "warnings", "contacts", "meeting"], supplies: {}, effect: "Information und ein Kontaktplan helfen auch ohne Mobilfunk.", why: "Radio, Warnwege und ein Kontaktplan liefern verlässliche Informationen und helfen, Angehörige auch bei Ausfällen zu erreichen." },
+  { id: "bag", icon: "backpack", label: "Notgepäck vorbereiten", detail: "Rucksack, Dokumente, Erste Hilfe und Medikamente für drei Tage", answers: ["backpack", "documents", "medicine"], supplies: { medicine: 0.3 }, effect: "Griffbereites Notgepäck erleichtert das geordnete Verlassen deines Zuhauses.", why: "Ein vorbereiteter Rucksack bündelt wichtige Dokumente, Medikamente und Erste Hilfe, damit du im Notfall schnell und geordnet handeln kannst." },
 ];
 let renderedModal = null;
 let renderedModalLanguage = null;
@@ -491,35 +490,6 @@ function updateScoreLab(stepId, reset = false) {
     : `Simulation: ${result.value} von 100. ${result.count} von 5 Schritten ausgewählt.`;
 }
 
-function beginScoreLabGesture(event) {
-  const button = event.target.closest?.("[data-score-lab-step]");
-  if (!button) return;
-  scoreLabPointer = { button, id: button.dataset.scoreLabStep, startX: event.clientX, startY: event.clientY, moved: false };
-  button.classList.add("dragging");
-  button.setPointerCapture?.(event.pointerId);
-}
-
-function moveScoreLabGesture(event) {
-  if (!scoreLabPointer) return;
-  const distance = Math.hypot(event.clientX - scoreLabPointer.startX, event.clientY - scoreLabPointer.startY);
-  if (distance > 18) scoreLabPointer.moved = true;
-}
-
-function endScoreLabGesture(event) {
-  if (!scoreLabPointer) return;
-  const gesture = scoreLabPointer;
-  const deltaX = event.clientX - gesture.startX;
-  gesture.button.classList.remove("dragging");
-  scoreLabPointer = null;
-  if (gesture.moved && Math.abs(deltaX) >= 42) {
-    updateScoreLab(gesture.id);
-  } else if (!gesture.moved) {
-    const root = app.querySelector("[data-score-lab]");
-    const effect = root?.querySelector("[data-lab-effect]");
-    if (effect) effect.textContent = translateText("Wische den Schritt nach links oder rechts ins Radar.");
-  }
-}
-
 function scoreLab() {
   const result = scoreLabResult();
   return `<section class="score-lab" id="score-lab" data-score-lab style="--lab-score:${result.value}" aria-labelledby="score-lab-title">
@@ -529,8 +499,8 @@ function scoreLab() {
       <div class="lab-number"><small>SIMULATION</small><strong data-lab-value>${result.value}</strong><span>von 100</span></div>
       ${scoreLabSteps.map((step,i) => `<span class="lab-node ${scoreLabSelection.has(step.id) ? "ready" : ""}" data-lab-node="${step.id}" style="--node-angle:${i*72}deg" aria-hidden="true">${icon(step.icon)}</span>`).join("")}
     </div><p data-lab-effect>Wähle einen Schritt. Sieh, was sich verändert.</p><small class="lab-disclaimer">Beispiel-Simulation, nicht dein persönlicher RedScore.</small></div>
-    <div class="score-lab-actions"><div class="lab-actions-head"><span><b>Deine Schritte im Szenario</b><small class="lab-gesture-hint">Wische einen Schritt ins Radar ↔</small></span><button data-score-lab-reset ${result.count ? "" : "disabled"}>Zurücksetzen</button></div>
-      ${scoreLabSteps.map(step => `<button class="lab-step" data-score-lab-step="${step.id}" aria-label="${step.label} – Wische einen Schritt ins Radar" aria-pressed="${scoreLabSelection.has(step.id)}">${icon(step.icon)}<span><b>${step.label}</b><small>${step.detail}</small></span><strong data-lab-gain>${scoreLabSelection.has(step.id) ? "✓" : `+${scoreLabGain(step.id)}`}</strong></button>`).join("")}
+    <div class="score-lab-actions"><div class="lab-actions-head"><span><b>Deine Schritte im Szenario</b><small class="lab-gesture-hint">Klicke einen Schritt an · Warum ist das wichtig?</small></span><button data-score-lab-reset ${result.count ? "" : "disabled"}>Zurücksetzen</button></div>
+      ${scoreLabSteps.map(step => `<button class="lab-step" data-score-lab-step="${step.id}" aria-label="${step.label} – Klicke für die Vorsorge-Erklärung" aria-pressed="${scoreLabSelection.has(step.id)}">${icon(step.icon)}<span><b>${step.label}</b><small>${step.detail}</small></span><strong data-lab-gain>${scoreLabSelection.has(step.id) ? "✓" : `+${scoreLabGain(step.id)}`}</strong></button>`).join("")}
       <button class="green lab-cta" data-open-auth="register">Jetzt meinen echten Score kostenlos prüfen →</button>
     </div>
     <details class="lab-model" id="score-lab-model"><summary>Beispielannahmen & Berechnung</summary><p>Die Vorschau startet bei null: Beispielhaushalt ohne Haustiere, alle Check-Antworten zunächst „Nein“, keine erfassten Vorräte. Jeder gewählte Schritt setzt die genannten Voraussetzungen im Beispiel auf „Ja“. Wasser, Lebensmittel und Medikamente entsprechen drei von zehn Vorratstagen; Licht und Energie gelten als einsatzbereit. Hygiene bleibt offen.</p><p>Wie im persönlichen RedScore: 70 % vollständig beantworteter Vorsorge-Check + 30 % Vorratsfortschritt. Die fünf Schritte decken nicht die gesamte Vorsorge ab. Der Score ist keine Gefahrenprognose oder Sicherheitsgarantie. Deinen tatsächlichen Stand berechnen wir erst nach deinem vollständigen Check.</p></details>
@@ -1116,6 +1086,11 @@ function modal() {
     const english = getLanguage() === "en";
     return `<div class="modal-backdrop install-backdrop"><section class="modal install-modal" role="dialog" aria-modal="true" aria-labelledby="install-title"><button class="modal-close" data-install-dismiss aria-label="${english ? "Close" : "Schließen"}">×</button><img class="install-logo" src="assets/app-icon-192.png?v=5" alt=""><small>${english ? "REDScore DESKTOP-APP" : "REDSCORE DESKTOP-APP"}</small><h2 id="install-title">${english ? "RedScore always at hand" : "RedScore immer griffbereit"}</h2><p>${english ? "Install RedScore as a desktop app for fast access to your preparedness status, supplies and live situation updates." : "Installiere RedScore als Desktop-App und erreiche Vorsorgestand, Vorräte und Live-Lage schneller."}</p><button class="green full" data-install-app>${english ? "Download and install" : "Download & installieren"} →</button><button class="install-later" data-install-dismiss>${english ? "Maybe later" : "Später"}</button></section></div>`;
   }
+  if (state.ui.modal.startsWith("scorelab:")) {
+    const step = scoreLabSteps.find(item => item.id === state.ui.modal.slice("scorelab:".length));
+    if (!step) return "";
+    return `<div class="modal-backdrop"><section class="modal scorelab-why-modal" role="dialog" aria-modal="true" aria-labelledby="scorelab-why-title"><button class="modal-close" data-close-modal aria-label="${getLanguage() === "en" ? "Close" : "Schließen"}">×</button>${icon(step.icon,"modal-icon")}<small>${translateText("WARUM VORSORGE?")}</small><h2 id="scorelab-why-title">${esc(translateText(step.label))}</h2><p>${esc(translateText(step.why))}</p><div class="scorelab-why-note"><b>${translateText("Darum zählt dieser Schritt")}</b><span>${esc(translateText(step.detail))}</span></div><button class="green full" data-close-modal>${translateText("Verstanden")} →</button></section></div>`;
+  }
   if (state.ui.modal.startsWith("legal:")) {
     const page = state.ui.modal.slice(6);
     const contents = {
@@ -1261,10 +1236,9 @@ app.addEventListener("click", async event => {
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
   if (button.dataset.scoreLabStep) {
-    // Pointer clicks are intentionally not score actions. The lab is gesture-driven;
-    // keyboard/screen-reader activation remains available through detail === 0.
-    if (event.detail === 0) return updateScoreLab(button.dataset.scoreLabStep);
-    return;
+    updateScoreLab(button.dataset.scoreLabStep);
+    state.ui.modal = `scorelab:${button.dataset.scoreLabStep}`;
+    return render();
   }
   if (button.hasAttribute("data-score-lab-reset")) return updateScoreLab(null, true);
   if (button.matches("[data-sync-retry]")) { if (syncStatus === "expired") { state.ui.modal = "login"; return render(); } return retryStorageAndSync().catch(() => toast("Kontosynchronisierung fehlgeschlagen. Bitte Speicherstatus beachten.")); }
@@ -1432,11 +1406,6 @@ app.addEventListener("submit", async event => {
   if (form.matches("[data-knowledge-search]")) { state.ui.knowledgeSearch = new FormData(form).get("query").trim(); save(); render(); }
   if (form.matches("[data-pack-search]")) { state.ui.packSearch = String(new FormData(form).get("query") || "").trim(); save(); render(); }
 });
-
-app.addEventListener("pointerdown", beginScoreLabGesture);
-app.addEventListener("pointermove", moveScoreLabGesture);
-app.addEventListener("pointerup", endScoreLabGesture);
-app.addEventListener("pointercancel", endScoreLabGesture);
 
 app.addEventListener("input", event => {
   if (event.target.matches('input[name="adultCount"]')) {

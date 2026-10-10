@@ -135,9 +135,8 @@ als vollständig geprüft ausgewiesen.
   und Wirkungstexte.
 - `npm test`: **71 Tests bestanden**, einschließlich Start-/Endwert, Scoregewichtung,
   Isolation vom persönlichen Zustand und UI-Aktualisierung.
-- Die Interaktion ist ausschließlich als Geste umgesetzt: Auf Touch-Geräten wird ein
-  Schritt horizontal ins Radar gewischt, auf Desktop kann er gezogen werden. Ein
-  normaler Maus- oder Fingertipp verändert den Score nicht und zeigt stattdessen den
-  Gestenhinweis. Tastatur- und Screenreader-Aktivierung bleiben als zugängliche
-  Alternative erhalten. Im mobilen Browser-Test erhöhte ein Swipe „Wasser einplanen“
-  den Wert von 0 auf 8 und setzte `aria-pressed` korrekt auf `true`.
+- Die Interaktion erfolgt wieder direkt per Klick bzw. Tastatur. Jeder ausgewählte
+  Schritt öffnet zusätzlich ein kontextbezogenes Erklärungsfenster, das den
+  Vorsorgegrund erläutert (z. B. Wasser, Lebensmittel oder Energie). Der Beispielwert
+  und `aria-pressed` aktualisieren sich unmittelbar; der persönliche Score bleibt
+  unverändert.
