@@ -140,3 +140,29 @@ als vollständig geprüft ausgewiesen.
   Vorsorgegrund erläutert (z. B. Wasser, Lebensmittel oder Energie). Der Beispielwert
   und `aria-pressed` aktualisieren sich unmittelbar; der persönliche Score bleibt
   unverändert.
+
+## Bedienungs-Politur — 11. Oktober 2026
+
+- Score-Lab: Der Wirkungstext bleibt beim Öffnen/Schließen der Erklärung erhalten.
+  Das Popup zeigt den aktuellen Beispielwert und unterscheidet hinzugefügte von
+  entfernten Schritten. Die Berechnung öffnet per Button das zugehörige Details-
+  Element, ohne den Hash-Router auszulösen oder die Auswahl zurückzusetzen.
+- Vorräte: Anzahl erfasster Bereiche, Erklärung offener Bereiche und ein Button
+  zum nächsten nicht erfassten Bereich. Die bereits korrekte Gewichtung der
+  Vorratsberechnung wurde nicht geändert; ein vollständig erfasster Wasserbereich
+  allein ergibt bei fünf relevanten Bereichen weiterhin 20 %.
+- Packliste: Eine erfolglose Suche lässt sich mit einem Button zurücksetzen,
+  ohne abgehakte Gegenstände zu verlieren.
+- Score-Lab-Layout: eigener Tablet-Breakpoint von 761 bis 1040 Pixeln, größere
+  Schließen-Schaltfläche und umbrechende Dialogüberschriften. Neue Texte sind
+  auch auf Englisch vorhanden. App-Shell-Version 52 aktualisiert die Assets.
+- `npm test`: **75 Tests bestanden**, inklusive tatsächlicher Click-Handler,
+  Wirkungstext nach erneutem Render, Modell-Disclosure ohne Routerwechsel,
+  Vorratsabdeckung/nächstem Bereich sowie Packlisten-Reset mit Zustandserhalt.
+- In Edge wurden vor der Korrektur die zwei Score-Lab-Fehler reproduziert.
+  Die abschließende Browserprüfung der neuen Version konnte wegen wiederholter
+  Zeitüberschreitungen der Edge-Steuerung nicht abgeschlossen werden. Insbesondere
+  die neue mobile/Tablet-Darstellung ist damit noch nicht visuell bestätigt.
+  Reale Kontodaten wurden für diese Prüfung nicht verändert.
+- Prüfung nach `vercel:verification`, Veröffentlichung nach
+  `vercel:deployments-cicd`; keine erneute Vollprüfung aller Plattform-Funktionen.

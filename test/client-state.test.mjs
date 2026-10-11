@@ -11,10 +11,11 @@ function client(options = {}) {
   const storage = new Map(Object.entries(options.storage || {}));
   const timers = new Map();
   const windowEvents = new Map();
+  const appEvents = new Map();
   const syncText = { textContent: "" }, syncButton = { hidden: true, textContent: "" };
   const syncRegion = { dataset: {}, querySelector: selector => selector === "span" ? syncText : syncButton };
   const liveElements = Object.fromEntries(["#live-age", "[data-live-title]", "[data-live-dot]", "[data-live-note]"].map(key => [key, { textContent: "", className: "", hidden: false }]));
-  const app = { innerHTML: "", addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; }, contains() { return false; } };
+  const app = { innerHTML: "", addEventListener(type, handler) { appEvents.set(type, handler); }, querySelector() { return null; }, querySelectorAll() { return []; }, contains() { return false; } };
   const context = vm.createContext({
     ...data, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
     navigator: { onLine: options.online !== false }, location: { search: "", hash: "#/profile" },
@@ -29,7 +30,7 @@ function client(options = {}) {
   vm.runInContext(source, context);
   const run = code => vm.runInContext(code, context);
   run(`state.authenticated=true; state.profile={...state.profile,id:'user-a',name:'QA',onboardingCompleted:true}; session={access_token:'test-access',refresh_token:'test-refresh',expires_at:4000000000,user:{id:'user-a'}};`);
-  return { run, storage, timers, context, app, syncText, syncButton, syncRegion, liveElements, windowEvents };
+  return { run, storage, timers, context, app, syncText, syncButton, syncRegion, liveElements, windowEvents, appEvents };
 }
 
 test("failed local storage never claims pending changes are saved, including offline", () => {
@@ -163,6 +164,70 @@ test("public score lab explains why each click matters", () => {
   assert.match(html, /aria-label="Wasser einplanen – Klicke für die Vorsorge-Erklärung"/);
   assert.match(html, /data-score-lab-step="water"[^>]*aria-pressed="false"/);
   assert.match(html, /Jetzt meinen echten Score kostenlos prüfen/);
+});
+
+test("score lab click opens the matching explanation and retains its effect across renders", async () => {
+  const c = client();
+  c.run("render = () => {}; state.authenticated=false");
+  const button = { dataset: { scoreLabStep: "water" }, hasAttribute() { return false; } };
+  await c.appEvents.get("click")({ target: { closest: () => button }, detail: 1 });
+  assert.equal(c.run("state.ui.modal"), "scorelab:water");
+  assert.equal(c.run("scoreLabResult().value"), 8);
+  assert.match(c.run("modal()"), /In der Simulation eingeplant/);
+  c.run("state.ui.modal=null");
+  assert.match(c.run("scoreLab()"), /data-lab-effect>Wasser ist eingeplant/);
+  await c.appEvents.get("click")({ target: { closest: () => button }, detail: 0 });
+  assert.equal(c.run("scoreLabResult().value"), 0);
+  assert.match(c.run("modal()"), /Aus der Simulation entfernt/);
+  assert.match(c.run("scoreLab()"), /data-lab-effect>Schritt zurückgenommen/);
+  c.run("updateScoreLab(null,true)");
+  assert.match(c.run("scoreLab()"), /data-lab-effect>Wähle einen Schritt/);
+  assert.equal(c.storage.has("redscore-state-v1"), false);
+});
+
+test("score lab model opens without changing the router or selected steps", async () => {
+  const c = client();
+  let scrolled = false, focused = false;
+  const model = { open: false, scrollIntoView() { scrolled = true; }, querySelector: () => ({ focus() { focused = true; } }) };
+  c.app.querySelector = selector => selector === "#score-lab-model" ? model : null;
+  c.run("updateScoreLab('water')");
+  const button = { dataset: {}, hasAttribute: name => name === "data-lab-model" };
+  await c.appEvents.get("click")({ target: { closest: () => button } });
+  assert.equal(model.open, true);
+  assert.equal(scrolled && focused, true);
+  assert.equal(c.run("location.hash"), "#/profile");
+  assert.equal(c.run("scoreLabResult().value"), 8);
+});
+
+test("supplies show recorded coverage and continue with the next unrecorded area", () => {
+  const c = client();
+  c.run("state.household.pets=[]; renderSupplies()");
+  assert.match(c.app.innerHTML, /0 von 5 Bereichen erfasst/);
+  assert.match(c.app.innerHTML, /data-open-supply="water">Nächsten Bereich erfassen/);
+  c.run("state.supplies.water=supplyTarget(supplyGroups[0]); renderSupplies()");
+  assert.equal(c.run("supplyPercent()"), 20);
+  assert.match(c.app.innerHTML, /1 von 5 Bereichen erfasst/);
+  assert.match(c.app.innerHTML, /data-open-supply="food">Nächsten Bereich erfassen/);
+  c.run("getLanguage=()=> 'en'; renderSupplies()");
+  assert.match(c.app.innerHTML, /1 of 5 areas recorded/);
+  c.run("for (const group of supplyGroups) state.supplies[group.id]=supplyTarget(group); renderSupplies()");
+  assert.match(c.app.innerHTML, /data-open-supply="water">Bestände prüfen/);
+});
+
+test("empty packlist search can be cleared without losing packed items", async () => {
+  const c = client({ online: false });
+  c.run("state.packlist[packItems()[0].id]=true; state.ui.packSearch='no-match-qa'; state.ui.packFilter='Gesundheit'; renderPacklist()");
+  const checked = c.run("packProgress().checked");
+  assert.match(c.app.innerHTML, /Keine Einträge gefunden/);
+  assert.match(c.app.innerHTML, /data-clear-pack-search/);
+  c.run("render=renderPacklist");
+  const button = { dataset: {}, hasAttribute: name => name === 'data-clear-pack-search' };
+  await c.appEvents.get('click')({ target: { closest: () => button } });
+  assert.equal(c.run("state.ui.packSearch"), '');
+  assert.equal(c.run("state.ui.packFilter"), 'Alle');
+  assert.equal(c.run("packProgress().checked"), checked);
+  assert.doesNotMatch(c.app.innerHTML, /Keine Einträge gefunden/);
+  assert.equal(JSON.parse(c.storage.get('redscore-state-v1')).ui.packSearch, '');
 });
 
 test("a different account never inherits another account's pending data", async () => {

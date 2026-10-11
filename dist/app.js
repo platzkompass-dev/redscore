@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=5";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=18";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=19";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -113,6 +113,7 @@ let syncStatus = "saved";
 let localSaveFailed = false;
 // Public sandbox only: never persisted or copied into a household's assessment.
 const scoreLabSelection = new Set();
+let scoreLabEffect = "Wähle einen Schritt. Sieh, was sich verändert.";
 const scoreLabSteps = [
   { id: "water", icon: "water", label: "Wasser einplanen", detail: "Trinkwasser für drei Tage", answers: ["water"], supplies: { water: 0.3 }, effect: "Wasser ist eingeplant. Ein erster Baustein für deine Versorgung.", why: "Wasser ist im Ernstfall unverzichtbar: Leitungen können ausfallen oder verunreinigt sein. Ein ausreichender Vorrat hält deinen Haushalt handlungsfähig, bis die Versorgung wieder funktioniert." },
   { id: "food", icon: "food", label: "Vorrat aufbauen", detail: "Haltbare Lebensmittel für drei Tage", answers: ["food"], supplies: { food: 0.3 }, effect: "Ein Vorrat für drei Tage schafft einen ersten Handlungsspielraum.", why: "Haltbare Lebensmittel geben dir Handlungsspielraum, wenn Einkauf, Kühlung oder Zubereitung vorübergehend nicht möglich sind." },
@@ -469,6 +470,8 @@ function updateScoreLab(stepId, reset = false) {
     if (scoreLabSelection.has(stepId)) scoreLabSelection.delete(stepId);
     else scoreLabSelection.add(stepId);
   } else return;
+  const step = scoreLabSteps.find(item => item.id === stepId);
+  scoreLabEffect = reset ? "Wähle einen Schritt. Sieh, was sich verändert." : scoreLabSelection.has(stepId) ? step.effect : "Schritt zurückgenommen. Du kannst jederzeit neu kombinieren.";
   const root = app.querySelector("[data-score-lab]");
   if (!root) return;
   const result = scoreLabResult();
@@ -482,9 +485,7 @@ function updateScoreLab(stepId, reset = false) {
   });
   root.querySelectorAll("[data-lab-node]").forEach(node => node.classList.toggle("ready", scoreLabSelection.has(node.dataset.labNode)));
   root.querySelector("[data-score-lab-reset]").disabled = !result.count;
-  const step = scoreLabSteps.find(item => item.id === stepId);
-  const copy = reset ? "Wähle einen Schritt. Sieh, was sich verändert." : scoreLabSelection.has(stepId) ? step.effect : "Schritt zurückgenommen. Du kannst jederzeit neu kombinieren.";
-  root.querySelector("[data-lab-effect]").textContent = translateText(copy);
+  root.querySelector("[data-lab-effect]").textContent = translateText(scoreLabEffect);
   root.querySelector("[data-lab-announcement]").textContent = getLanguage() === "en"
     ? `Simulation: ${result.value} of 100. ${result.count} of 5 steps selected.`
     : `Simulation: ${result.value} von 100. ${result.count} von 5 Schritten ausgewählt.`;
@@ -493,12 +494,12 @@ function updateScoreLab(stepId, reset = false) {
 function scoreLab() {
   const result = scoreLabResult();
   return `<section class="score-lab" id="score-lab" data-score-lab style="--lab-score:${result.value}" aria-labelledby="score-lab-title">
-    <div class="score-lab-intro"><span class="lab-eyebrow">INTERAKTIVES SCORE-LAB</span><h2 id="score-lab-title">Ein kleiner Schritt.<br><em>Ein sichtbarer Unterschied.</em></h2><p>Was wäre, wenn der Strom für 72 Stunden ausfällt? Wähle deine Vorsorgeschritte und erlebe, wie Vorbereitung deinen Beispiel-Score verändert.</p><span class="lab-scenario">72-Stunden-Szenario · Stromausfall</span><a href="#score-lab-model" class="lab-model-link">So wird die Vorschau berechnet ↓</a></div>
+    <div class="score-lab-intro"><span class="lab-eyebrow">INTERAKTIVES SCORE-LAB</span><h2 id="score-lab-title">Ein kleiner Schritt.<br><em>Ein sichtbarer Unterschied.</em></h2><p>Was wäre, wenn der Strom für 72 Stunden ausfällt? Wähle deine Vorsorgeschritte und erlebe, wie Vorbereitung deinen Beispiel-Score verändert.</p><span class="lab-scenario">72-Stunden-Szenario · Stromausfall</span><button data-lab-model class="lab-model-link" aria-controls="score-lab-model">So wird die Vorschau berechnet ↓</button></div>
     <div class="score-lab-visual"><div class="lab-radar">
       <div class="lab-grid" aria-hidden="true"></div><svg viewBox="0 0 240 240" aria-hidden="true"><circle class="lab-ring-track" cx="120" cy="120" r="94"/><circle class="lab-ring-value" data-lab-ring cx="120" cy="120" r="94" pathLength="100" stroke-dasharray="100" style="stroke-dashoffset:${100-result.value}"/></svg>
       <div class="lab-number"><small>SIMULATION</small><strong data-lab-value>${result.value}</strong><span>von 100</span></div>
       ${scoreLabSteps.map((step,i) => `<span class="lab-node ${scoreLabSelection.has(step.id) ? "ready" : ""}" data-lab-node="${step.id}" style="--node-angle:${i*72}deg" aria-hidden="true">${icon(step.icon)}</span>`).join("")}
-    </div><p data-lab-effect>Wähle einen Schritt. Sieh, was sich verändert.</p><small class="lab-disclaimer">Beispiel-Simulation, nicht dein persönlicher RedScore.</small></div>
+    </div><p data-lab-effect>${esc(scoreLabEffect)}</p><small class="lab-disclaimer">Beispiel-Simulation, nicht dein persönlicher RedScore.</small></div>
     <div class="score-lab-actions"><div class="lab-actions-head"><span><b>Deine Schritte im Szenario</b><small class="lab-gesture-hint">Klicke einen Schritt an · Warum ist das wichtig?</small></span><button data-score-lab-reset ${result.count ? "" : "disabled"}>Zurücksetzen</button></div>
       ${scoreLabSteps.map(step => `<button class="lab-step" data-score-lab-step="${step.id}" aria-label="${step.label} – Klicke für die Vorsorge-Erklärung" aria-pressed="${scoreLabSelection.has(step.id)}">${icon(step.icon)}<span><b>${step.label}</b><small>${step.detail}</small></span><strong data-lab-gain>${scoreLabSelection.has(step.id) ? "✓" : `+${scoreLabGain(step.id)}`}</strong></button>`).join("")}
       <button class="green lab-cta" data-open-auth="register">Jetzt meinen echten Score kostenlos prüfen →</button>
@@ -919,7 +920,7 @@ function renderPacklist() {
   const shown = items.filter(item => (state.ui.packFilter === "Alle" || item.category === state.ui.packFilter) && (!query || `${item.label} ${item.detail} ${item.category} ${translateText(item.label)} ${translateText(item.detail)} ${translateText(item.category)}`.toLowerCase().includes(query)));
   const readyText = percent === 100 ? "Dein Rucksack ist vollständig geprüft." : `${total - checked} ${total - checked === 1 ? "Punkt fehlt" : "Punkte fehlen noch"}.`;
   const content = `<section class="subhero compact packlist-hero"><div><small>BBK-ORIENTIERT · PERSÖNLICH</small><h1>Notfallrucksack</h1><h2>Alles Wichtige griffbereit.</h2><p>Packe nur, was du selbst tragen kannst. Hake ab, was bereits vorhanden und einsatzbereit ist.</p><a href="${sources.bbkBag}" target="_blank" rel="noreferrer">Offizielle BBK-Empfehlungen öffnen →</a></div></section>
-    <div class="content-wrap packlist-layout"><aside class="packlist-visual"><div class="pack-visual-art">${icon("backpack", "pack-bag-icon")}</div><div class="pack-ring" style="--pack-progress:${percent * 3.6}deg"><strong>${percent}%</strong><small>geprüft</small></div><h2>${checked} von ${total} bereit</h2><p>${readyText}</p><div class="bar"><i style="width:${percent}%"></i></div><small class="packlist-note">Die Liste wird lokal gespeichert und mit deinem Konto synchronisiert. Sie ersetzt keine individuelle Beratung.</small></aside><section class="packlist-content"><div class="packlist-toolbar"><form data-pack-search><label><span>Packliste durchsuchen</span><input name="query" value="${esc(state.ui.packSearch)}" placeholder="z. B. Medikamente"></label><button class="outline">Suchen</button></form><div class="filter-row pack-filters">${categories.map(category => `<button data-pack-filter="${category}" class="${category===state.ui.packFilter?"active":""}">${category}</button>`).join("")}</div></div><div class="packlist-summary"><span>${shown.length} ${shown.length === 1 ? "Eintrag" : "Einträge"}</span><span>${checked} abgehakt · ${total - checked} offen</span></div><div class="pack-items">${shown.length ? shown.map(packItemCard).join("") : `<div class="no-data">${icon("backpack", "big-icon")}<h3>Keine Einträge gefunden</h3><p>Ändere die Suche oder wähle eine andere Kategorie.</p></div>`}</div></section></div>`;
+    <div class="content-wrap packlist-layout"><aside class="packlist-visual"><div class="pack-visual-art">${icon("backpack", "pack-bag-icon")}</div><div class="pack-ring" style="--pack-progress:${percent * 3.6}deg"><strong>${percent}%</strong><small>geprüft</small></div><h2>${checked} von ${total} bereit</h2><p>${readyText}</p><div class="bar"><i style="width:${percent}%"></i></div><small class="packlist-note">Die Liste wird lokal gespeichert und mit deinem Konto synchronisiert. Sie ersetzt keine individuelle Beratung.</small></aside><section class="packlist-content"><div class="packlist-toolbar"><form data-pack-search><label><span>Packliste durchsuchen</span><input name="query" value="${esc(state.ui.packSearch)}" placeholder="z. B. Medikamente"></label><button class="outline">Suchen</button></form><div class="filter-row pack-filters">${categories.map(category => `<button data-pack-filter="${category}" class="${category===state.ui.packFilter?"active":""}">${category}</button>`).join("")}</div></div><div class="packlist-summary"><span>${shown.length} ${shown.length === 1 ? "Eintrag" : "Einträge"}</span><span>${checked} abgehakt · ${total - checked} offen</span></div><div class="pack-items">${shown.length ? shown.map(packItemCard).join("") : `<div class="no-data">${icon("backpack", "big-icon")}<h3>Keine Einträge gefunden</h3><p>Ändere die Suche oder wähle eine andere Kategorie.</p><button class="outline" data-clear-pack-search>Suche und Filter zurücksetzen</button></div>`}</div></section></div>`;
   app.innerHTML = loggedShell("packliste", content, "packlist-page");
 }
 
@@ -928,10 +929,13 @@ function renderSupplies() {
   const customSupplies = normalizeCustomSupplies(state.customSupplies);
   const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt", ...(customSupplies.some(item => item.category === "Sonstiges") ? ["Sonstiges"] : [])];
   const relevantGroups = supplyGroups.filter(group => group.id !== "pet" || petCount() > 0);
+  const recordedCount = relevantGroups.filter(group => state.supplies[group.id] !== null).length;
+  const nextGroup = relevantGroups.find(group => state.supplies[group.id] === null) || relevantGroups[0];
+  const progressCopy = getLanguage() === "en" ? `${recordedCount} of ${relevantGroups.length} areas recorded` : `${recordedCount} von ${relevantGroups.length} Bereichen erfasst`;
   const shownGroups = relevantGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
   const shownCustomSupplies = customSupplies.filter(item => state.ui.supplyFilter === "Alle" || item.category === state.ui.supplyFilter);
   const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
-    <div class="content-wrap supplies-layout"><aside class="side-card supply-progress-card"><small>VORRATSFORTSCHRITT</small><strong>${percent === null ? "Noch nicht erfasst" : `${percent} %`}</strong><div class="bar"><i style="width:${percent === null ? 0 : percent}%"></i></div><p>${percent === null ? "Trage deine tatsächlichen Bestände ein." : "Aus deinen selbst eingetragenen Beständen berechnet."}</p><button class="outline" data-open-supply="water">Jetzt erfassen</button></aside>
+    <div class="content-wrap supplies-layout"><aside class="side-card supply-progress-card"><small>VORRATSFORTSCHRITT</small><strong>${percent === null ? "Noch nicht erfasst" : `${percent} %`}</strong><div class="bar"><i style="width:${percent === null ? 0 : percent}%"></i></div><p>${progressCopy}</p><p>${percent === null ? "Trage deine tatsächlichen Bestände ein." : "Aus deinen selbst eingetragenen Beständen berechnet."}</p><small>Nicht erfasste Bereiche zählen noch nicht als vorbereitet.</small><button class="outline" data-open-supply="${nextGroup.id}">${recordedCount === relevantGroups.length ? "Bestände prüfen" : "Nächsten Bereich erfassen"}</button></aside>
     <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>${esc(householdSummary())}</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b> · <button data-edit-household>Angaben ändern</button></p></div></article>
       <div class="supply-toolbar"><div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div><button class="green add-supply-button" data-add-custom-supply>+ Eigenen Vorrat hinzufügen</button></div>
       <div class="supply-table"><div class="table-head"><span>Bereich</span><span>BBK-orientiertes Ziel</span><span>Dein Bestand</span><span></span></div>
@@ -1089,7 +1093,10 @@ function modal() {
   if (state.ui.modal.startsWith("scorelab:")) {
     const step = scoreLabSteps.find(item => item.id === state.ui.modal.slice("scorelab:".length));
     if (!step) return "";
-    return `<div class="modal-backdrop"><section class="modal scorelab-why-modal" role="dialog" aria-modal="true" aria-labelledby="scorelab-why-title"><button class="modal-close" data-close-modal aria-label="${getLanguage() === "en" ? "Close" : "Schließen"}">×</button>${icon(step.icon,"modal-icon")}<small>${translateText("WARUM VORSORGE?")}</small><h2 id="scorelab-why-title">${esc(translateText(step.label))}</h2><p>${esc(translateText(step.why))}</p><div class="scorelab-why-note"><b>${translateText("Darum zählt dieser Schritt")}</b><span>${esc(translateText(step.detail))}</span></div><button class="green full" data-close-modal>${translateText("Verstanden")} →</button></section></div>`;
+    const selected = scoreLabSelection.has(step.id);
+    const result = scoreLabResult();
+    const status = selected ? "In der Simulation eingeplant" : "Aus der Simulation entfernt";
+    return `<div class="modal-backdrop"><section class="modal scorelab-why-modal" role="dialog" aria-modal="true" aria-labelledby="scorelab-why-title"><button class="modal-close" data-close-modal aria-label="${getLanguage() === "en" ? "Close" : "Schließen"}">×</button>${icon(step.icon,"modal-icon")}<small>${translateText("WARUM VORSORGE?")}</small><h2 id="scorelab-why-title">${esc(translateText(step.label))}</h2><p>${esc(translateText(step.why))}</p><div class="scorelab-why-note"><b>${translateText("Darum zählt dieser Schritt")}</b><span>${esc(translateText(step.detail))}</span></div><div class="scorelab-result"><span>${translateText(status)}</span><strong>${result.value}<small>${translateText("von 100")}</small></strong></div><button class="green full" data-close-modal>${translateText("Verstanden")} →</button></section></div>`;
   }
   if (state.ui.modal.startsWith("legal:")) {
     const page = state.ui.modal.slice(6);
@@ -1241,6 +1248,16 @@ app.addEventListener("click", async event => {
     return render();
   }
   if (button.hasAttribute("data-score-lab-reset")) return updateScoreLab(null, true);
+  if (button.hasAttribute("data-lab-model")) {
+    const model = app.querySelector("#score-lab-model");
+    if (model) {
+      model.open = true;
+      model.scrollIntoView({ behavior: "smooth", block: "center" });
+      model.querySelector("summary")?.focus({ preventScroll: true });
+    }
+    return;
+  }
+  if (button.hasAttribute("data-clear-pack-search")) { state.ui.packSearch = ""; state.ui.packFilter = "Alle"; save(); return render(); }
   if (button.matches("[data-sync-retry]")) { if (syncStatus === "expired") { state.ui.modal = "login"; return render(); } return retryStorageAndSync().catch(() => toast("Kontosynchronisierung fehlgeschlagen. Bitte Speicherstatus beachten.")); }
   if (button.matches("[data-clear-knowledge-search]")) { state.ui.knowledgeSearch = ""; return render(); }
   if (button.matches("[data-install-app]")) {
