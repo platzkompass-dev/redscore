@@ -1,0 +1,8 @@
+.guide-tool{max-width:780px;scroll-margin-top:24px}
+.guide-tool input[type=text],.guide-tool select{width:100%;min-height:46px;padding:12px;border:1px solid #92aebc;border-radius:7px;background:#fff;color:#112f43;font:inherit}
+.guide-tool select:focus-visible{outline:3px solid #e63e4b;outline-offset:4px}
+.guide-tool [data-water-shopping]{padding:14px 16px;background:#eaf7f1;border-left:3px solid #087b59;border-radius:6px;font-weight:600}
+.guide-tool [data-water-shopping]:empty{display:none}
+.guide-tool [data-print-water]{min-height:44px}
+@media(max-width:600px){.guide-tool form{display:grid;grid-template-columns:minmax(0,1fr)}.guide-tool form label{min-width:0}.guide-tool output{font-size:19px;line-height:1.5}.guide-tool input,.guide-tool select{font-size:16px}}
+@media print{body:has([data-water-calculator]) .guide-article,body:has([data-water-calculator]) .guide-intro>p:not(.eyebrow){display:none}[data-water-calculator] button,[data-print-water]{display:none}.guide-tool [data-water-shopping]{background:white;color:black}#rechner::after{content:"RedScore · www.redscore.de/ratgeber/notvorrat.html · Richtwert: BBK / German BBK guidance";display:block;margin-top:18px;font-size:11px}input,select{appearance:none;border:0!important;background:transparent!important;padding:4px 0!important;color:#000!important}}

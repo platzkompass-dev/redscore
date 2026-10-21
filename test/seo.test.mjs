@@ -55,3 +55,23 @@ test("every sitemap guide has crawlable content, matching canonical metadata and
     }
   }
 });
+
+test("water guide has a free early-entry tool, private sharing and truthful update dates", async () => {
+  for (const path of ['ratgeber/notvorrat.html', 'en/guides/emergency-supplies.html']) {
+    const html = await readFile(new URL(`../dist/${path}`, import.meta.url), 'utf8');
+    assert.ok(html.indexOf('id="rechner"') < html.indexOf('<article'));
+    assert.match(html, /name="stock"[^>]*inputmode="decimal"/);
+    assert.match(html, /name="bottleSize"/);
+    assert.match(html, /data-water-shopping/);
+    assert.match(html, /data-print-water/);
+    assert.match(html, /type="module" src="\/guide.js\?v=2"/);
+    assert.match(html, /"datePublished":"2026-10-07"/);
+    assert.match(html, /"dateModified":"2026-10-21"/);
+    assert.match(html, /<noscript>/);
+  }
+  const script = await readFile(new URL('../dist/guide.js', import.meta.url), 'utf8');
+  assert.match(script, /navigator.share\(\{ title: document.title, url \}\)/);
+  assert.doesNotMatch(script, /fetch\(/);
+  const unchanged = await readFile(new URL('../dist/ratgeber/stromausfall.html', import.meta.url), 'utf8');
+  assert.match(unchanged, /"dateModified":"2026-10-07"/);
+});

@@ -1,5 +1,131 @@
 # RedScore: kostenlose Reichweite aufbauen
 
+## Stand 21. Oktober 2026: erste Facebook-/Instagram-Kampagne
+
+Direkt in der Google Search Console geprüft (Property ausschließlich
+`https://www.redscore.de/`, ausgewählter Zeitraum: 3 Monate): **42 Impressionen,
+1 Klick, 2,4 % CTR, durchschnittliche Position 50,3**. Suchanfragen enthalten
+„redscore“, „notration anlegen“, „lebensmittel wasser vorrat“ und „notvorrat
+anlegen“. Dies sind Suchdaten, keine Zahlen zu eindeutigen Besuchern oder
+Registrierungen. Vier Seiten sind indexiert; fünf stehen auf „Gefunden – zurzeit
+nicht indexiert“. Die Sitemap ist **erfolgreich**, zuletzt am 20. Oktober gelesen,
+neun URLs erkannt. Keine erneute Einreichung und keine Rankinggarantie.
+
+### Ausgelieferter Einstieg
+
+https://www.redscore.de/ratgeber/notvorrat.html#rechner
+
+Der öffentliche Rechner steht vor dem Artikel. Er berücksichtigt vorhandene
+Liter, berechnet fehlende Mengen und rundet auf auswählbare ganze Gebinde auf.
+Die Einkaufshilfe lässt sich über den Browser drucken bzw. als PDF speichern.
+Dezimalpunkt und -komma funktionieren, ungültige Werte werden abgelehnt.
+Eingaben werden weder gespeichert noch in Teilen-Links übertragen. Keine
+Registrierung notwendig; die dauerhafte Vorratsverwaltung wird erst danach als
+freiwilliger nächster Schritt angeboten. Es werden keine neuen Trackingpixel
+oder kostenpflichtigen Events eingebaut.
+
+Geprüfte Quelle: [BBK – Essen und Trinken bevorraten](https://www.bbk.bund.de/DE/Warnung-Vorsorge/Vorsorge/Bevorraten/bevorraten.html).
+Grundlage der Content-Strategie: [Google SEO Starter Guide](https://developers.google.com/search/docs/fundamentals/seo-starter-guide).
+
+### Material
+
+- Feed-Grafik: `dist/media/redscore-wasservorrat.png`, 1080 × 1350 Pixel.
+- Bearbeitbare Vorlage: `dist/media/redscore-wasservorrat.html` und
+  `dist/media/social-water.css`. Die Vorlage ist `noindex,nofollow` und nicht in
+  der Sitemap. Das PNG ist ein Browserexport dieser eigenen Gestaltung, kein
+  Behördenmaterial. Keine behördliche Zusammenarbeit behauptet.
+- Die folgenden Texte sind **Entwürfe, noch nicht veröffentlicht**.
+
+### Beitrag 1 – Facebook, eigene RedScore-Seite
+
+Wie viel Wasser steht bei dir wirklich bereit?
+
+Mit RedScore kannst du kostenlos ausrechnen, welcher Wasservorrat zu deinem
+Planungszeitraum passt, vorhandene Liter abziehen und dir die fehlenden Flaschen
+als Einkaufshilfe anzeigen lassen. Ohne Anmeldung und ohne dass deine Eingaben
+gespeichert werden.
+
+Beispiel für Erwachsene: 2 Personen × 10 Tage × 2 Liter = 40 Liter Richtwert.
+Individuellen Mehrbedarf, Kinder und Haustiere bitte zusätzlich berücksichtigen.
+
+Jetzt ausprobieren:
+https://www.redscore.de/ratgeber/notvorrat.html#rechner
+
+RedScore ist ein unabhängiges Angebot und orientiert sich an BBK-Empfehlungen.
+
+### Beitrag 1 – Instagram-Caption
+
+Vorsorge beginnt nicht mit einem riesigen Einkauf. Sondern mit einem Blick auf
+das, was schon da ist.
+
+Unser kostenloser Wasservorrat-Rechner zieht vorhandene Liter ab und zeigt dir,
+wie viele Flaschen noch fehlen. Einkaufshilfe drucken oder als PDF speichern –
+ohne Anmeldung.
+
+Den Rechner findest du unter redscore.de/ratgeber/notvorrat.html.
+Für den Start den Rechner-Link im Profil oder im Story-Link verwenden; die
+Profiländerung und Story werden separat freigegeben.
+
+Richtwert für Erwachsene nach BBK; individuellen Mehrbedarf, Kinder und
+Haustiere zusätzlich einplanen. RedScore ist unabhängig.
+
+#Notfallvorsorge #Notvorrat #Vorsorge #RedScore
+
+### Beitrag 2 – drei bis vier Tage später, freiwilliges Feedback
+
+Was macht einen Vorsorge-Rechner für dich wirklich praktisch: fehlende Mengen,
+Gebindegrößen oder eine Einkaufshilfe zum Ausdrucken?
+
+Wir entwickeln RedScore und freuen uns über sachliches Feedback. Unser
+Wasservorrat-Rechner ist ohne Konto nutzbar:
+https://www.redscore.de/ratgeber/notvorrat.html#rechner
+
+Bitte keine privaten Gesundheits-, Standort- oder Haushaltsdaten öffentlich
+teilen. Es geht um die Bedienung und Verständlichkeit.
+
+### Beitrag 3 – nach weiteren drei bis vier Tagen
+
+Dokumentenkopien, Taschenlampe, persönliche Medikamente: Beim Notfallrucksack
+hilft eine Liste, nichts aus dem Blick zu verlieren. Unser kurzer Packcheck ist
+kostenlos und ohne Anmeldung nutzbar. Die vollständige persönliche Packliste
+kannst du anschließend freiwillig in RedScore führen.
+
+https://www.redscore.de/ratgeber/notfallrucksack.html
+
+Unabhängiges Angebot, orientiert an BBK-Empfehlungen. Passe die Liste an deinen
+persönlichen Bedarf an und prüfe, was du selbst tragen kannst.
+
+### Freigabe und Ablauf
+
+1. Betreiberin meldet sich selbst im Edge bei Facebook/Instagram an und öffnet
+   die bestehende RedScore-Seite bzw. das gewünschte Profil. Keine Passwörter
+   weitergeben, keine fremden Projekte oder Profile ändern.
+2. Konkreten Account, Bild und endgültigen Beitrag von der Betreiberin freigeben
+   lassen; erst danach veröffentlichen. Keine automatischen Gruppenposts,
+   Direktnachrichten, erfundenen Nutzerberichte oder ungefragten Einladungen.
+3. Bei privaten Profilen klar als Betreiberin auftreten. Gruppen nur nach
+   Prüfung ihrer Regeln und gegebenenfalls nach Moderatorfreigabe nutzen.
+4. Nach 7 und 14 Tagen manuell erfassen: erreichte Personen, Link-Klicks,
+   hilfreiche Rückmeldungen; Search-Console-Impressionen/Klicks getrennt davon.
+   Keine automatische Zuordnung von Registrierungen zu Facebook behaupten:
+   Diese Messung ist derzeit nicht eingerichtet.
+5. Ziel zunächst: erste echte Testnutzer und verwertbares Feedback, keine
+   garantierte Nutzerzahl. Bei kaum Reichweite Distribution prüfen; bei Klicks
+   ohne Nutzung anschließend den Einstieg untersuchen.
+
+### Prüfung dieser Änderung
+
+Lokaler Browser: deutschsprachiger Rechner mit 10,5 Litern Bestand ergibt
+29,5 Liter offen bzw. 20 Gebinde à 1,5 Liter. Ungültiges `1.000,50` wird nicht
+als Zahl interpretiert. Bei 390 Pixeln keine horizontale Überbreite (375 Pixel
+Inhaltsbreite einschließlich Scrollbarabzug), alle Formularfelder im sichtbaren
+Bereich. Englische Fassung vorhanden. Grafik visuell bei 1080 × 1350 geprüft.
+Die bisherigen unveröffentlichten Änderungen an Haupt-App, i18n, Styles,
+Index und Service Worker bleiben von dieser Marketing-Veröffentlichung getrennt.
+`npm test`: 78 Tests bestanden, darunter Mengen-/Gebinde-Berechnung,
+ungültige Eingaben, früh sichtbarer Rechner, Quellen-/Sprachverweise und
+wahrheitsgemäße Änderungsdaten der Ratgeber.
+
 ## Ausgelieferte Inhalte am 7. Oktober 2026
 
 Die öffentlichen Ratgeber sind ohne Konto und ohne JavaScript lesbar. Jede Seite
