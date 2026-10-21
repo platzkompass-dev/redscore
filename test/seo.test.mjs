@@ -75,3 +75,18 @@ test("water guide has a free early-entry tool, private sharing and truthful upda
   const unchanged = await readFile(new URL('../dist/ratgeber/stromausfall.html', import.meta.url), 'utf8');
   assert.match(unchanged, /"dateModified":"2026-10-07"/);
 });
+
+test("social campaign image exports use their actual JPEG format", async () => {
+  for (const [file, width, height] of [['redscore-wasservorrat.jpg',1080,1350],['facebook-cover.jpg',1640,624]]) {
+    const bytes = await readFile(new URL(`../dist/media/${file}`, import.meta.url));
+    assert.equal(bytes.readUInt16BE(0), 0xffd8);
+    let offset = 2, dimensions = null;
+    while (offset + 9 < bytes.length) {
+      assert.equal(bytes[offset], 0xff);
+      const marker = bytes[offset + 1];
+      if ([0xc0,0xc1,0xc2].includes(marker)) { dimensions = [bytes.readUInt16BE(offset + 7),bytes.readUInt16BE(offset + 5)]; break; }
+      offset += 2 + bytes.readUInt16BE(offset + 2);
+    }
+    assert.deepEqual(dimensions, [width,height]);
+  }
+});

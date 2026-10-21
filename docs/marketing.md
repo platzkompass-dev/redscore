@@ -29,12 +29,33 @@ Grundlage der Content-Strategie: [Google SEO Starter Guide](https://developers.g
 
 ### Material
 
-- Feed-Grafik: `dist/media/redscore-wasservorrat.png`, 1080 × 1350 Pixel.
+- Feed-Grafik: `dist/media/redscore-wasservorrat.jpg`, 1080 × 1350 Pixel.
 - Bearbeitbare Vorlage: `dist/media/redscore-wasservorrat.html` und
   `dist/media/social-water.css`. Die Vorlage ist `noindex,nofollow` und nicht in
-  der Sitemap. Das PNG ist ein Browserexport dieser eigenen Gestaltung, kein
+  der Sitemap. Das JPEG ist ein Browserexport dieser eigenen Gestaltung, kein
   Behördenmaterial. Keine behördliche Zusammenarbeit behauptet.
 - Die folgenden Texte sind **Entwürfe, noch nicht veröffentlicht**.
+- Zusätzliches Facebook-Titelbild: `dist/media/facebook-cover.jpg` (1640 × 624); editierbare
+  Vorlage: `facebook-cover.html` und `facebook-cover.css` im selben Ordner.
+
+### Facebook-Seite – Einrichtung am 21. Oktober 2026
+
+Die separate öffentliche Seite **RedScore** wurde erstellt:
+https://www.facebook.com/profile.php?id=61595680530276
+
+Kategorie: Website. Bio mit kostenloser Katastrophenvorsorge und aktuellem
+Slogan. Als RedScore-Seite statt Privatprofil gewechselt. Ein öffentlicher
+HTTPS-Link zu `https://www.redscore.de/` mit der Beschreibung „RedScore –
+kostenlos vorsorgen“ wurde gespeichert und in der Seitenansicht geprüft.
+Keine private Telefonnummer/Adresse hinterlegt, keine Anzeigen und keine
+automatischen Freundeseinladungen gestartet. Optionale Marketing-Mail- und
+Profilbenachrichtigungs-Abos beim Willkommen-Schritt nicht aktiviert.
+
+Profil-/Titelbild-Upload ist noch **offen**: Der Dateiauswahl-Upload wird von
+der ChatGPT-Erweiterung ohne „Zugriff auf Datei-URLs zulassen“ blockiert.
+Diese Erweiterungsberechtigung wurde nicht automatisch verändert. Die Bilder
+sind lokal und öffentlich unter `/media/` verfügbar. Noch kein Kampagnenbeitrag
+veröffentlicht; erster Text wird im Composer zur Freigabe vorbereitet.
 
 ### Beitrag 1 – Facebook, eigene RedScore-Seite
 
