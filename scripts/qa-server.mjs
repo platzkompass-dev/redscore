@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const publicRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
 const timestamp = () => new Date().toISOString();
 const user = { id: "development-qa-user", email: "qa@example.test", user_metadata: { display_name: "Development QA" } };
-let profile = { display_name: "Development QA", adults: [{ gender: "woman" }, { gender: "man" }], children_count: 1, pets: [], postal_code: "10115", city: "Berlin", state: "Berlin", district: "", selected_scene: "family-woman-man", onboarding_completed: true };
+let profile = { display_name: "Development QA", adults: [{ gender: "woman" }, { gender: "man" }], children_count: 1, children_details: [{ gender: "girl" }], pets: [], postal_code: "10115", city: "Berlin", state: "Berlin", district: "", selected_scene: "family-woman-man-girl", onboarding_completed: true };
 let appState = {};
 let failSaves = false;
 let feedMode = "normal";

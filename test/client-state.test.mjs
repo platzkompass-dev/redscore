@@ -33,6 +33,84 @@ function client(options = {}) {
   return { run, storage, timers, context, app, syncText, syncButton, syncRegion, liveElements, windowEvents, appEvents };
 }
 
+test("child controls offer only female and male, without inferring missing values", () => {
+  const c = client();
+  c.run("state.household.children=1; state.household.childDetails=[]");
+  const html = c.run("childIdentityFields()");
+  assert.match(html, /value="girl"[^>]*>Weiblich/);
+  assert.match(html, /value="boy"[^>]*>Männlich/);
+  assert.match(html, /value="" disabled selected>Bitte auswählen/);
+  assert.doesNotMatch(html, /diverse|nichtbinär|Keine Angabe|value="unspecified"/);
+  assert.match(html, /name="childGender0" required/);
+  assert.match(html, /name="childGender1" disabled/);
+});
+
+test("changing the child count toggles required controls without losing selections", () => {
+  const c = client();
+  const group = { hidden: true };
+  const selects = [{ value: "girl" }, { value: "boy" }, { value: "" }];
+  const labels = selects.map(select => ({ hidden: false, querySelector: () => select }));
+  const form = { elements: { children: { value: "2" } }, querySelector: () => group, querySelectorAll: () => labels };
+  c.context.testForm = form;
+  c.run("updateChildIdentities(testForm)");
+  assert.equal(group.hidden, false);
+  assert.equal(selects[0].required, true);
+  assert.equal(selects[1].disabled, false);
+  assert.equal(selects[2].disabled, true);
+  form.elements.children.value = "0";
+  c.run("updateChildIdentities(testForm)");
+  assert.equal(group.hidden, true);
+  assert.equal(selects[0].required, false);
+  assert.equal(selects[0].value, "girl");
+});
+
+test("one-child images match the specified child for every supported adult composition", () => {
+  const c = client();
+  for (const [adults, prefix] of [
+    [["woman"], "single-woman"], [["man"], "single-man"],
+    [["woman", "man"], "family-woman-man"], [["woman", "woman"], "family-two-women"], [["man", "man"], "family-two-men"],
+  ]) for (const gender of ["girl", "boy"]) {
+    const people = adults.map(gender => ({ gender }));
+    assert.equal(c.run(`chooseScene(${JSON.stringify(people)},1,[{gender:'${gender}'}])`), `${prefix}-${gender}`);
+  }
+});
+
+test("unsupported or legacy households use a person-free image, not a guessed family", () => {
+  const c = client();
+  c.run("state.profile.selectedScene='family-woman-man';state.household={adults:[{gender:'woman'},{gender:'man'}],children:1,childDetails:[]}");
+  assert.equal(c.run("selectedScene()"), "assets/dashboard-storm.png");
+  assert.equal(c.run("chooseScene([{gender:'woman'},{gender:'man'}],2,[{gender:'boy'},{gender:'girl'}])"), "family-woman-man-boy-girl");
+  for (const details of [[{gender:"girl"},{gender:"girl"}], [{gender:"boy"},{gender:"boy"}], [{gender:"girl"},{gender:"boy"},{gender:"girl"}]]) {
+    assert.equal(c.run(`chooseScene([{gender:'woman'},{gender:'man'}],${details.length},${JSON.stringify(details)})`), "neutral-household");
+  }
+  assert.equal(c.run("chooseScene([{gender:'diverse'}],1,[{gender:'girl'}])"), "neutral-household");
+});
+
+test("child metadata is normalized and synchronized without names or dates of birth", async () => {
+  let payload;
+  const c = client({ fetch: async (_url, options) => { payload = JSON.parse(options.body); return Response.json({ok:true}); } });
+  c.run("state.household.children=2; state.household.childDetails=[{gender:'girl',name:'not collected'},{gender:'invalid'}];save()");
+  await c.run("syncAccount()");
+  assert.deepEqual(payload.profile.children_details, [{gender:"girl"},{gender:"unspecified"}]);
+  assert.equal(c.run("normalizeChildDetails(99,[]).length"), 12);
+  assert.equal(c.run("normalizeChildDetails(-2,[]).length"), 0);
+  c.run("state.assessment.completedAt='2026-10-24T12:00:00Z';state.assessment.answers=Object.fromEntries(relevantAssessmentQuestions().map(([id])=>[id,true]));state.supplies.water=10");
+  c.run("state.household.childDetails=[{gender:'girl'}]");
+  const originalScore = c.run("score()");
+  assert.equal(typeof originalScore, "number");
+  c.run("state.household.childDetails=[{gender:'boy'}]");
+  assert.equal(c.run("score()"), originalScore);
+});
+
+test("every selected household image is an existing PNG asset", async () => {
+  const c = client();
+  for (const path of c.run("Object.values(householdScenes)")) {
+    const bytes = await readFile(new URL(`../dist/${path}`, import.meta.url));
+    assert.equal(bytes.subarray(1,4).toString(), "PNG", path);
+    assert.ok(bytes.readUInt32BE(16) >= 1000, path);
+  }
+});
+
 test("failed local storage never claims pending changes are saved, including offline", () => {
   const c = client({ failWrites: true, online: false });
   c.run("state.supplies.water=12.25; save()");

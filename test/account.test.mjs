@@ -74,6 +74,33 @@ test("requires a valid user token before profile data is loaded", async () => {
   assert.equal(response.status, 401);
 });
 
+test("normalizes per-child image metadata while retaining legacy account compatibility", async () => {
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY = "publishable-test-key";
+  let profile;
+  globalThis.fetch = async (url, options) => {
+    if (new URL(url).pathname === "/auth/v1/user") return Response.json({id:"user-id"});
+    if (new URL(url).pathname === "/rest/v1/user_profiles") profile = JSON.parse(options.body);
+    return Response.json({});
+  };
+  const save = async input => POST(new Request("https://www.redscore.de/api/account", {
+    method:"POST", headers:{"content-type":"application/json",authorization:"Bearer test-token"},
+    body:JSON.stringify({action:"save",profile:input,appState:{}}),
+  }));
+  assert.equal((await save({children_count:3,children_details:[{gender:"girl",name:"discard",birthDate:"discard"},{gender:"boy"},{gender:"diverse"}]})).status,200);
+  assert.deepEqual(profile.children_details,[{gender:"girl"},{gender:"boy"},{gender:"unspecified"}]);
+  assert.equal(profile.user_id,"user-id");
+  await save({children_count:1});
+  assert.equal(Object.hasOwn(profile,"children_details"),false, "an older client must not overwrite existing child details");
+  await save({children_count:99,children_details:{gender:"boy"}});
+  assert.equal(profile.children_count,12);
+  assert.equal(profile.children_details.length,12);
+  await save({children_count:-1,children_details:[{gender:"girl"}]});
+  assert.deepEqual(profile.children_details,[]);
+  await save({children_count:1.9,children_details:[{gender:"boy"},{gender:"girl"}]});
+  assert.deepEqual(profile.children_details,[{gender:"boy"}]);
+});
+
 test("validates custom supplies before synchronizing them", async () => {
   process.env.SUPABASE_URL = "https://example.supabase.co";
   process.env.SUPABASE_ANON_KEY = "publishable-test-key";

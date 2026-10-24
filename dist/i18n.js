@@ -1,6 +1,13 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Komma oder Punkt als Dezimaltrennzeichen, keine Tausendertrennzeichen. Maximal 1000 Liter.": "Use a decimal comma or point, without thousands separators. Maximum 1000 litres.",
+  "Komma oder Punkt als Dezimaltrennzeichen, keine Tausendertrennzeichen. Maximal 999999.": "Use a decimal comma or point, without thousands separators. Maximum 999999.",
+  "Bitte eine ganze Zahl innerhalb des angegebenen Bereichs eingeben.": "Enter a whole number within the specified range.",
+  "Bitte eine gültige Menge innerhalb des angegebenen Bereichs eingeben.": "Enter a valid quantity within the specified range.",
+  "Bitte einen Ausstattungsstand auswählen.": "Select an equipment status.",
+  "Bitte Bezeichnung und Einheit vollständig angeben.": "Enter a complete item name and unit.",
+  "Bitte eine Menge von 0 bis 999999 eingeben, z. B. 1,5. Keine Tausendertrennzeichen verwenden.": "Enter a quantity from 0 to 999999, e.g. 1.5. Do not use thousands separators.",
   "INTERAKTIVES SCORE-LAB": "INTERACTIVE SCORE LAB",
   "Ein kleiner Schritt.": "One small step.",
   "Ein sichtbarer Unterschied.": "A visible difference.",
@@ -480,6 +487,12 @@ const EN = new Map(Object.entries({
   "Mann": "Man",
   "Divers / nichtbinär": "Diverse / non-binary",
   "Kinder im Haushalt": "Children in the household",
+  "Angaben zu den Kindern": "Children's details",
+  "Weiblich": "Female",
+  "Männlich": "Male",
+  "Bitte auswählen": "Please select",
+  "Wähle für jedes Kind weiblich oder männlich. Die Angabe dient nur der Motivauswahl. Keine Namen oder Geburtsdaten erforderlich.": "Select female or male for each child. This is used only to select the household image. No names or dates of birth required.",
+  "Bitte für jedes Kind weiblich oder männlich auswählen.": "Please select female or male for each child.",
   "Haustiere – Anzahl je Art": "Pets – number by type",
   "Hunde": "Dogs",
   "Katzen": "Cats",
@@ -719,6 +732,7 @@ export function translateText(value) {
     if (translatedCore) return `${decorated[1] || ""}${translatedCore}${decorated[3] || ""}`;
   }
   return source
+    .replace(/^Kind (\d+) – Geschlecht$/, "Child $1 – gender")
     .replace(/^Beantworte zuerst alle (\d+) Fragen\. Wir zeigen niemals einen erfundenen Beispielwert\.$/, "Answer all $1 questions first. We never display an invented example score.")
     .replace(/^(HOCH|MITTEL|NIEDRIG) · BBK-ORIENTIERT$/, (_, priority) => `${({ HOCH: "HIGH", MITTEL: "MEDIUM", NIEDRIG: "LOW" })[priority]} · BASED ON BBK GUIDANCE`)
     .replace(/(\d+) erwachsene Person/g, "$1 adult")

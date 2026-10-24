@@ -61,7 +61,7 @@ export const knowledgeArticles = [
 export const defaultState = {
   authenticated: false,
   profile: { id: null, email: "", name: "", initials: "RS", onboardingCompleted: false, selectedScene: "neutral-household" },
-  household: { adults: [], children: 0, pets: [], postalCode: "", city: "", state: "", district: "", location: "" },
+  household: { adults: [], children: 0, childDetails: [], pets: [], postalCode: "", city: "", state: "", district: "", location: "" },
   assessment: { answers: {}, completedAt: null },
   taskStatus: {},
   supplies: Object.fromEntries(supplyGroups.map(group => [group.id, null])),

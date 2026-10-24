@@ -1,5 +1,6 @@
 const MAX_BODY_BYTES = 64_000;
 const ALLOWED_GENDERS = new Set(["woman", "man", "diverse", "unspecified"]);
+const ALLOWED_CHILD_GENDERS = new Set(["girl", "boy", "unspecified"]);
 const ALLOWED_PETS = new Set(["dog", "cat", "bird", "small_animal", "fish", "reptile", "other"]);
 const ALLOWED_SUPPLY_CATEGORIES = new Set(["Versorgung", "Gesundheit", "Haushalt", "Sonstiges"]);
 
@@ -34,6 +35,8 @@ function token(request) {
 }
 
 function cleanProfile(value = {}) {
+  const childrenCount = Math.max(0, Math.min(12, Math.floor(Number(value.children_count)) || 0));
+  const childDetails = Array.isArray(value.children_details) ? value.children_details : [];
   const adults = Array.isArray(value.adults) ? value.adults.slice(0, 8).map(item => ({
     gender: ALLOWED_GENDERS.has(item?.gender) ? item.gender : "unspecified",
   })) : [];
@@ -45,7 +48,10 @@ function cleanProfile(value = {}) {
   return {
     display_name: String(value.display_name || "").trim().slice(0, 80),
     adults,
-    children_count: Math.max(0, Math.min(12, Number(value.children_count) || 0)),
+    children_count: childrenCount,
+    ...(Object.hasOwn(value, "children_details") ? { children_details: Array.from({ length: childrenCount }, (_, index) => ({
+      gender: ALLOWED_CHILD_GENDERS.has(childDetails[index]?.gender) ? childDetails[index].gender : "unspecified",
+    })) } : {}),
     pets,
     postal_code: String(value.postal_code || "").replace(/\D/g, "").slice(0, 5),
     city: String(value.city || "").trim().slice(0, 80),

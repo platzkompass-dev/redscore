@@ -29,6 +29,17 @@ test("translates fixed and dynamic interface copy", () => {
   assert.equal(translateText("Verstanden"), "Got it");
 });
 
+test("translates child choices and numbered labels", () => {
+  setLanguage("en");
+  assert.equal(translateText("Weiblich"), "Female");
+  assert.equal(translateText("Männlich"), "Male");
+  assert.equal(translateText("Kind 12 – Geschlecht"), "Child 12 – gender");
+  assert.equal(translateText("Bitte auswählen"), "Please select");
+  setLanguage("de");
+  assert.equal(translateText("Weiblich"), "Weiblich");
+  setLanguage("en");
+});
+
 test("keeps source-provided reports unchanged", () => {
   const report = "Amtliche WARNUNG vor STURMBÖEN";
   assert.equal(translateText(report), report);

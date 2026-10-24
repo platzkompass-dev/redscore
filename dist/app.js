@@ -1,5 +1,5 @@
-import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=5";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=19";
+import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=6";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=21";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -14,6 +14,68 @@ const fmt = n => new Intl.NumberFormat(getLanguage() === "en" ? "en-GB" : "de-DE
 const customSupplyCategories = ["Versorgung", "Gesundheit", "Haushalt", "Sonstiges"];
 const requestedLanguage = new URLSearchParams(location.search).get("lang");
 if (["de", "en"].includes(requestedLanguage)) setLanguage(requestedLanguage);
+
+// Accept decimal comma or point, never empty input, grouping or exponent notation.
+function parseQuantity(raw, max, integer = false) {
+  const text = String(raw ?? "").trim();
+  if (!/^(?:\d+(?:[.,]\d+)?|[.,]\d+)$/.test(text)) return NaN;
+  const value = Number(text.replace(",", "."));
+  return Number.isFinite(value) && value >= 0 && value <= max && (!integer || Number.isInteger(value)) ? value : NaN;
+}
+
+let formError = null;
+function updateFormFeedback(form) {
+  if (!form) return;
+  form.querySelectorAll("[aria-invalid]").forEach(field => { field.removeAttribute("aria-invalid"); field.removeAttribute("aria-errormessage"); });
+  const feedback = form.querySelector("[data-form-error]");
+  if (!feedback) return;
+  const error = formError?.modal === state.ui.modal ? formError : null;
+  feedback.textContent = error ? translateText(error.message) : "";
+  feedback.hidden = !error;
+  if (error?.field) {
+    const field = form.elements.namedItem(error.field);
+    field?.setAttribute("aria-invalid", "true");
+    field?.setAttribute("aria-errormessage", feedback.id);
+  }
+}
+function reportFormError(form, field, message) {
+  if (!form) return toast(message);
+  formError = { modal: state.ui.modal, field, message };
+  updateFormFeedback(form);
+  (field ? form.elements.namedItem(field) : form.querySelector("[data-form-error]"))?.focus({ preventScroll: false });
+}
+function updateAdultIdentities(form) {
+  const count = clamp(Math.floor(Number(form.elements.adultCount.value)) || 1, 1, 8);
+  form.querySelectorAll("[data-adult-index]").forEach((label, index) => {
+    label.hidden = index >= count;
+    const select = label.querySelector("select");
+    if (select) { select.required = index < count; select.disabled = index >= count; }
+  });
+}
+
+function normalizeChildDetails(count, details) {
+  const length = clamp(Math.floor(Number(count)) || 0, 0, 12);
+  return Array.from({ length }, (_, index) => ({
+    gender: ["girl", "boy", "unspecified"].includes(details?.[index]?.gender) ? details[index].gender : "unspecified",
+  }));
+}
+
+function updateChildIdentities(form) {
+  const count = clamp(Math.floor(Number(form.elements.children.value)) || 0, 0, 12);
+  const group = form.querySelector("[data-child-identities]");
+  if (group) group.hidden = count === 0;
+  form.querySelectorAll("[data-child-index]").forEach((label, index) => {
+    label.hidden = index >= count;
+    const select = label.querySelector("select");
+    if (select) { select.disabled = index >= count; select.required = index < count; }
+  });
+}
+
+function childIdentityFields() {
+  const count = clamp(Math.floor(Number(state.household.children)) || 0, 0, 12);
+  const details = normalizeChildDetails(count, state.household.childDetails);
+  return `<fieldset class="child-identities" data-child-identities ${count ? "" : "hidden"}><legend>Angaben zu den Kindern</legend><p>Wähle für jedes Kind weiblich oder männlich. Die Angabe dient nur der Motivauswahl. Keine Namen oder Geburtsdaten erforderlich.</p>${Array.from({ length: 12 }, (_, index) => `<label data-child-index="${index}" ${index < count ? "" : "hidden"}><span>Kind ${index + 1} – Geschlecht</span><select name="childGender${index}" ${index < count ? "required" : "disabled"}><option value="" disabled ${!["girl", "boy"].includes(details[index]?.gender) ? "selected" : ""}>Bitte auswählen</option>${[["girl", "Weiblich"], ["boy", "Männlich"]].map(([value, label]) => `<option value="${value}" ${details[index]?.gender === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>`).join("")}</fieldset>`;
+}
 
 function normalizeCustomSupplies(items) {
   if (!Array.isArray(items)) return [];
@@ -51,7 +113,7 @@ function loadState() {
       ...clone(defaultState), ...saved,
       authenticated: false,
       profile: { ...defaultState.profile, ...saved.profile },
-      household: { ...defaultState.household, ...saved.household },
+      household: { ...defaultState.household, ...saved.household, childDetails: normalizeChildDetails(saved.household?.children, saved.household?.childDetails) },
       assessment: { ...defaultState.assessment, ...saved.assessment },
       supplies: { ...defaultState.supplies, ...saved.supplies },
       supplyDetails: { ...defaultState.supplyDetails, ...saved.supplyDetails },
@@ -160,12 +222,18 @@ const householdScenes = {
   "couple-woman-man": "assets/households/couple-woman-man.png",
   "couple-two-women": "assets/households/couple-two-women.png",
   "couple-two-men": "assets/households/couple-two-men.png",
-  "family-woman-man": "assets/households/family-woman-man.png",
-  "family-two-women": "assets/households/family-two-women.png",
-  "family-two-men": "assets/households/family-two-men.png",
-  "single-parent": "assets/households/single-parent.png",
-  "family-neutral": "assets/households/family-neutral.png",
-  "neutral-household": "assets/pantry.png",
+  "family-woman-man-boy": "assets/households/family-woman-man.png",
+  "family-woman-man-girl": "assets/households/family-woman-man-girl.png",
+  "family-two-women-boy": "assets/households/family-two-women-boy.png",
+  "family-two-women-girl": "assets/households/family-two-women.png",
+  "family-two-men-boy": "assets/households/family-two-men.png",
+  "family-two-men-girl": "assets/households/family-two-men-girl.png",
+  "single-woman-boy": "assets/households/single-parent.png",
+  "single-woman-girl": "assets/households/single-woman-girl.png",
+  "single-man-boy": "assets/households/single-man-boy.png",
+  "single-man-girl": "assets/households/single-man-girl.png",
+  "family-woman-man-boy-girl": "assets/households/family-neutral.png",
+  "neutral-household": "assets/dashboard-storm.png",
 };
 
 // Persönliche Notfallrucksack-Checkliste auf Basis der BBK-Empfehlungen.
@@ -187,7 +255,8 @@ const emergencyPackItems = [
   { id: "pet", category: "Haustiere", label: "Haustierbedarf", detail: "Futter, Wasser, Leine/Transportbox, Medikamente und Unterlagen.", quantity: "je Tier", icon: "special", priority: "hoch", petsOnly: true },
 ];
 
-function selectedScene() { return householdScenes[state.profile.selectedScene] || householdScenes["neutral-household"]; }
+// Derive from the current household, never reuse a legacy image that guessed a child's gender.
+function selectedScene() { return householdScenes[chooseScene(state.household.adults || [], state.household.children, state.household.childDetails)] || householdScenes["neutral-household"]; }
 function sceneStyle(_key, property = "--scene-image") { return `style="${property}:url('${selectedScene()}')"`; }
 function initials(name = "") { return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "RS"; }
 function householdPeople() { return (state.household.adults?.length || 0) + Number(state.household.children || 0); }
@@ -197,16 +266,26 @@ function householdSummary() {
   const adults = state.household.adults?.length || 0, children = Number(state.household.children || 0), pets = petCount();
   return [`${adults} ${adults === 1 ? "erwachsene Person" : "Erwachsene"}`, children ? `${children} ${children === 1 ? "Kind" : "Kinder"}` : null, pets ? `${pets} ${pets === 1 ? "Haustier" : "Haustiere"}` : null].filter(Boolean).join(" · ");
 }
-function chooseScene(adults, children) {
+function chooseScene(adults, children, childDetails) {
   const genders = adults.map(item => item.gender).sort();
-  if (children > 0 && adults.length === 1) return "single-parent";
-  if (children > 0 && adults.length === 2) {
-    if (genders.join("|") === "man|woman") return "family-woman-man";
-    if (genders.every(value => value === "woman")) return "family-two-women";
-    if (genders.every(value => value === "man")) return "family-two-men";
-    return "family-neutral";
+  const details = normalizeChildDetails(children, childDetails);
+  if (adults.some(item => !["woman", "man"].includes(item.gender))) return "neutral-household";
+  if (details.length) {
+    if (details.some(item => !["girl", "boy"].includes(item.gender))) return "neutral-household";
+    const childGenders = details.map(item => item.gender).sort().join("|");
+    if (details.length === 1) {
+      const childGender = details[0].gender;
+      if (adults.length === 1) return `single-${genders[0]}-${childGender}`;
+      if (adults.length === 2) {
+        if (genders.join("|") === "man|woman") return `family-woman-man-${childGender}`;
+        if (genders.every(value => value === "woman")) return `family-two-women-${childGender}`;
+        if (genders.every(value => value === "man")) return `family-two-men-${childGender}`;
+      }
+    }
+    if (details.length === 2 && childGenders === "boy|girl" && genders.join("|") === "man|woman") return "family-woman-man-boy-girl";
+    return "neutral-household";
   }
-  if (children > 0 || adults.length > 2 || adults.some(item => ["diverse", "unspecified"].includes(item.gender))) return "family-neutral";
+  if (adults.length > 2) return "neutral-household";
   if (adults.length === 1) return adults[0].gender === "woman" ? "solo-woman" : adults[0].gender === "man" ? "solo-man" : "neutral-household";
   if (adults.length === 2) {
     if (genders.join("|") === "man|woman") return "couple-woman-man";
@@ -300,7 +379,7 @@ async function loadAccount() {
     selectedScene: profile?.selected_scene || "neutral-household",
   };
   state.household = profile ? {
-    adults: Array.isArray(profile.adults) ? profile.adults : [], children: Number(profile.children_count || 0), pets: Array.isArray(profile.pets) ? profile.pets : [],
+    adults: Array.isArray(profile.adults) ? profile.adults : [], children: Number(profile.children_count || 0), childDetails: normalizeChildDetails(profile.children_count, profile.children_details), pets: Array.isArray(profile.pets) ? profile.pets : [],
     postalCode: profile.postal_code || "", city: profile.city || "", state: profile.state || "", district: profile.district || "",
     location: [profile.postal_code, profile.city].filter(Boolean).join(" "),
   } : clone(defaultState.household);
@@ -340,7 +419,7 @@ async function syncAccount() {
   const owner = state.profile.id, revision = state.sync.revision;
   const payload = clone({
     profile: {
-      display_name: state.profile.name, adults: state.household.adults, children_count: state.household.children, pets: state.household.pets,
+      display_name: state.profile.name, adults: state.household.adults, children_count: state.household.children, children_details: normalizeChildDetails(state.household.children, state.household.childDetails), pets: state.household.pets,
       postal_code: state.household.postalCode, city: state.household.city, state: state.household.state, district: state.household.district,
       onboarding_completed: state.profile.onboardingCompleted, selected_scene: state.profile.selectedScene,
     },
@@ -540,7 +619,7 @@ function supplyInput(group, value) {
       ? Number(details.containerCount)
       : value === null ? "" : Math.max(0, Math.round(value / containerSize));
     const direct = details.mode === "liters" || (value !== null && details.containerCount === undefined);
-    return `<fieldset class="quantity-fields"><legend>Trinkwasser erfassen</legend><label><span>Erfassungsart</span><select name="quantityMode"><option value="packages" ${direct ? "" : "selected"}>Gebinde zählen</option><option value="liters" ${direct ? "selected" : ""}>Liter direkt eingeben</option></select></label><div data-water-packages ${direct ? "hidden" : ""}><label><span>Anzahl Gebinde</span><input type="number" name="containerCount" min="0" max="200" step="1" inputmode="numeric" value="${containerCount}" placeholder="z. B. 12" ${direct ? "disabled" : "required"}></label><label><span>Liter je Gebinde</span><select name="containerSize" ${direct ? "disabled" : ""}>${group.packageSizes.map(size => `<option value="${size}" ${size===containerSize?"selected":""}>${fmt(size)} Liter</option>`).join("")}</select></label></div><label data-water-liters ${direct ? "" : "hidden"}><span>Gesamtmenge in Litern</span><input type="number" name="liters" min="0" max="${group.max}" step="any" inputmode="decimal" value="${value===null?"":value}" ${direct ? "required" : "disabled"}></label><output data-supply-total>${value === null ? "Gesamtmenge wird beim Speichern berechnet" : `Bisher erfasst: ${fmt(value)} Liter`}</output></fieldset>`;
+    return `<fieldset class="quantity-fields"><legend>Trinkwasser erfassen</legend><label><span>Erfassungsart</span><select name="quantityMode"><option value="packages" ${direct ? "" : "selected"}>Gebinde zählen</option><option value="liters" ${direct ? "selected" : ""}>Liter direkt eingeben</option></select></label><div data-water-packages ${direct ? "hidden" : ""}><label><span>Anzahl Gebinde</span><input type="number" name="containerCount" min="0" max="200" step="1" inputmode="numeric" value="${containerCount}" placeholder="z. B. 12" ${direct ? "disabled" : "required"}></label><label><span>Liter je Gebinde</span><select name="containerSize" ${direct ? "disabled" : ""}>${group.packageSizes.map(size => `<option value="${size}" ${size===containerSize?"selected":""}>${fmt(size)} Liter</option>`).join("")}</select></label></div><label data-water-liters ${direct ? "" : "hidden"}><span>Gesamtmenge in Litern</span><input type="text" name="liters" maxlength="20" inputmode="decimal" aria-describedby="quantity-input-hint" value="${value===null?"":value}" ${direct ? "required" : "disabled"}></label><small id="quantity-input-hint" class="quantity-input-hint">Komma oder Punkt als Dezimaltrennzeichen, keine Tausendertrennzeichen. Maximal 1000 Liter.</small><output data-supply-total>${value === null ? "Gesamtmenge wird beim Speichern berechnet" : `Bisher erfasst: ${fmt(value)} Liter`}</output></fieldset>`;
   }
   if (group.inputMode === "level") {
     return `<fieldset class="quantity-fields"><legend>Ausstattungsstand</legend><label><span>Status</span><select name="value" required><option value="" ${value===null?"selected":""} disabled>Bitte auswählen</option><option value="0" ${value===0?"selected":""}>Nicht vorhanden</option><option value="0.5" ${value===0.5?"selected":""}>Teilweise vorhanden</option><option value="1" ${value===1?"selected":""}>Vollständig und einsatzbereit</option></select></label></fieldset>`;
@@ -1115,7 +1194,7 @@ function modal() {
   if (state.ui.modal === "onboarding") {
     const adults = state.household.adults?.length || 1;
     const petAmount = type => state.household.pets?.find(pet => pet.type === type)?.count || 0;
-    return `<div class="modal-backdrop"><section class="modal onboarding-modal"><small>ERSTEINRICHTUNG · DEIN HAUSHALT</small><h2>Damit RedScore wirklich zu euch passt</h2><p>Wir fragen nur die Angaben ab, die Mengen, Aufgaben und das passende Haushaltsmotiv beeinflussen. Beziehungsstatus oder sexuelle Orientierung werden nicht erfasst.</p><form data-onboarding-form><div class="onboarding-grid"><label><span>Dein Anzeigename</span><input name="displayName" value="${esc(state.profile.name)}" maxlength="80" autocomplete="name" required></label><label><span>Erwachsene Personen</span><input name="adultCount" type="number" min="1" max="8" value="${adults}" required></label><div class="adult-identities" data-adult-identities>${Array.from({ length: 8 }, (_, index) => `<label class="adult-identity" data-adult-index="${index}" ${index >= adults ? "hidden" : ""}><span>Person ${index + 1} – freiwillige Selbstbezeichnung</span><select name="adultGender${index}" ${index < adults ? "required" : ""}><option value="unspecified">Keine Angabe</option><option value="woman" ${state.household.adults?.[index]?.gender === "woman" ? "selected" : ""}>Frau</option><option value="man" ${state.household.adults?.[index]?.gender === "man" ? "selected" : ""}>Mann</option><option value="diverse" ${state.household.adults?.[index]?.gender === "diverse" ? "selected" : ""}>Divers / nichtbinär</option></select></label>`).join("")}</div><label><span>Kinder im Haushalt</span><input name="children" type="number" min="0" max="12" value="${state.household.children || 0}" required></label><fieldset class="pet-fields"><legend>Haustiere – Anzahl je Art</legend>${[["dog","Hunde"],["cat","Katzen"],["bird","Vögel"],["small_animal","Kleintiere"],["fish","Fische / Aquarien"],["reptile","Reptilien"],["other","Andere Tiere"]].map(([type,label]) => `<label><span>${label}</span><input name="pet_${type}" type="number" min="0" max="20" value="${petAmount(type)}"></label>`).join("")}</fieldset><label><span>Postleitzahl</span><input name="postalCode" inputmode="numeric" pattern="[0-9]{5}" value="${esc(state.household.postalCode)}" required></label><label><span>Ort</span><input name="city" value="${esc(state.household.city)}" maxlength="80" required></label><label><span>Bundesland</span><input name="state" value="${esc(state.household.state)}" maxlength="80" required></label><label><span>Landkreis / Region (optional)</span><input name="district" value="${esc(state.household.district)}" maxlength="100"></label></div><button class="green full">Haushalt speichern und starten →</button></form></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal onboarding-modal"><small>ERSTEINRICHTUNG · DEIN HAUSHALT</small><h2>Damit RedScore wirklich zu euch passt</h2><p>Wir fragen nur die Angaben ab, die Mengen, Aufgaben und das passende Haushaltsmotiv beeinflussen. Beziehungsstatus oder sexuelle Orientierung werden nicht erfasst.</p><form data-onboarding-form><div class="onboarding-grid"><label><span>Dein Anzeigename</span><input name="displayName" value="${esc(state.profile.name)}" maxlength="80" autocomplete="name" required></label><label><span>Erwachsene Personen</span><input name="adultCount" type="number" min="1" max="8" value="${adults}" required></label><div class="adult-identities" data-adult-identities>${Array.from({ length: 8 }, (_, index) => `<label class="adult-identity" data-adult-index="${index}" ${index >= adults ? "hidden" : ""}><span>Person ${index + 1} – freiwillige Selbstbezeichnung</span><select name="adultGender${index}" ${index < adults ? "required" : ""}><option value="unspecified">Keine Angabe</option><option value="woman" ${state.household.adults?.[index]?.gender === "woman" ? "selected" : ""}>Frau</option><option value="man" ${state.household.adults?.[index]?.gender === "man" ? "selected" : ""}>Mann</option><option value="diverse" ${state.household.adults?.[index]?.gender === "diverse" ? "selected" : ""}>Divers / nichtbinär</option></select></label>`).join("")}</div><label><span>Kinder im Haushalt</span><input name="children" type="number" min="0" max="12" value="${state.household.children || 0}" required></label>${childIdentityFields()}<fieldset class="pet-fields"><legend>Haustiere – Anzahl je Art</legend>${[["dog","Hunde"],["cat","Katzen"],["bird","Vögel"],["small_animal","Kleintiere"],["fish","Fische / Aquarien"],["reptile","Reptilien"],["other","Andere Tiere"]].map(([type,label]) => `<label><span>${label}</span><input name="pet_${type}" type="number" min="0" max="20" value="${petAmount(type)}"></label>`).join("")}</fieldset><label><span>Postleitzahl</span><input name="postalCode" inputmode="numeric" pattern="[0-9]{5}" value="${esc(state.household.postalCode)}" required></label><label><span>Ort</span><input name="city" value="${esc(state.household.city)}" maxlength="80" required></label><label><span>Bundesland</span><input name="state" value="${esc(state.household.state)}" maxlength="80" required></label><label><span>Landkreis / Region (optional)</span><input name="district" value="${esc(state.household.district)}" maxlength="100"></label></div><button class="green full">Haushalt speichern und starten →</button></form></section></div>`;
   }
   if (state.ui.modal === "assessment") {
     const questions = relevantAssessmentQuestions();
@@ -1127,7 +1206,7 @@ function modal() {
     const item = id === "new" ? null : normalizeCustomSupplies(state.customSupplies).find(entry => entry.id === id);
     if (id !== "new" && !item) return "";
     const selectedCategory = item?.category || (customSupplyCategories.includes(state.ui.supplyFilter) && state.ui.supplyFilter !== "Alle" ? state.ui.supplyFilter : "Versorgung");
-    return `<div class="modal-backdrop"><section class="modal supply-modal custom-supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(customSupplyIcon(selectedCategory),"modal-icon")}<small>PERSÖNLICHER VORRAT</small><h2>${item ? "Eigenen Eintrag bearbeiten" : "Eigenen Vorrat hinzufügen"}</h2><p>Ergänze Dinge, die für deinen Haushalt wichtig sind, mit ihrer tatsächlichen Menge.</p><form data-custom-supply-form="${item ? esc(item.id) : "new"}"><label><span>Bezeichnung</span><input name="label" value="${esc(item?.label || "")}" maxlength="80" placeholder="z. B. Babynahrung" required></label><label><span>Kategorie</span><select name="category" required>${customSupplyCategories.map(category => `<option value="${category}" ${category === selectedCategory ? "selected" : ""}>${category}</option>`).join("")}</select></label><div class="custom-supply-quantity"><label><span>Menge</span><input name="quantity" type="number" min="0" max="999999" step="any" inputmode="decimal" value="${item ? esc(item.quantity) : ""}" placeholder="0" required></label><label><span>Einheit</span><input name="unit" list="supply-unit-options" value="${esc(item?.unit || "Stück")}" maxlength="30" placeholder="Stück" required><datalist id="supply-unit-options"><option value="Stück"><option value="Liter"><option value="kg"><option value="g"><option value="Packungen"><option value="Dosen"><option value="Flaschen"><option value="Tage"><option value="Sets"></datalist></label></div><label><span>Notiz (optional)</span><input name="note" value="${esc(item?.note || "")}" maxlength="160" placeholder="z. B. kühl und trocken lagern"></label><button class="green full">Eintrag speichern</button>${item ? `<button class="delete-custom-supply" type="button" data-delete-custom-supply="${esc(item.id)}">Eintrag löschen</button>` : ""}</form><em>Eigene Einträge werden offline gespeichert und mit deinem Konto synchronisiert. Sie verändern den RedScore nicht.</em></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal supply-modal custom-supply-modal"><button class="modal-close" data-close-modal>×</button>${icon(customSupplyIcon(selectedCategory),"modal-icon")}<small>PERSÖNLICHER VORRAT</small><h2>${item ? "Eigenen Eintrag bearbeiten" : "Eigenen Vorrat hinzufügen"}</h2><p>Ergänze Dinge, die für deinen Haushalt wichtig sind, mit ihrer tatsächlichen Menge.</p><form data-custom-supply-form="${item ? esc(item.id) : "new"}"><label><span>Bezeichnung</span><input name="label" value="${esc(item?.label || "")}" maxlength="80" placeholder="z. B. Babynahrung" required></label><label><span>Kategorie</span><select name="category" required>${customSupplyCategories.map(category => `<option value="${category}" ${category === selectedCategory ? "selected" : ""}>${category}</option>`).join("")}</select></label><div class="custom-supply-quantity"><label><span>Menge</span><input name="quantity" type="text" maxlength="20" inputmode="decimal" aria-describedby="quantity-input-hint" value="${item ? esc(item.quantity) : ""}" placeholder="0" required></label><label><span>Einheit</span><input name="unit" list="supply-unit-options" value="${esc(item?.unit || "Stück")}" maxlength="30" placeholder="Stück" required><datalist id="supply-unit-options"><option value="Stück"><option value="Liter"><option value="kg"><option value="g"><option value="Packungen"><option value="Dosen"><option value="Flaschen"><option value="Tage"><option value="Sets"></datalist></label></div><small id="quantity-input-hint" class="quantity-input-hint">Komma oder Punkt als Dezimaltrennzeichen, keine Tausendertrennzeichen. Maximal 999999.</small><label><span>Notiz (optional)</span><input name="note" value="${esc(item?.note || "")}" maxlength="160" placeholder="z. B. kühl und trocken lagern"></label><button class="green full">Eintrag speichern</button>${item ? `<button class="delete-custom-supply" type="button" data-delete-custom-supply="${esc(item.id)}">Eintrag löschen</button>` : ""}</form><em>Eigene Einträge werden offline gespeichert und mit deinem Konto synchronisiert. Sie verändern den RedScore nicht.</em></section></div>`;
   }
   if (state.ui.modal.startsWith("supply:")) {
     const id = state.ui.modal.split(":")[1], group = supplyGroups.find(g => g.id === id), value = state.supplies[id];
@@ -1158,6 +1237,7 @@ function render() {
   const oldDialog = app.querySelector(".modal");
   const active = document.activeElement;
   const sameDialog = oldDialog && renderedModal === state.ui.modal && renderedModalLanguage === getLanguage();
+  if (formError?.modal !== state.ui.modal) formError = null;
   const fields = sameDialog ? [...oldDialog.querySelectorAll("input,select,textarea")].map(field => ({ name: field.name, value: field.value, checked: field.checked })) : [];
   const oldScroll = oldDialog?.scrollTop || 0;
   const focusName = sameDialog && oldDialog.contains(active) ? active.name : null;
@@ -1183,15 +1263,23 @@ function render() {
     }
     if (sameDialog) dialog.scrollTop = oldScroll;
     if (state.ui.modal === "onboarding") {
-      const count = Number(dialog.querySelector('[name="adultCount"]')?.value || 1);
-      dialog.querySelectorAll("[data-adult-index]").forEach((label, index) => { label.hidden = index >= count; });
+      updateAdultIdentities(dialog.querySelector("form"));
+      updateChildIdentities(dialog.querySelector("form"));
     }
     const waterForm = dialog.querySelector('form[data-supply-form="water"]');
     if (waterForm) updateWaterMode(waterForm);
+    const dialogForm = dialog.querySelector("form");
+    if (dialogForm) {
+      const feedback = document.createElement("p");
+      feedback.id = "dialog-form-error"; feedback.className = "form-error"; feedback.dataset.formError = "";
+      feedback.setAttribute("role", "alert"); feedback.tabIndex = -1; feedback.hidden = true;
+      dialogForm.prepend(feedback);
+    }
   }
   app.querySelector(".public-page,.logged-page")?.toggleAttribute("inert", Boolean(dialog));
   document.body.classList.toggle("modal-open", Boolean(dialog));
   applyLanguage(app);
+  updateFormFeedback(dialog?.querySelector("form"));
   updateSyncStatus();
   const findControl = attributes => [...app.querySelectorAll("button,a,input,select,textarea")].find(element => attributes.length && attributes.every(([name,value]) => element.getAttribute(name) === value));
   let nextFocus = focusName ? [...(dialog?.querySelectorAll("input,select,textarea") || [])].find(input => input.name === focusName) : findControl(focusAttributes);
@@ -1352,6 +1440,8 @@ app.addEventListener("click", async event => {
 app.addEventListener("submit", async event => {
   event.preventDefault();
   const form = event.target;
+  formError = null;
+  updateFormFeedback(form);
   if (form.dataset.authForm) {
     if (accountBusy) return;
     const formData = new FormData(form);
@@ -1363,7 +1453,7 @@ app.addEventListener("submit", async event => {
       await loadAccount();
       state.ui.modal = state.profile.onboardingCompleted ? null : "onboarding";
       location.hash = "#/home"; render();
-    } catch (error) { toast(error instanceof Error ? error.message : "Anmeldung nicht möglich."); }
+    } catch (error) { reportFormError(app.querySelector(".modal form"), null, error instanceof Error ? error.message : "Anmeldung nicht möglich."); }
     finally { accountBusy = false; render(); }
     return;
   }
@@ -1374,12 +1464,15 @@ app.addEventListener("submit", async event => {
     const petTypes = ["dog", "cat", "bird", "small_animal", "fish", "reptile", "other"];
     const pets = petTypes.map(type => ({ type, count: clamp(Math.floor(Number(formData.get(`pet_${type}`))) || 0, 0, 20), label: "" })).filter(pet => pet.count > 0);
     const children = clamp(Math.floor(Number(formData.get("children"))) || 0, 0, 12);
+    const childDetails = normalizeChildDetails(children, Array.from({ length: children }, (_, index) => ({ gender: String(formData.get(`childGender${index}`) || "unspecified") })));
+    const missingChild = childDetails.findIndex(child => !["girl", "boy"].includes(child.gender));
+    if (missingChild !== -1) return reportFormError(form, `childGender${missingChild}`, "Bitte für jedes Kind weiblich oder männlich auswählen.");
     state.profile.name = String(formData.get("displayName") || "").trim();
     state.profile.initials = initials(state.profile.name);
     state.profile.onboardingCompleted = true;
-    state.profile.selectedScene = chooseScene(adults, children);
+    state.profile.selectedScene = chooseScene(adults, children, childDetails);
     state.household = {
-      adults, children, pets, postalCode: String(formData.get("postalCode") || "").trim(), city: String(formData.get("city") || "").trim(),
+      adults, children, childDetails, pets, postalCode: String(formData.get("postalCode") || "").trim(), city: String(formData.get("city") || "").trim(),
       state: String(formData.get("state") || "").trim(), district: String(formData.get("district") || "").trim(),
       location: `${String(formData.get("postalCode") || "").trim()} ${String(formData.get("city") || "").trim()}`.trim(),
     };
@@ -1392,11 +1485,17 @@ app.addEventListener("submit", async event => {
   }
   if (form.dataset.supplyForm) {
     const group = supplyGroups.find(item => item.id === form.dataset.supplyForm);
+    if (!group) return;
     const formData = new FormData(form);
+    const direct = formData.get("quantityMode") === "liters";
+    const field = group.inputMode === "packages" ? direct ? "liters" : "containerCount" : "value";
+    const count = parseQuantity(formData.get("containerCount"), 200, true);
+    const size = Number(formData.get("containerSize"));
     const value = group.inputMode === "packages"
-      ? formData.get("quantityMode") === "liters" ? Number(formData.get("liters")) : Number(formData.get("containerCount")) * Number(formData.get("containerSize"))
-      : Number(formData.get("value"));
-    if (!Number.isFinite(value) || value < 0 || value > (group.max || 1)) return toast("Bitte eine gültige Menge eingeben.");
+      ? direct ? parseQuantity(formData.get("liters"), group.max) : group.packageSizes.includes(size) ? count * size : NaN
+      : parseQuantity(formData.get("value"), group.max || 1, group.inputMode === "days");
+    if (!Number.isFinite(value) || value > (group.max || 1)) return reportFormError(form, field, group.inputMode === "days" || (group.inputMode === "packages" && !direct) ? "Bitte eine ganze Zahl innerhalb des angegebenen Bereichs eingeben." : "Bitte eine gültige Menge innerhalb des angegebenen Bereichs eingeben.");
+    if (group.inputMode === "level" && ![0, 0.5, 1].includes(value)) return reportFormError(form, "value", "Bitte einen Ausstattungsstand auswählen.");
     state.supplies[form.dataset.supplyForm] = value;
     if (group.inputMode === "packages") state.supplyDetails[group.id] = formData.get("quantityMode") === "liters" ? { mode: "liters" } : { mode: "packages", containerCount: Number(formData.get("containerCount")), containerSize: Number(formData.get("containerSize")) };
     state.ui.modal = null; save(); toast("Tatsächlicher Bestand gespeichert."); return render();
@@ -1406,13 +1505,14 @@ app.addEventListener("submit", async event => {
     const label = String(formData.get("label") || "").trim().slice(0, 80);
     const categoryValue = String(formData.get("category") || "");
     const category = customSupplyCategories.includes(categoryValue) ? categoryValue : "Sonstiges";
-    const quantity = Number(formData.get("quantity"));
+    const quantity = parseQuantity(formData.get("quantity"), 999999);
     const unit = String(formData.get("unit") || "").trim().slice(0, 30);
     const note = String(formData.get("note") || "").trim().slice(0, 160);
-    if (!label || !unit || !Number.isFinite(quantity) || quantity < 0 || quantity > 999999) return toast("Bitte Bezeichnung, Menge und Einheit vollständig angeben.");
+    if (!label || !unit) return reportFormError(form, !label ? "label" : "unit", "Bitte Bezeichnung und Einheit vollständig angeben.");
+    if (!Number.isFinite(quantity)) return reportFormError(form, "quantity", "Bitte eine Menge von 0 bis 999999 eingeben, z. B. 1,5. Keine Tausendertrennzeichen verwenden.");
     const items = normalizeCustomSupplies(state.customSupplies);
     const existingIndex = items.findIndex(item => item.id === form.dataset.customSupplyForm);
-    if (existingIndex < 0 && items.length >= 100) return toast("Du kannst bis zu 100 eigene Vorräte speichern.");
+    if (existingIndex < 0 && items.length >= 100) return reportFormError(form, null, "Du kannst bis zu 100 eigene Vorräte speichern.");
     const now = new Date().toISOString();
     const entry = { id: existingIndex >= 0 ? items[existingIndex].id : createCustomSupplyId(), label, category, quantity, unit, note, createdAt: existingIndex >= 0 ? items[existingIndex].createdAt : now, updatedAt: now };
     if (existingIndex >= 0) items[existingIndex] = entry; else items.push(entry);
@@ -1425,21 +1525,20 @@ app.addEventListener("submit", async event => {
 });
 
 app.addEventListener("input", event => {
+  if (formError && event.target.name === formError.field) { formError = null; updateFormFeedback(event.target.closest("form")); }
   if (event.target.matches('input[name="adultCount"]')) {
-    const count = clamp(Number(event.target.value) || 1, 1, 8);
-    event.target.closest("form")?.querySelectorAll("[data-adult-index]").forEach((label, index) => {
-      label.hidden = index >= count;
-      const select = label.querySelector("select");
-      if (select) select.required = index < count;
-    });
+    updateAdultIdentities(event.target.closest("form"));
+  }
+  if (event.target.matches('input[name="children"]')) {
+    updateChildIdentities(event.target.closest("form"));
   }
   const form = event.target.closest('form[data-supply-form="water"]');
   if (!form) return;
-  const count = Number(form.elements.containerCount?.value);
+  const count = parseQuantity(form.elements.containerCount?.value, 200, true);
   const size = Number(form.elements.containerSize?.value);
   const output = form.querySelector("[data-supply-total]");
   const raw = form.elements.quantityMode?.value === "liters" ? form.elements.liters?.value : form.elements.containerCount?.value;
-  const total = form.elements.quantityMode?.value === "liters" ? Number(raw) : count * size;
+  const total = form.elements.quantityMode?.value === "liters" ? parseQuantity(raw, 1000) : count * size;
   if (output) output.textContent = translateText(raw !== "" && Number.isFinite(total) ? `Gesamt: ${fmt(total)} Liter` : "Gesamtmenge wird beim Speichern berechnet");
 });
 
