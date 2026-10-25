@@ -4,8 +4,8 @@ const ALLOWED_CHILD_GENDERS = new Set(["girl", "boy", "unspecified"]);
 const ALLOWED_PETS = new Set(["dog", "cat", "bird", "small_animal", "fish", "reptile", "other"]);
 const ALLOWED_SUPPLY_CATEGORIES = new Set(["Versorgung", "Gesundheit", "Haushalt", "Sonstiges"]);
 
-function json(status, payload) {
-  return Response.json(payload, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" } });
+function json(status, payload, headers = {}) {
+  return Response.json(payload, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", ...headers } });
 }
 
 function configuration() {
@@ -109,9 +109,22 @@ export async function POST(request) {
   let input;
   try { input = await body(request); }
   catch { return json(400, { error: "Ungültige Anfrage." }); }
+  if (!input || typeof input !== "object" || Array.isArray(input)) return json(400, { error: "Ungültige Anfrage." });
   const action = String(input.action || "");
 
   try {
+    if (action === "resend_confirmation") {
+      const email = String(input.email || "").trim().toLowerCase();
+      if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "Bitte eine gültige E-Mail-Adresse eingeben." });
+      const { result, payload } = await upstream(config, `/auth/v1/resend?redirect_to=${encodeURIComponent(config.confirmationUrl)}`, {
+        method: "POST", body: JSON.stringify({ type: "signup", email }),
+      });
+      if (result.status === 429) return json(429, { error: "Bitte warte mindestens eine Minute, bevor du erneut eine Bestätigung anforderst." }, { "retry-after": "60" });
+      // Never disclose whether this address is registered or already confirmed.
+      const accountStateCode = [400,404,422].includes(result.status) && ["user_not_found", "email_exists", "user_already_exists", "email_already_confirmed"].includes(payload.code || payload.error_code);
+      if (!result.ok && !accountStateCode) return json(503, { error: "Die Bestätigung kann gerade nicht angefordert werden. Bitte versuche es später erneut." });
+      return json(200, { ok: true, retryAfter: 60 });
+    }
     if (action === "sign_up" || action === "sign_in") {
       const email = String(input.email || "").trim().toLowerCase().slice(0, 254);
       const password = String(input.password || "");

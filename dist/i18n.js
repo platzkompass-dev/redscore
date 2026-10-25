@@ -1,6 +1,16 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Bestätigungsmail fehlt?": "Missing your confirmation email?",
+  "Fordere eine neue Bestätigung für deine Registrierung an. Du benötigst dafür kein Passwort.": "Request a new confirmation for your registration. You do not need a password.",
+  "Bestätigungsmail anfordern": "Request confirmation email",
+  "Falls für diese Adresse eine unbestätigte Registrierung vorliegt, erhältst du eine RedScore-Bestätigungsmail. Bitte prüfe auch den Spamordner. Bereits bestätigt? Du kannst dich direkt einloggen.": "If there is an unconfirmed registration for this address, you will receive a RedScore confirmation email. Please also check your spam folder. Already confirmed? You can log in directly.",
+  "Achte auf den Absender RedScore mit administration@redscore.de. Die Bestätigung erfolgt ausschließlich über den Link in der E-Mail.": "Look for the sender RedScore at administration@redscore.de. Confirmation takes place only through the link in the email.",
+  "Zurück zum Einloggen": "Back to login",
+  "Bitte eine gültige E-Mail-Adresse eingeben.": "Please enter a valid email address.",
+  "Bitte warte mindestens eine Minute, bevor du erneut eine Bestätigung anforderst.": "Please wait at least one minute before requesting another confirmation.",
+  "Die Bestätigung kann gerade nicht angefordert werden. Bitte versuche es später erneut.": "Confirmation cannot be requested right now. Please try again later.",
+  "Du bist offline. Zum Anfordern der Bestätigung brauchst du eine Internetverbindung.": "You are offline. An internet connection is required to request confirmation.",
   "Komma oder Punkt als Dezimaltrennzeichen, keine Tausendertrennzeichen. Maximal 1000 Liter.": "Use a decimal comma or point, without thousands separators. Maximum 1000 litres.",
   "Komma oder Punkt als Dezimaltrennzeichen, keine Tausendertrennzeichen. Maximal 999999.": "Use a decimal comma or point, without thousands separators. Maximum 999999.",
   "Bitte eine ganze Zahl innerhalb des angegebenen Bereichs eingeben.": "Enter a whole number within the specified range.",
@@ -732,6 +742,7 @@ export function translateText(value) {
     if (translatedCore) return `${decorated[1] || ""}${translatedCore}${decorated[3] || ""}`;
   }
   return source
+    .replace(/^Erneut anfordern in (\d+) Sek\.$/, "Request again in $1 sec.")
     .replace(/^Kind (\d+) – Geschlecht$/, "Child $1 – gender")
     .replace(/^Beantworte zuerst alle (\d+) Fragen\. Wir zeigen niemals einen erfundenen Beispielwert\.$/, "Answer all $1 questions first. We never display an invented example score.")
     .replace(/^(HOCH|MITTEL|NIEDRIG) · BBK-ORIENTIERT$/, (_, priority) => `${({ HOCH: "HIGH", MITTEL: "MEDIUM", NIEDRIG: "LOW" })[priority]} · BASED ON BBK GUIDANCE`)

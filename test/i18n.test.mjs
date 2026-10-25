@@ -40,6 +40,14 @@ test("translates child choices and numbered labels", () => {
   setLanguage("en");
 });
 
+test("translates confirmation self-service and its live cooldown", () => {
+  setLanguage("en");
+  assert.equal(translateText("Bestätigungsmail fehlt?"),"Missing your confirmation email?");
+  assert.equal(translateText("Erneut anfordern in 45 Sek."),"Request again in 45 sec.");
+  assert.equal(translateText("Bestätigungsmail anfordern →"),"Request confirmation email →");
+  assert.equal(translateText("Zurück zum Einloggen"),"Back to login");
+});
+
 test("keeps source-provided reports unchanged", () => {
   const report = "Amtliche WARNUNG vor STURMBÖEN";
   assert.equal(translateText(report), report);

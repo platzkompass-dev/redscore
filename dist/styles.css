@@ -225,3 +225,6 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 .child-identities p{grid-column:1/-1;margin:0;font-size:14px;line-height:1.5;letter-spacing:0}
 .child-identities label,.child-identities select{min-width:0;max-width:100%}
 @media(max-width:600px){.child-identities{grid-template-columns:minmax(0,1fr);padding:12px}}
+.modal .auth-help{display:block;width:100%;min-height:44px;margin-top:12px;padding:10px 12px;border:1px solid #a8becb;border-radius:8px;background:transparent;color:#06345b;font:inherit;font-size:14px;line-height:1.4;text-align:center;white-space:normal}
+.modal .auth-notice{padding:14px;border:1px solid #9bcbbb;border-radius:10px;background:#e7f6f0;color:#124b3a;font-size:14px;line-height:1.55;text-align:left;overflow-wrap:anywhere}
+.modal .auth-mail-hint{margin:16px 0 0;font-size:13px;line-height:1.55;text-align:left;overflow-wrap:anywhere}

@@ -22,6 +22,8 @@ http.createServer(async (request, response) => {
     if (url.pathname === "/api/account") {
       const chunks = []; for await (const chunk of request) chunks.push(chunk);
       const input = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+      if (input.action === "resend_confirmation") return json(response, 200, { ok: true, retryAfter: 60 }); // Mock only: never sends mail.
+      if (input.action === "sign_up") return json(response, 200, { confirmationRequired: true, session: null }); // Mock only: never creates an account.
       if (input.action === "sign_in") {
         if (input.email !== user.email) return json(response, 400, { error: "Development QA: use qa@example.test with a test-only password." });
         return json(response, 200, { user, session: { user, access_token: "development-access", refresh_token: "development-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600 } });

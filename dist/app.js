@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=6";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=21";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=22";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -187,6 +187,18 @@ let renderedModal = null;
 let renderedModalLanguage = null;
 let modalReturnFocus = null;
 let accountBusy = false;
+let authEmailDraft = "";
+let resendCooldownUntil = 0;
+let confirmationRequested = false;
+
+function resendSeconds() { return Math.max(0, Math.ceil((resendCooldownUntil - Date.now()) / 1000)); }
+function updateResendClock() {
+  const button = app.querySelector("[data-resend-submit]");
+  if (!button) return;
+  const seconds = resendSeconds();
+  button.disabled = accountBusy || seconds > 0;
+  button.textContent = translateText(accountBusy ? "Bitte warten …" : seconds ? `Erneut anfordern in ${seconds} Sek.` : "Bestätigungsmail anfordern →");
+}
 let languageMenuOpen = false;
 let deferredInstallPrompt = null;
 const INSTALL_DISMISSED_KEY = "redscore-install-prompt-dismissed-v1";
@@ -1189,7 +1201,10 @@ function modal() {
   }
   if (["login", "register"].includes(state.ui.modal)) {
     const register = state.ui.modal === "register";
-    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>SICHERES REDSCORE-KONTO</small><h2>${register ? "Kostenlos registrieren" : "Einloggen"}</h2><div class="auth-tabs"><button data-open-auth="login" class="${register ? "" : "active"}">Einloggen</button><button data-open-auth="register" class="${register ? "active" : ""}">Registrieren</button></div><form data-auth-form="${register ? "register" : "login"}">${register ? `<label><span>Name</span><input name="displayName" autocomplete="name" maxlength="80" required></label>` : ""}<label><span>E-Mail</span><input name="email" type="email" autocomplete="email" required></label><label><span>Passwort</span><input name="password" type="password" autocomplete="${register ? "new-password" : "current-password"}" minlength="8" required></label><button class="green full" ${accountBusy ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : register ? "Konto anlegen →" : "Einloggen →"}</button></form><em>${register ? "Nach der Registrierung richtest du deinen Haushalt inklusiv ein. Private Fotos werden nicht benötigt." : "Deine Daten werden zwischen deinen Geräten synchronisiert und bleiben offline verfügbar."}</em></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>SICHERES REDSCORE-KONTO</small><h2>${register ? "Kostenlos registrieren" : "Einloggen"}</h2><div class="auth-tabs"><button data-open-auth="login" class="${register ? "" : "active"}">Einloggen</button><button data-open-auth="register" class="${register ? "active" : ""}">Registrieren</button></div><form data-auth-form="${register ? "register" : "login"}">${register ? `<label><span>Name</span><input name="displayName" autocomplete="name" maxlength="80" required></label>` : ""}<label><span>E-Mail</span><input name="email" type="email" autocomplete="email" value="${esc(authEmailDraft)}" maxlength="254" required></label><label><span>Passwort</span><input name="password" type="password" autocomplete="${register ? "new-password" : "current-password"}" minlength="8" required></label><button class="green full" ${accountBusy ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : register ? "Konto anlegen →" : "Einloggen →"}</button></form><button type="button" class="auth-help" data-open-auth="resend">Bestätigungsmail fehlt?</button><em>${register ? "Nach der Registrierung richtest du deinen Haushalt inklusiv ein. Private Fotos werden nicht benötigt." : "Deine Daten werden zwischen deinen Geräten synchronisiert und bleiben offline verfügbar."}</em></section></div>`;
+  }
+  if (state.ui.modal === "resend") {
+    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>SICHERES REDSCORE-KONTO</small><h2>Bestätigungsmail fehlt?</h2><p>Fordere eine neue Bestätigung für deine Registrierung an. Du benötigst dafür kein Passwort.</p><form data-resend-form><label><span>E-Mail</span><input name="email" type="email" autocomplete="email" value="${esc(authEmailDraft)}" maxlength="254" required></label><button class="green full" data-resend-submit ${accountBusy || resendSeconds() ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : resendSeconds() ? `Erneut anfordern in ${resendSeconds()} Sek.` : "Bestätigungsmail anfordern →"}</button></form>${confirmationRequested ? `<p class="auth-notice" role="status">Falls für diese Adresse eine unbestätigte Registrierung vorliegt, erhältst du eine RedScore-Bestätigungsmail. Bitte prüfe auch den Spamordner. Bereits bestätigt? Du kannst dich direkt einloggen.</p>` : ""}<p class="auth-mail-hint">Achte auf den Absender RedScore mit administration@redscore.de. Die Bestätigung erfolgt ausschließlich über den Link in der E-Mail.</p><button type="button" class="auth-help" data-open-auth="login">Zurück zum Einloggen</button></section></div>`;
   }
   if (state.ui.modal === "onboarding") {
     const adults = state.household.adults?.length || 1;
@@ -1397,7 +1412,13 @@ app.addEventListener("click", async event => {
   if (button.matches("[data-live-refresh]")) return requestLiveLage(true);
   if (button.dataset.liveDetail) { state.ui.modal = `live:${button.dataset.liveDetail}`; return render(); }
   if (button.dataset.scroll) return document.querySelector("#"+button.dataset.scroll)?.scrollIntoView({ behavior: "smooth" });
-  if (button.dataset.openAuth) { state.ui.modal = button.dataset.openAuth; return render(); }
+  if (button.dataset.openAuth) {
+    if (accountBusy) return;
+    const email = app.querySelector('.modal input[name="email"]');
+    if (email) authEmailDraft = email.value;
+    state.ui.modal = button.dataset.openAuth;
+    return render();
+  }
   if (button.matches("[data-edit-household]")) { state.ui.modal = "onboarding"; return render(); }
   if (button.matches("[data-logout]")) {
     if (state.sync.pending && !globalThis.confirm(translateText("Es gibt noch nicht synchronisierte Änderungen auf diesem Gerät. Beim Abmelden werden sie entfernt. Trotzdem abmelden?"))) return;
@@ -1442,13 +1463,30 @@ app.addEventListener("submit", async event => {
   const form = event.target;
   formError = null;
   updateFormFeedback(form);
+  if (form.matches("[data-resend-form]")) {
+    if (accountBusy || resendSeconds()) return;
+    authEmailDraft = String(new FormData(form).get("email") || "").trim();
+    if (!navigator.onLine) return reportFormError(form, null, "Du bist offline. Zum Anfordern der Bestätigung brauchst du eine Internetverbindung.");
+    confirmationRequested = false;
+    accountBusy = true;
+    resendCooldownUntil = Date.now() + 60_000;
+    render();
+    try {
+      await accountRequest("resend_confirmation", { email: authEmailDraft }, "");
+      confirmationRequested = true;
+    } catch (error) {
+      reportFormError(app.querySelector("[data-resend-form]"), null, error instanceof Error ? error.message : "Die Bestätigung kann gerade nicht angefordert werden. Bitte versuche es später erneut.");
+    } finally { accountBusy = false; render(); }
+    return;
+  }
   if (form.dataset.authForm) {
     if (accountBusy) return;
     const formData = new FormData(form);
+    authEmailDraft = String(formData.get("email") || "").trim();
     accountBusy = true; render();
     try {
       const result = await accountRequest(form.dataset.authForm === "register" ? "sign_up" : "sign_in", { email: formData.get("email"), password: formData.get("password"), displayName: formData.get("displayName") });
-      if (result.confirmationRequired) { state.ui.modal = "login"; toast("Bitte bestätige zuerst die E-Mail und melde dich danach an."); return render(); }
+      if (result.confirmationRequired) { state.ui.modal = "resend"; confirmationRequested = true; resendCooldownUntil = Date.now() + 60_000; return render(); }
       persistSession(result.session);
       await loadAccount();
       state.ui.modal = state.profile.onboardingCompleted ? null : "onboarding";
@@ -1577,7 +1615,7 @@ document.addEventListener("keydown", event => {
   if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) { event.preventDefault(); first.focus(); }
 });
-liveClockTimer = setInterval(updateLiveClock, 1000);
+liveClockTimer = setInterval(() => { updateLiveClock(); updateResendClock(); }, 1000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 async function initialize() {
   const authRedirect = consumeAuthRedirect();

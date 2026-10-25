@@ -45,6 +45,10 @@ umgeleitet.
 ## Konten und Haushaltsmotive
 
 Supabase Auth übernimmt Registrierung, E-Mail-Bestätigung, Anmeldung und Sitzungen.
+Die gespeicherte RedScore-Bestätigungsmail, der aktivierte eigene SMTP-Versand und
+die zugestellte Testmail sind in `docs/auth-email.md` dokumentiert. Die Vorlage
+liegt zusätzlich in `supabase/templates/`; Änderungen dort müssen separat in das
+gehostete Supabase-Projekt übernommen werden.
 `user_profiles` speichert ausschließlich das eigene Profil und die freiwillige
 Haushaltskonstellation; `user_app_state` speichert Vorsorgeantworten und Bestände.
 Row-Level-Security beschränkt alle Zugriffe auf `auth.uid() = user_id`.
@@ -53,8 +57,9 @@ Menge, Einheit und Notiz ergänzen. Diese Einträge werden offline vorgehalten u
 `custom_supplies` kontogebunden synchronisiert, fließen aber nicht in den RedScore ein.
 
 Bei der Ersteinrichtung wird jede erwachsene Person freiwillig als Frau, Mann,
-divers/nichtbinär oder ohne Angabe erfasst. Kinder und Haustiere werden als Anzahl bzw.
-Art und Anzahl gespeichert. Die Auswahl des Bildmotivs bildet nur die angegebene
+divers/nichtbinär oder ohne Angabe erfasst. Für jedes Kind wird weiblich oder männlich
+ausgewählt; fehlende Altangaben werden nicht geraten. Haustiere werden mit Art und
+Anzahl gespeichert. Die Auswahl des Bildmotivs bildet nur die angegebene
 Personenkonstellation ab, nicht Beziehungsstatus oder sexuelle Orientierung. Bei einer
 nicht exakt abgedeckten Konstellation wird ein neutrales Motiv statt einer falschen
 Darstellung verwendet.
@@ -65,6 +70,10 @@ Der Live-Lage-Import verwendet ausschließlich strukturierte öffentliche Quelle
 
 - Deutscher Wetterdienst (DWD)
 - Global Disaster Alert and Coordination System (GDACS)
+- NASA EONET, USGS und NOAA/NWS für internationale Naturereignisse und Warnungen
+- Strukturierte BBK-/Behörden- und UN-News-Feeds sowie ein gefilterter Medienmonitor
 
 Weitere Quellen werden über das Adapter-System ergänzt. Im Ereignisfall haben immer
 amtliche Warnungen und behördliche Anweisungen Vorrang.
+
+Aktuelle Weiterentwicklung und verbliebene Aufgaben: `docs/open-points.md`.

@@ -74,6 +74,44 @@ test("requires a valid user token before profile data is loaded", async () => {
   assert.equal(response.status, 401);
 });
 
+test("resends confirmations only through the existing provider with a fixed RedScore redirect", async () => {
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY = "publishable-test-key";
+  let calls = [];
+  globalThis.fetch = async (url,options) => { calls.push({url:String(url),options}); return Response.json({}); };
+  const response = await POST(new Request("https://www.redscore.de/api/account", {
+    method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"resend_confirmation",email:"  PERSON@EXAMPLE.ORG  ",redirectTo:"https://evil.example",type:"recovery"}),
+  }));
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{ok:true,retryAfter:60});
+  assert.equal(calls.length,1);
+  const url = new URL(calls[0].url);
+  assert.equal(url.pathname,"/auth/v1/resend");
+  assert.equal(url.searchParams.get("redirect_to"),"https://www.redscore.de/?auth=confirmed");
+  assert.deepEqual(JSON.parse(calls[0].options.body),{email:"person@example.org",type:"signup"});
+  assert.equal(calls[0].options.headers.authorization,undefined);
+  assert.equal(response.headers.get("cache-control"),"no-store");
+});
+
+test("resend validation, privacy, provider throttling and failures", async () => {
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY = "publishable-test-key";
+  const send = value => POST(new Request("https://www.redscore.de/api/account", {method:"POST",body:JSON.stringify(value)}));
+  globalThis.fetch = () => { throw new Error("invalid input must not reach provider"); };
+  for (const value of [null,[],{action:"resend_confirmation",email:"bad"},{action:"resend_confirmation",email:`${"a".repeat(255)}@example.org`}]) assert.equal((await send(value)).status,400);
+  globalThis.fetch = async () => Response.json({code:"user_not_found",email:"private@example.org"},{status:404});
+  assert.deepEqual(await (await send({action:"resend_confirmation",email:"unknown@example.org"})).json(),{ok:true,retryAfter:60});
+  globalThis.fetch = async () => Response.json({msg:"provider detail"},{status:429});
+  const limited = await send({action:"resend_confirmation",email:"person@example.org"});
+  assert.equal(limited.status,429);
+  assert.equal(limited.headers.get("retry-after"),"60");
+  assert.doesNotMatch(await limited.text(),/provider detail/);
+  globalThis.fetch = async () => Response.json({msg:"SMTP secret detail"},{status:500});
+  const failure = await send({action:"resend_confirmation",email:"person@example.org"});
+  assert.equal(failure.status,503);
+  assert.doesNotMatch(await failure.text(),/SMTP secret/);
+});
+
 test("normalizes per-child image metadata while retaining legacy account compatibility", async () => {
   process.env.SUPABASE_URL = "https://example.supabase.co";
   process.env.SUPABASE_ANON_KEY = "publishable-test-key";

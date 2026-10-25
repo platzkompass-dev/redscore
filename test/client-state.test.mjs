@@ -33,6 +33,52 @@ function client(options = {}) {
   return { run, storage, timers, context, app, syncText, syncButton, syncRegion, liveElements, windowEvents, appEvents };
 }
 
+test("resend self-service makes one request, keeps the session and enforces its cooldown", async () => {
+  let resolveRequest, requests = [];
+  const c = client({fetch: async (_url, options) => { requests.push(JSON.parse(options.body)); return new Promise(resolve => { resolveRequest = resolve; }); }});
+  c.context.FormData = class { get() { return "person@example.org"; } };
+  c.run("state.ui.modal='resend'");
+  const form = { matches: selector => selector === "[data-resend-form]", querySelectorAll: () => [], querySelector: () => null };
+  const pending = c.appEvents.get("submit")({preventDefault(){},target:form});
+  assert.equal(c.run("accountBusy"),true);
+  await c.appEvents.get("submit")({preventDefault(){},target:form});
+  assert.equal(requests.length,1);
+  assert.deepEqual(requests[0],{action:"resend_confirmation",email:"person@example.org"});
+  resolveRequest(Response.json({ok:true,retryAfter:60}));
+  await pending;
+  assert.equal(c.run("confirmationRequested"),true);
+  assert.equal(c.run("session.access_token"),"test-access");
+  assert.equal(c.run("accountBusy"),false);
+  assert.ok(c.run("resendSeconds()") > 0);
+  await c.appEvents.get("submit")({preventDefault(){},target:form});
+  assert.equal(requests.length,1);
+  assert.match(c.run("modal()"),/Falls für diese Adresse eine unbestätigte Registrierung/);
+});
+
+test("offline resend shows a clear error without attempting mail delivery", async () => {
+  const c = client({online:false});
+  c.context.FormData = class { get() { return "person@example.org"; } };
+  c.run("state.ui.modal='resend'");
+  const feedback = {textContent:"",hidden:true,focus(){}};
+  const form = {matches:selector=>selector==="[data-resend-form]",querySelectorAll:()=>[],querySelector:()=>feedback};
+  await c.appEvents.get("submit")({preventDefault(){},target:form});
+  assert.match(feedback.textContent,/Du bist offline/);
+  assert.equal(c.run("resendSeconds()"),0);
+  assert.equal(c.run("confirmationRequested"),false);
+});
+
+test("confirmation countdown unlocks the existing button without rebuilding the form", () => {
+  const c = client();
+  const button = {disabled:false,textContent:""};
+  c.app.querySelector = selector => selector === "[data-resend-submit]" ? button : null;
+  c.run("resendCooldownUntil=Date.now()+30_000;updateResendClock()");
+  assert.equal(button.disabled,true);
+  assert.match(button.textContent,/Erneut anfordern in 30 Sek/);
+  c.run("resendCooldownUntil=0;updateResendClock()");
+  assert.equal(button.disabled,false);
+  assert.equal(button.textContent,"Bestätigungsmail anfordern →");
+});
+
 test("child controls offer only female and male, without inferring missing values", () => {
   const c = client();
   c.run("state.household.children=1; state.household.childDetails=[]");

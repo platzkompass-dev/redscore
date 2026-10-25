@@ -1,4 +1,26 @@
-# RedScore Qualitätsprüfung — 9. Oktober 2026
+# RedScore Qualitätsprüfung
+
+## Bestätigungsmail-Selbstbedienung — 25. Oktober 2026
+
+**Ablauf:** Einloggen / Registrierung → Bestätigung anfordern → bestehende Konto-API
+→ Supabase-Resend-Endpunkt → bedingte Rückmeldung mit 60-Sekunden-Countdown.
+
+| Grenze | Prüfung |
+| --- | --- |
+| Oberfläche | Lokaler Headless-Edge-Test mit 390, 768 und 1440 Pixeln; keine horizontale Überbreite; Screenshots visuell geprüft. |
+| Client → API | Nur Aktion und E-Mail, kein Passwort oder frei vorgegebenes Rückleitungsziel; mehrfaches Absenden während Anfrage und Wartezeit blockiert. |
+| API → Provider | Regressionstest prüft exakt `/auth/v1/resend`, `type: signup` und das serverseitige RedScore-Ziel mit simuliertem Provider. |
+| Provider → Antwort | Unbekannter Kontostatus bleibt generisch; Rate-Limits bleiben 429 mit Retry-After; Versandstörung ist kein Erfolg. |
+| Antwort → Oberfläche | Countdown entsperrt ohne Formular-Neuaufbau; Adresse bleibt beim Zurückwechseln erhalten; englische Texte und Offline-Fehler geprüft. |
+
+97 Node-Tests bestanden. Ratgeber-Build erfolgreich. Der lokale Haushalts-Browsertest
+wird zusätzlich als Regression ausgeführt. Keine neuen echten Konten angelegt,
+keine realen E-Mails versendet und keine SMTP-, RLS- oder DNS-Einstellungen verändert.
+Dies ersetzt keinen erneuten produktiven Zustell- und Linkklick-Test. Die vorhandene
+RedScore-Mailvorlage und ihre bisher lokalen Tests werden im Repository gesichert.
+Offene Folgeaufgaben stehen in `open-points.md`.
+
+## Ausgangsprüfung — 9. Oktober 2026
 
 ## Geprüfter Ablauf
 
