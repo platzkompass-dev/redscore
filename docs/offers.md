@@ -27,9 +27,12 @@ nicht Produktqualität, freie Plätze, Lieferbarkeit oder aktuelle Preise.
 
 ## Standort und Filter
 
-Der Abgleich bleibt vollständig im Browser. Profilstandort bei angemeldeten Nutzern,
-alternativ freiwillige Eingabe von PLZ und Ort; keine Browser-Ortungsberechtigung.
-Manuelle Angaben gelten nur während der aktuellen Sitzung und ändern kein Profil.
+Der Abgleich bleibt vollständig im Browser. Angemeldete Nutzer sehen keine PLZ-/
+Ortseingabe: Es zählt ausschließlich der aktuelle Standort aus den Einstellungen,
+auch wenn vor dem Login ein anderer Ort gesucht wurde. Eine Standortkarte führt
+bei Bedarf zum Profil; fehlende Angaben werden dort ergänzt.
+Nur Gäste erhalten die freiwillige PLZ-/Ortseingabe. Manuelle Gästeangaben gelten
+nur während der aktuellen Sitzung und ändern kein Profil. Keine Browser-Ortungsberechtigung.
 Anbieter werden erst durch ausdrückliches Öffnen des externen Links kontaktiert.
 
 Regionale Treffer verlangen einen passenden Ort samt bekannter PLZ oder einen

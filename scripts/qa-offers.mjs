@@ -68,6 +68,8 @@ try {
   await page.locator('.app-header').waitFor();
   await page.locator('.app-header [data-route="angebote"]').click();
   await page.locator('.offers-hero').waitFor();
+  assert.equal(await page.locator('[data-offers-location]').count(),0);
+  assert.match(await page.locator('.offers-profile-location').innerText(),/YOUR SAVED LOCATION/);
   await page.setViewportSize({width:390,height:844}); await noOverflow();
   assert.equal(await page.locator('.app-header nav button').count(),7);
   const bounds=await page.locator('.app-header nav button').evaluateAll(buttons=>buttons.map(button=>({left:button.getBoundingClientRect().left,right:button.getBoundingClientRect().right,width:button.getBoundingClientRect().width})));

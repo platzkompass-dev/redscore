@@ -22,6 +22,7 @@ try {
     if(await step.count()===0) continue;
     await step.click();
     assert.equal(await page.locator('.scorelab-why-note').count(),0);
+    assert.doesNotMatch(await page.locator('.scorelab-why-modal').innerText(),/WARUM VORSORGE|WHY PREPARE/);
     assert.equal(await page.locator('.scorelab-result').count(),1);
     await page.locator('.modal [data-close-modal]').first().click();
   }

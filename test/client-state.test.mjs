@@ -370,7 +370,8 @@ test("simulation dialogs omit the removed detail box for every topic", () => {
     const html=c.run("modal()");
     assert.doesNotMatch(html,/scorelab-why-note|Darum zählt dieser Schritt/);
     assert.match(html,/scorelab-result/);
-    assert.match(html,/WARUM VORSORGE/);
+    assert.doesNotMatch(html,/WARUM VORSORGE|WHY PREPARE/);
+    assert.match(html,/scorelab-why-title/);
   }
 });
 
@@ -396,6 +397,46 @@ test("offers use the single actual household score and never a visitor example s
   assert.ok(c.app.innerHTML.includes(`<strong>${value}</strong>`));
   c.run("offersView.mode='online';renderOffers()");
   assert.equal(c.run("score()"),value);
+});
+
+test("signed-in offers always use the saved profile location instead of an earlier guest search", () => {
+  const c=client();
+  c.run("offersView.location={postalCode:'21680',city:'Stade'};state.authenticated=false;renderOffers()");
+  assert.match(c.app.innerHTML,/data-offers-location/);
+  c.run("state.authenticated=true;state.household.postalCode='10115';state.household.city='Berlin';renderOffers()");
+  assert.doesNotMatch(c.app.innerHTML,/data-offers-location|name="offerPostcode"|name="offerCity"/);
+  assert.match(c.app.innerHTML,/10115 Berlin/);
+  assert.doesNotMatch(c.app.innerHTML,/data-offer-id="johanniter-stade"/);
+  c.run("state.household.postalCode='69115';state.household.city='Heidelberg';renderOffers()");
+  assert.match(c.app.innerHTML,/69115 Heidelberg/);
+  assert.match(c.app.innerHTML,/data-offer-id="drk-heidelberg"/);
+  c.run("state.household.postalCode='';state.household.city='';renderOffers()");
+  assert.match(c.app.innerHTML,/Standort ergänzen/);
+  assert.doesNotMatch(c.app.innerHTML,/data-offers-location/);
+});
+
+test("map marker uses a valid town centre or selected destination and never missing coordinates at 0,0", () => {
+  const c=client();
+  for(const point of [null,{lat:null,lon:13.4},{lat:52.5,lon:''},{lat:91,lon:13.4},{lat:52,lon:181}]) {
+    assert.equal(c.run(`osmEmbed(${JSON.stringify(point)})`),"");
+  }
+  const centre=c.run("osmEmbed({lat:52.52,lon:13.4})");
+  assert.equal(new URL(centre).searchParams.get("marker"),"52.520000,13.400000");
+  const destination=c.run("osmEmbed({lat:52.52,lon:13.4},{lat:52.53,lon:13.42})");
+  assert.equal(new URL(destination).searchParams.get("marker"),"52.530000,13.420000");
+  assert.equal(new URL(c.run("osmEmbed({lat:52.52,lon:13.4},{lat:null,lon:13.42})")).searchParams.get("marker"),"52.520000,13.400000");
+  c.run("navigator.onLine=false");
+  assert.equal(c.run("osmEmbed({lat:52.52,lon:13.4})"),"");
+});
+
+test("map failures and missing profile locations are not presented as loading or empty search results", () => {
+  const c=client();
+  c.run("requestNearbyPlaces=()=>{};state.household.postalCode='10115';state.household.city='Berlin';placesState={status:'error',key:'',places:[],center:null,error:'Ortsdaten nicht verfügbar'};renderMap()");
+  assert.match(c.app.innerHTML,/map-unavailable[^]*?<h3>Ortsdaten nicht verfügbar<\/h3>/);
+  assert.doesNotMatch(c.app.innerHTML,/Keine passenden Orte gefunden|<h3>Karte wird geladen<\/h3>/);
+  c.run("state.household.postalCode='';state.household.city='';renderMap()");
+  assert.match(c.app.innerHTML,/Standort ergänzen/);
+  assert.doesNotMatch(c.app.innerHTML,/Keine passenden Orte gefunden|<h3>Karte wird geladen<\/h3>/);
 });
 
 test("score lab click opens the matching explanation and retains its effect across renders", async () => {

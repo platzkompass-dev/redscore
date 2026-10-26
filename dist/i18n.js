@@ -1,6 +1,12 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "ORIENTIERUNG FÜR DEINEN ALLTAG UND DEN ERNSTFALL": "FIND YOUR WAY IN EVERYDAY LIFE AND EMERGENCIES",
+  "Deine Umgebung. Klar im Blick.": "Your area. Clearly mapped.",
+  "Apotheken, Versorgung und wichtige Anlaufstellen rund um deinen gespeicherten Standort. Als Schutzraum gilt ein Ort nur, wenn er ausdrücklich so gekennzeichnet ist.": "Pharmacies, supplies and important services around your saved location. A place is only listed as a shelter if it is explicitly designated as one.",
+  "Was suchst du?": "What are you looking for?",
+  "Bitte versuche es später erneut oder prüfe den hinterlegten Standort.": "Please try again later or check your saved location.",
+  "Startpunkt: Ortsmittelpunkt deines gespeicherten Standorts": "Starting point: town centre of your saved location",
   "Angebote": "Offers",
   "Das Passwort konnte nicht geändert werden. Bitte versuche es später erneut.": "The password could not be changed. Please try again later.",
   "Passwort vergessen?": "Forgot your password?",

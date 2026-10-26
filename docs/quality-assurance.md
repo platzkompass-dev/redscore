@@ -1,5 +1,31 @@
 # RedScore Qualitätsprüfung
 
+## Profilstandort und SafePlaces — 26. Oktober 2026
+
+- Angebote zeigen eingeloggt ausschließlich den aktuellen Profilstandort als
+  Standortkarte. Keine PLZ-/Ortseingabe; eine vorherige Gast-Suche wird ignoriert.
+  Der Verwalten-Button führt zu den vorhandenen Einstellungen.
+- SafePlaces erhält einen kompakten Kopfbereich, Standortkarte mit PLZ / Ort /
+  Region, Datenstand und Aktionen, eine geordnete Filterleiste und Kartenwerkzeuge.
+  Die Karte kennzeichnet Ortsmittelpunkt und Routenziel; keine GPS-Genauigkeit wird
+  behauptet. „Standort zeigen“ setzt die Ansicht auf den gespeicherten Ort zurück.
+- Fehlende Koordinaten erzeugen keine Markierung bei 0,0. Fehlender Standort,
+  Ladezustand, Dienstfehler und gespeicherte Offline-Daten sind unterscheidbar.
+- „WARUM VORSORGE?“ ist aus allen fünf Simulations-Popups entfernt. Erklärung,
+  Beispiel-Score und Schließen bleiben erhalten.
+- **116 Unit-/Regressionstests bestanden**, Ratgeber-Build erfolgreich.
+- `qa-location-map.mjs`: Standortänderung über die Einstellungen → aktualisierte
+  Angebote → Kartenabfrage mit neuer PLZ → Route innerhalb RedScore → zurück zum
+  Ortsmittelpunkt → Offline-Liste erfolgreich geprüft. 360 / 390 / 768 / 1440 px
+  ohne Dokumentüberbreite, DE/EN und keine neuen Tabs bei Routenwahl.
+- `qa-offers.mjs` und `qa-password-reset.mjs` ebenfalls erfolgreich, einschließlich
+  Offline-Neuladen und entfernter Popup-Beschriftung. Keine Browser-Scriptfehler.
+- Karten-/Routenanbieter werden im Layout-/Vertragstest durch eindeutig benannte
+  Development-Antworten ersetzt. Dies belegt keine aktuelle Provider-Verfügbarkeit.
+  Keine echten Profile oder Passwörter wurden für diese Tests geändert.
+
+Browserbilder: `%TEMP%/redscore-location-map-qa` (synthetische Testdaten).
+
 ## Angebote, Navigation und Recovery — 26. Oktober 2026
 
 - `node --test`: **113 Tests bestanden**. `npm run build:guides`: acht Ratgeber
