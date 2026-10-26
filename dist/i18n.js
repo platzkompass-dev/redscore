@@ -1,6 +1,9 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Umgebungskarte und Ortsdaten": "Area map and place data",
+  "Für die Umgebungssuche werden Postleitzahl und Ort über unseren Server an Nominatim/OpenStreetMap übermittelt. Die Ortsdaten-Abfrage sendet den Ortsmittelpunkt an Overpass oder ersatzweise Photon (komoot). Dabei werden keine Kontodaten, Haushaltsangaben oder genauen Wohnadressen übermittelt. Beim Laden der eingebetteten Karte stellt dein Browser eine Verbindung zu OpenStreetMap her; dabei wird deine IP-Adresse technisch übertragen.": "For location searches, your postcode and town are sent through our server to Nominatim/OpenStreetMap. Place queries send the town centre to Overpass or, as a fallback, Photon (komoot). Account data, household details and exact home addresses are not sent. When loading the embedded map, your browser connects to OpenStreetMap, which technically receives your IP address.",
+  "Die Karte bleibt verfügbar. Die Ortsliste kann später erneut geladen werden.": "The map remains available. You can try loading the place list again later.",
   "ORIENTIERUNG FÜR DEINEN ALLTAG UND DEN ERNSTFALL": "FIND YOUR WAY IN EVERYDAY LIFE AND EMERGENCIES",
   "Deine Umgebung. Klar im Blick.": "Your area. Clearly mapped.",
   "Apotheken, Versorgung und wichtige Anlaufstellen rund um deinen gespeicherten Standort. Als Schutzraum gilt ein Ort nur, wenn er ausdrücklich so gekennzeichnet ist.": "Pharmacies, supplies and important services around your saved location. A place is only listed as a shelter if it is explicitly designated as one.",

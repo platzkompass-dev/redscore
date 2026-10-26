@@ -653,6 +653,25 @@ test("a successful empty SafePlaces response is cached without a request loop", 
   assert.equal(calls, 1);
 });
 
+test("a partial places response keeps the map visible without claiming zero matches or caching fake freshness", async () => {
+  let calls=0;
+  const c=client({fetch:async()=>{calls++;return Response.json({placesStatus:"unavailable",places:[],center:{lat:53.825248,lon:9.28872},generatedAt:null});}});
+  c.run("state.household.city='Freiburg (Elbe)';state.household.postalCode='21729'");
+  await c.run("requestNearbyPlaces()");c.run("renderMap()");
+  assert.equal(c.run("placesState.status"),"partial");assert.equal(c.run("placesState.fetchedAt"),null);
+  assert.match(c.app.innerHTML,/<iframe[^>]+openstreetmap/);
+  assert.match(c.app.innerHTML,/Orte im Umkreis/);assert.doesNotMatch(c.app.innerHTML,/Orte \(0\)|Keine passenden Orte gefunden/);
+  assert.equal(calls,1);assert.equal(JSON.parse(c.storage.get("redscore-nearby-places-v1")).listStatus,"unavailable");
+});
+
+test("a failed places refresh never replaces cached places or their timestamp with an empty fresh list", async () => {
+  const c=client({fetch:async()=>Response.json({placesStatus:"unavailable",places:[],center:{lat:52.52,lon:13.4},generatedAt:null})});
+  c.run("state.household.city='Berlin';state.household.postalCode='10115';placesState={status:'live',listStatus:'ready',key:mapLocationKey(),places:[{id:'cached',name:'Saved pharmacy'}],center:{lat:52.52,lon:13.4},fetchedAt:'2026-10-25T12:00:00Z'}");
+  await c.run("requestNearbyPlaces(true)");
+  assert.equal(c.run("placesState.places[0].id"),"cached");assert.equal(c.run("placesState.status"),"stale");
+  assert.equal(c.run("placesState.fetchedAt"),"2026-10-25T12:00:00Z");
+});
+
 test("supply progress contributes to the one score without manufacturing an incomplete score", () => {
   const c = client();
   assert.equal(c.run("score()"), null);

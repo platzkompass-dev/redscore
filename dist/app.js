@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=7";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=24";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=25";
 import { offerCatalog, offerCategories, offersCheckedAt, selectOffers } from "./offers.js?v=1";
 
 const app = document.querySelector("#app");
@@ -159,11 +159,12 @@ const placesCache = (() => {
   catch { return null; }
 })();
 let placesState = {
-  status: navigator.onLine ? "idle" : "offline",
+  status: navigator.onLine ? (placesCache?.listStatus === "unavailable" ? "partial" : placesCache?.listStatus === "stale" ? "stale" : "idle") : "offline",
   key: placesCache?.key || "",
   center: placesCache?.center || null,
   places: Array.isArray(placesCache?.places) ? placesCache.places : [],
   fetchedAt: placesCache?.fetchedAt || null,
+  listStatus: placesCache?.listStatus || "ready",
   error: null,
 };
 let placesRequest = null;
@@ -1130,14 +1131,14 @@ function mapLocationKey() {
   return [state.household.postalCode, state.household.city, state.household.state].filter(Boolean).join("|").toLowerCase();
 }
 function storePlacesCache() {
-  try { localStorage.setItem(PLACES_CACHE_KEY, JSON.stringify({ key: placesState.key, center: placesState.center, places: placesState.places, fetchedAt: placesState.fetchedAt })); }
+  try { localStorage.setItem(PLACES_CACHE_KEY, JSON.stringify({ key: placesState.key, center: placesState.center, places: placesState.places, fetchedAt: placesState.fetchedAt, listStatus: placesState.listStatus })); }
   catch { /* The online map remains usable without a local cache. */ }
 }
 async function requestNearbyPlaces(force = false) {
   const key = mapLocationKey();
   if (!state.authenticated || !state.household.city || !state.household.postalCode || placesRequest) return placesRequest;
   if (!navigator.onLine) { placesState.status = placesState.places.length && placesState.key === key ? "offline" : "error"; return; }
-  if (!force && placesState.key === key && placesState.fetchedAt && Date.now() - Date.parse(placesState.fetchedAt) < 6 * 60 * 60_000) return;
+  if (!force && !["stale", "unavailable"].includes(placesState.listStatus) && placesState.key === key && placesState.fetchedAt && Date.now() - Date.parse(placesState.fetchedAt) < 6 * 60 * 60_000) return;
   if (!force && placesAttempt.key === key && Date.now() - placesAttempt.at < 60_000) return;
   placesAttempt = { key, at: Date.now() };
   placesState.status = placesState.places.length && placesState.key === key ? "refreshing" : "loading";
@@ -1146,7 +1147,15 @@ async function requestNearbyPlaces(force = false) {
     .then(async response => {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Ortsdaten nicht verfügbar");
-      placesState = { status: "live", key, center: payload.center, places: Array.isArray(payload.places) ? payload.places : [], fetchedAt: payload.generatedAt || new Date().toISOString(), error: null };
+      const listStatus = ["ready", "stale", "unavailable"].includes(payload.placesStatus) ? payload.placesStatus : "ready";
+      const preserve = listStatus === "unavailable" && placesState.key === key && Boolean(placesState.fetchedAt);
+      placesState = {
+        status: preserve || listStatus === "stale" ? "stale" : listStatus === "unavailable" ? "partial" : "live",
+        key, center: payload.center || (placesState.key === key ? placesState.center : null),
+        places: preserve ? placesState.places : Array.isArray(payload.places) ? payload.places : [],
+        fetchedAt: preserve ? placesState.fetchedAt : listStatus === "unavailable" ? null : payload.generatedAt || new Date().toISOString(),
+        listStatus: preserve ? "stale" : listStatus, error: null,
+      };
       storePlacesCache();
     })
     .catch(error => { placesState.status = placesState.places.length && placesState.key === key ? "offline" : "error"; placesState.error = error instanceof Error ? error.message : "Ortsdaten nicht verfügbar"; })
@@ -1216,14 +1225,15 @@ function renderMap() {
   const categories = ["Alle", "Behörden", "Versorgung", "Gesundheit", "Hilfe", "Schutzräume"];
   const currentKey = mapLocationKey();
   const hasCurrentData = placesState.key === currentKey;
+  const listAvailable = hasCurrentData && placesState.listStatus !== "unavailable";
   const allPlaces = hasCurrentData ? placesState.places : [];
   const shown = allPlaces.filter(place => state.ui.mapFilter === "Alle" || place.category === state.ui.mapFilter);
   const location = [state.household.postalCode, state.household.city].filter(Boolean).join(" ") || "Standort nicht eingerichtet";
   const locationReady = /^\d{5}$/.test(String(state.household.postalCode || "")) && Boolean(state.household.city);
-  const pendingPlaces = locationReady && navigator.onLine && placesState.status !== "error" && (!hasCurrentData || placesState.status === "loading");
+  const pendingPlaces = locationReady && navigator.onLine && !["error", "partial"].includes(placesState.status) && (!hasCurrentData || placesState.status === "loading");
   const selectedPlace = allPlaces.find(place => place.id === mapRouteState.placeId) || null;
   const embed = hasCurrentData ? osmEmbed(placesState.center, selectedPlace) : "";
-  const mapStatus = !locationReady ? "Standort noch nicht eingerichtet" : !navigator.onLine ? (hasCurrentData && placesState.fetchedAt ? `Offline-Stand ${relativeTime(placesState.fetchedAt)}` : "Karte offline") : placesState.status === "error" ? (placesState.error || "Ortsdaten nicht verfügbar") : !hasCurrentData || placesState.status === "loading" ? "Orte werden geladen …" : placesState.status === "refreshing" ? "Ortsdaten werden aktualisiert …" : placesState.status === "offline" ? `${offerText("Gespeicherte Ortsliste", "Saved place list")} · ${relativeTime(placesState.fetchedAt)}` : `OpenStreetMap-Daten · ${relativeTime(placesState.fetchedAt)}`;
+  const mapStatus = !locationReady ? "Standort noch nicht eingerichtet" : !navigator.onLine ? (hasCurrentData && placesState.fetchedAt ? `Offline-Stand ${relativeTime(placesState.fetchedAt)}` : "Karte offline") : placesState.status === "error" ? (placesState.error || "Ortsdaten nicht verfügbar") : placesState.status === "partial" ? offerText("Karte verfügbar · Ortsliste vorübergehend nicht erreichbar", "Map available · place list temporarily unavailable") : !hasCurrentData || placesState.status === "loading" ? "Orte werden geladen …" : placesState.status === "refreshing" ? "Ortsdaten werden aktualisiert …" : ["offline", "stale"].includes(placesState.status) ? `${offerText("Gespeicherte Ortsliste", "Saved place list")} · ${relativeTime(placesState.fetchedAt)}` : `OpenStreetMap-Daten · ${relativeTime(placesState.fetchedAt)}`;
   const routeOverview = selectedPlace ? `<article class="route-overview ${mapRouteState.status}">
     <div>${icon(placeIcon(selectedPlace.category), "route-place-icon")}<span><small>ROUTENZIEL</small><b>${esc(selectedPlace.name)}</b><em>${esc(selectedPlace.address || selectedPlace.distanceLabel)}</em><small>Startpunkt: Ortsmittelpunkt deines gespeicherten Standorts</small></span></div>
     ${mapRouteState.status === "loading" ? `<p><i></i> Fahrtroute wird innerhalb von RedScore berechnet …</p>` : mapRouteState.status === "ready" ? `<p><strong>${routeDistance(mapRouteState.route.distanceMeters)}</strong><strong>${routeDuration(mapRouteState.route.durationSeconds)}</strong><small>PKW-Route · ${esc(mapRouteState.route.source)}</small></p>` : `<p class="route-error">${esc(mapRouteState.error || "Route nicht verfügbar")}</p>`}
@@ -1232,7 +1242,7 @@ function renderMap() {
   const content = `<section class="safeplaces-heading"><div><small>ORIENTIERUNG FÜR DEINEN ALLTAG UND DEN ERNSTFALL</small><h1>SafePlaces<span>Deine Umgebung. Klar im Blick.</span></h1><p>Apotheken, Versorgung und wichtige Anlaufstellen rund um deinen gespeicherten Standort. Als Schutzraum gilt ein Ort nur, wenn er ausdrücklich so gekennzeichnet ist.</p></div><span class="safeplaces-heading-mark" aria-hidden="true">${icon("map")}</span></section>
     <div class="safeplaces-workspace">${savedLocationCard({ map: true, status: mapStatus })}
     <div class="safeplaces-filter"><span>Was suchst du?</span><div class="filter-row wide">${categories.map(f => `<button data-map-filter="${f}" aria-pressed="${f===state.ui.mapFilter}" class="${f===state.ui.mapFilter?"active":""}">${f}</button>`).join("")}</div></div>
-    <div class="map-layout"><section class="place-list"><h2>Orte (${shown.length})</h2>${pendingPlaces && !shown.length ? `<div class="no-data map-loading"><span></span><h3>Karte wird vorbereitet</h3><p>Standort und relevante Infrastruktur werden sicher serverseitig abgefragt.</p></div>` : shown.length ? shown.map(place => `<article class="${place.id === mapRouteState.placeId ? "route-selected" : ""}">${icon(placeIcon(place.category),"place-icon")}<div><b>${esc(place.name)}</b><small>${esc(place.address || place.distanceLabel)}</small><em>${esc(place.category)} · ${esc(place.distanceLabel)} · OpenStreetMap</em></div><button data-map-route="${esc(place.id)}" aria-label="Route zu ${esc(place.name)} innerhalb von RedScore anzeigen">${place.id === mapRouteState.placeId ? "Ausgewählt" : "Route"} →</button></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>${!locationReady ? "Standort noch nicht eingerichtet" : !hasCurrentData ? "Ortsdaten nicht verfügbar" : "Keine passenden Orte gefunden"}</h3><p>${!locationReady ? "Ergänze Postleitzahl und Ort in deinen Haushaltsangaben." : !hasCurrentData ? "Bitte versuche es später erneut oder prüfe den hinterlegten Standort." : "Wechsle den Filter oder aktualisiere die Suche. Behördlich ausgewiesene Schutzräume sind in Deutschland nur lückenhaft erfasst."}</p></div>`}</section>
+    <div class="map-layout"><section class="place-list"><h2>${!listAvailable || pendingPlaces ? offerText("Orte im Umkreis", "Places nearby") : `Orte (${shown.length})`}</h2>${pendingPlaces && !shown.length ? `<div class="no-data map-loading"><span></span><h3>Karte wird vorbereitet</h3><p>Standort und relevante Infrastruktur werden sicher serverseitig abgefragt.</p></div>` : shown.length ? shown.map(place => `<article class="${place.id === mapRouteState.placeId ? "route-selected" : ""}">${icon(placeIcon(place.category),"place-icon")}<div><b>${esc(place.name)}</b><small>${esc(place.address || place.distanceLabel)}</small><em>${esc(place.category)} · ${esc(place.distanceLabel)} · OpenStreetMap</em></div><button data-map-route="${esc(place.id)}" aria-label="Route zu ${esc(place.name)} innerhalb von RedScore anzeigen">${place.id === mapRouteState.placeId ? "Ausgewählt" : "Route"} →</button></article>`).join("") : `<div class="no-data">${icon("home","big-icon")}<h3>${!locationReady ? "Standort noch nicht eingerichtet" : !listAvailable ? "Ortsdaten nicht verfügbar" : "Keine passenden Orte gefunden"}</h3><p>${!locationReady ? "Ergänze Postleitzahl und Ort in deinen Haushaltsangaben." : !listAvailable ? (embed ? "Die Karte bleibt verfügbar. Die Ortsliste kann später erneut geladen werden." : "Bitte versuche es später erneut oder prüfe den hinterlegten Standort.") : "Wechsle den Filter oder aktualisiere die Suche. Behördlich ausgewiesene Schutzräume sind in Deutschland nur lückenhaft erfasst."}</p></div>`}</section>
       <section class="real-map ${embed ? "online-map" : "offline-map"} ${selectedPlace ? "has-route" : ""}" aria-label="${selectedPlace ? `Route zu ${esc(selectedPlace.name)}` : "Karte wichtiger Anlaufstellen"}"><div class="map-canvas-toolbar"><div><b>${offerText("Umgebungskarte", "Area map")}</b><span>${esc(location)}</span></div><button class="outline" data-map-center ${!embed ? "disabled" : ""}>${offerText("Standort zeigen", "Show location")}</button></div><div class="map-canvas">${routeOverview}${embed ? `<iframe src="${embed}" title="${selectedPlace ? `OpenStreetMap mit Routenziel ${esc(selectedPlace.name)}` : `OpenStreetMap rund um ${esc(location)}`}" loading="lazy" referrerpolicy="no-referrer"></iframe><span class="map-marker-legend"><i></i>${selectedPlace ? offerText("Markierung: Routenziel", "Marker: destination") : offerText("Markierung: Ortsmittelpunkt", "Marker: town centre")}</span>` : `<div class="map-unavailable">${icon("map","big-icon")}<h3>${!locationReady ? "Standort noch nicht eingerichtet" : !navigator.onLine ? "Karte offline" : placesState.status === "error" ? "Ortsdaten nicht verfügbar" : "Karte wird geladen"}</h3><p>${!locationReady ? "Ergänze Postleitzahl und Ort in deinen Haushaltsangaben." : !navigator.onLine ? "Deine zuletzt gespeicherte Ortsliste bleibt verfügbar. Kartenkacheln benötigen eine Internetverbindung." : placesState.status === "error" ? "Bitte versuche es später erneut oder prüfe den hinterlegten Standort." : "Die Kartenansicht erscheint nach dem Ortsabgleich."}</p></div>`}</div></section>
     </div></div><p class="map-source-note">OpenStreetMap-Einträge sind Gemeinschaftsdaten und keine amtliche Bestätigung der Eignung im Katastrophenfall. Prüfe Öffnungszeiten und behördliche Hinweise.</p><div class="emergency-bar">⚠ <b>Im Ernstfall:</b> Aktuelle Warnmeldungen und behördliche Anweisungen haben Vorrang. <button data-route="warnschutz">Warnstatus prüfen →</button></div>`;
   app.innerHTML = loggedShell("map", content, "map-page");
@@ -1284,7 +1294,7 @@ function modal() {
     const page = state.ui.modal.slice(6);
     const contents = {
       about: ["Über RedScore", `<p>RedScore ist ein bürgerfreundliches Katastrophenvorbereitungssystem. Es verbindet persönliche Vorsorge, Vorratsplanung, verifizierte Anlaufstellen, Warnwege und eine strukturierte Lageübersicht.</p><p>RedScore ersetzt keine amtliche Warnung oder fachliche Beratung. Im Ereignisfall gelten die Anweisungen der zuständigen Behörden.</p>`],
-      privacy: ["Datenschutzhinweise", `<h3>Welche Daten verarbeitet werden</h3><p>Für das Konto werden E-Mail-Adresse, Anzeigename, freiwillige Haushaltsangaben, Standortangaben, Vorsorgeantworten und Bestände verarbeitet. Private Fotos werden weder angefordert noch verarbeitet.</p><h3>Zweck und Speicherung</h3><p>Die Daten dienen ausschließlich der personalisierten Vorsorgeplanung, Synchronisierung und Offline-Nutzung. Kontodaten werden bei Supabase in der EU gespeichert; die Webanwendung wird über Vercel bereitgestellt. Zusätzlich hält das Endgerät eine Offline-Kopie.</p><h3>Deine Rechte</h3><p>Du kannst Auskunft, Berichtigung, Löschung, Einschränkung oder Datenübertragbarkeit anfragen. Kontakt: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p><p>Die Live-Lage speichert keine privaten Profile in externen Feeds. Browser-Mitteilungen werden nur nach ausdrücklicher Freigabe aktiviert.</p>`],
+      privacy: ["Datenschutzhinweise", `<h3>Welche Daten verarbeitet werden</h3><p>Für das Konto werden E-Mail-Adresse, Anzeigename, freiwillige Haushaltsangaben, Standortangaben, Vorsorgeantworten und Bestände verarbeitet. Private Fotos werden weder angefordert noch verarbeitet.</p><h3>Zweck und Speicherung</h3><p>Die Daten dienen ausschließlich der personalisierten Vorsorgeplanung, Synchronisierung und Offline-Nutzung. Kontodaten werden bei Supabase in der EU gespeichert; die Webanwendung wird über Vercel bereitgestellt. Zusätzlich hält das Endgerät eine Offline-Kopie.</p><h3>Umgebungskarte und Ortsdaten</h3><p>Für die Umgebungssuche werden Postleitzahl und Ort über unseren Server an Nominatim/OpenStreetMap übermittelt. Die Ortsdaten-Abfrage sendet den Ortsmittelpunkt an Overpass oder ersatzweise Photon (komoot). Dabei werden keine Kontodaten, Haushaltsangaben oder genauen Wohnadressen übermittelt. Beim Laden der eingebetteten Karte stellt dein Browser eine Verbindung zu OpenStreetMap her; dabei wird deine IP-Adresse technisch übertragen.</p><h3>Deine Rechte</h3><p>Du kannst Auskunft, Berichtigung, Löschung, Einschränkung oder Datenübertragbarkeit anfragen. Kontakt: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p><p>Die Live-Lage speichert keine privaten Profile in externen Feeds. Browser-Mitteilungen werden nur nach ausdrücklicher Freigabe aktiviert.</p>`],
       imprint: ["Impressum", `<h3>Angaben gemäß § 5 DDG</h3><p><b>commit&amp;push Venture Builder</b><br>RedScore – Weil der Ernstfall nicht fragt, ob du bereit bist.</p><h3>Kontakt</h3><p>E-Mail: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a><br>Web: <a href="https://www.redscore.de">www.redscore.de</a></p><h3>Gerichtsstand</h3><p>Für Rechtsverhältnisse, bei denen eine Gerichtsstandsvereinbarung gesetzlich zulässig ist, ist die Hansestadt Stade als Gerichtsstand vereinbart. Gesetzlich zwingende Gerichtsstände bleiben unberührt.</p><h3>Verantwortung und Haftung</h3><p>RedScore bereitet öffentlich zugängliche Vorsorgeinformationen auf. Trotz sorgfältiger Prüfung besteht kein Anspruch auf Vollständigkeit oder ständige Aktualität. Amtliche Warnungen und behördliche Anweisungen haben Vorrang.</p>`],
     };
     const [title, content] = contents[page] || contents.about;

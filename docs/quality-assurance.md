@@ -1,5 +1,27 @@
 # RedScore Qualitätsprüfung
 
+## Echter Ortsdienst-Ausfall und Rückfall — 26. Oktober 2026
+
+- Produktiver Fehler für 21729 Freiburg (Elbe) reproduziert: HTTP 503 nach rund
+  neun Sekunden. Geocoder erfolgreich, Overpass wegen Überlastung nicht verfügbar.
+- Begrenzte Suchzeiten, Rückfall auf Photons Umgebungssuche, HTTP-/Warm-Instance-
+  Cache und gemeinsame Anfragen ergänzt. Keine neuen Secrets oder kostenpflichtigen
+  Dienste. Details und Nutzungsregeln: `safeplaces.md`.
+- Die echte korrigierte API-Funktion liefert 40 echte Orte für Freiburg (Elbe).
+  Unter anderem Polizei, Edeka, Adler Apotheke, Feuerwehr und Rettungswache.
+- Ein einzelner isolierter Edge-Prozess zeigte diese echten Treffer bei 390 und
+  1440 Pixeln. Danach wurden ein Listenausfall und ein Neuladen ohne lokale Liste
+  simuliert: gespeicherte Treffer bleiben erhalten, andernfalls bleibt der
+  Kartenmittelpunkt mit ehrlichem Listenausfall-Hinweis verfügbar.
+- **124 Tests bestanden**, Ratgeber-Build erfolgreich. Tests prüfen zusätzlich
+  Overpass-Timeout innerhalb HTTP 200, Photon-Filter, 20-km-Grenze, fehlende
+  Koordinaten, Cache-Alter und einen vollständigen Provider-Ausfall.
+- Die tatsächliche Kartenkachel-Verfügbarkeit wurde nicht erfolgreich bestätigt:
+  ein separater OSM-Embed-Aufruf meldete HTTP 429. Der Ortsdaten-Test behauptet
+  daher keine Verfügbarkeit der externen Basiskarte. Keine Umgehung dieser Grenze.
+- Kein echtes Konto verändert. Screenshot-/API-Belege:
+  `%TEMP%/redscore-places-recovery-qa`.
+
 ## Profilstandort und SafePlaces — 26. Oktober 2026
 
 - Angebote zeigen eingeloggt ausschließlich den aktuellen Profilstandort als
