@@ -48,6 +48,14 @@ test("translates confirmation self-service and its live cooldown", () => {
   assert.equal(translateText("Zurück zum Einloggen"),"Back to login");
 });
 
+test("translates password recovery forms and failure states", () => {
+  setLanguage("en");
+  assert.equal(translateText("Passwort vergessen?"),"Forgot your password?");
+  assert.equal(translateText("Neues Passwort speichern →"),"Save new password →");
+  assert.equal(translateText("Die beiden Passwörter stimmen nicht überein."),"The two passwords do not match.");
+  assert.equal(translateText("Der Rücksetz-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an."),"The reset link is invalid or has expired. Please request a new link.");
+});
+
 test("keeps source-provided reports unchanged", () => {
   const report = "Amtliche WARNUNG vor STURMBÖEN";
   assert.equal(translateText(report), report);

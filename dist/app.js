@@ -1,5 +1,6 @@
-import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=6";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=22";
+import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=7";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=23";
+import { offerCatalog, offerCategories, offersCheckedAt, selectOffers } from "./offers.js?v=1";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -190,14 +191,49 @@ let accountBusy = false;
 let authEmailDraft = "";
 let resendCooldownUntil = 0;
 let confirmationRequested = false;
+let passwordResetRequested = false;
+let passwordResetCompleted = false;
+let recoveryStatus = "idle";
+let recoveryContext = readRecoveryContext();
+const RECOVERY_ERROR = "Der Rücksetz-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.";
+
+function readRecoveryContext() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem("redscore-recovery-v1") || "null");
+    if (value && /^[A-Za-z0-9._~-]{1,8192}$/.test(value.accessToken) && Number.isFinite(value.expiresAt) && value.expiresAt > Date.now()) return { accessToken: value.accessToken, expiresAt: value.expiresAt };
+    sessionStorage.removeItem("redscore-recovery-v1");
+  } catch { /* Recovery can still continue in memory when browser storage is blocked. */ }
+  return null;
+}
+function clearRecoveryContext() {
+  recoveryContext = null;
+  recoveryStatus = "idle";
+  try { sessionStorage.removeItem("redscore-recovery-v1"); } catch { /* no persistent context */ }
+}
+async function validateRecoveryContext() {
+  if (!recoveryContext || recoveryContext.expiresAt <= Date.now()) { clearRecoveryContext(); recoveryStatus = "invalid"; return; }
+  if (!navigator.onLine) { recoveryStatus = "unavailable"; return; }
+  recoveryStatus = "checking";
+  const activeContext = recoveryContext;
+  try {
+    const result = await accountRequest("check_password_reset", {}, activeContext.accessToken);
+    if (recoveryContext !== activeContext) return;
+    authEmailDraft = result.user?.email || "";
+    recoveryStatus = "ready";
+  } catch (error) {
+    if (recoveryContext !== activeContext) return;
+    if ([400,401,403].includes(error.status)) { clearRecoveryContext(); recoveryStatus = "invalid"; }
+    else recoveryStatus = "unavailable";
+  }
+}
 
 function resendSeconds() { return Math.max(0, Math.ceil((resendCooldownUntil - Date.now()) / 1000)); }
 function updateResendClock() {
-  const button = app.querySelector("[data-resend-submit]");
+  const button = app.querySelector("[data-resend-submit]") || app.querySelector("[data-recovery-submit]");
   if (!button) return;
   const seconds = resendSeconds();
   button.disabled = accountBusy || seconds > 0;
-  button.textContent = translateText(accountBusy ? "Bitte warten …" : seconds ? `Erneut anfordern in ${seconds} Sek.` : "Bestätigungsmail anfordern →");
+  button.textContent = translateText(accountBusy ? "Bitte warten …" : seconds ? `Erneut anfordern in ${seconds} Sek.` : state.ui.modal === "forgot" ? "Rücksetz-Link anfordern →" : "Bestätigungsmail anfordern →");
 }
 let languageMenuOpen = false;
 let deferredInstallPrompt = null;
@@ -356,6 +392,18 @@ function consumeAuthRedirect() {
   const refreshToken = fragment.get("refresh_token");
   const confirmed = query.get("auth") === "confirmed";
   const failed = Boolean(query.get("error") || fragment.get("error"));
+  const recovery = fragment.get("type") === "recovery" || query.get("auth") === "recovery";
+  if (recovery) {
+    clearRecoveryContext();
+    if (!failed && /^[A-Za-z0-9._~-]{1,8192}$/.test(accessToken || "")) {
+      const expiresAt = Number(fragment.get("expires_at")) * 1000;
+      const expiresIn = Math.min(3600, Math.max(0, Number(fragment.get("expires_in")) || 3600));
+      recoveryContext = { accessToken, expiresAt: Number.isFinite(expiresAt) && expiresAt > 0 ? expiresAt : Date.now() + expiresIn * 1000 };
+      try { sessionStorage.setItem("redscore-recovery-v1", JSON.stringify(recoveryContext)); } catch { /* memory-only fallback */ }
+    }
+    history.replaceState(null, "", "/#/home");
+    return { recovery: true, confirmed: false, failed: failed || !recoveryContext };
+  }
   if (accessToken && refreshToken) {
     const expiresIn = Math.max(60, Number(fragment.get("expires_in")) || 3600);
     persistSession({
@@ -644,7 +692,7 @@ function hashRoute() {
   return route || "home";
 }
 function navigate(route) {
-  if (!state.authenticated && route !== "public") {
+  if (!state.authenticated && !["public", "angebote"].includes(route)) {
     state.ui.modal = "login";
     render();
     return;
@@ -653,7 +701,7 @@ function navigate(route) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-const routeLabel = route => ({ home: "Start", plan: "Mein Plan", packliste: "Notfallrucksack", supplies: "Vorräte", map: "SafePlaces", warnschutz: "Warnschutz", knowledge: "Wissen", profile: "Profil" })[route] || "Start";
+const routeLabel = route => ({ home: "Start", plan: "Mein Plan", packliste: "Notfallrucksack", supplies: "Vorräte", map: "SafePlaces", warnschutz: "Warnschutz", knowledge: "Informationen", angebote: "Angebote", profile: "Profil" })[route] || "Start";
 function languageControl() {
   const language = getLanguage();
   return `<div class="language-switcher"><button class="language-flag" data-language-toggle aria-label="${language === "de" ? "Sprache auswählen" : "Select language"}" aria-expanded="${languageMenuOpen}"><span class="flag-icon flag-${language}" aria-hidden="true"></span></button><div class="language-menu" ${languageMenuOpen ? "" : "hidden"}><button data-language="de" class="${language === "de" ? "active" : ""}"><span class="flag-icon flag-de" aria-hidden="true"></span> Deutsch</button><button data-language="en" class="${language === "en" ? "active" : ""}"><span class="flag-icon flag-en" aria-hidden="true"></span> English</button></div></div>`;
@@ -670,9 +718,9 @@ function footer(dark = false) {
   </footer>`;
 }
 
-function publicHeader() {
+function publicHeader(active = "home") {
   return `<header class="public-header">${brand(true)}<nav>
-    <button data-scroll="top" class="active">Start</button><button data-scroll="how">So funktioniert’s</button><a href="${publicGuideUrl()}">Wissen</a><button data-scroll="about">Über RedScore</button>
+    <button data-scroll="top" class="${active === "home" ? "active" : ""}">Start</button><button data-scroll="how">So funktioniert’s</button><a href="${publicGuideUrl()}">Informationen</a><a href="#/angebote" class="${active === "angebote" ? "active" : ""}" ${active === "angebote" ? 'aria-current="page"' : ""}>Angebote</a>
   </nav><div class="public-actions"><a class="search-button" href="${publicGuideUrl()}" aria-label="Wissen durchsuchen">⌕</a><button class="outline" data-open-auth="login">Einloggen</button><button class="green" data-open-auth="register">Kostenlos registrieren</button>${languageControl()}</div></header>`;
 }
 function categoryCard(iconName, title, copy, route) {
@@ -721,6 +769,38 @@ function loggedShell(active, content, pageClass = "") {
 function scoreRing(value, red = false) {
   if (value === null) return `<div class="score-ring empty"><div><small>DEIN STAND</small><strong>–</strong><span>nicht berechnet</span></div></div>`;
   return `<div class="score-ring ${red ? "danger" : ""}" style="--score:${value}"><div><small>DEIN STAND</small><strong>${value}</strong><span>von 100</span></div></div>`;
+}
+
+// This small editorial catalog ships with the offline shell. No location or
+// household information is sent to a vendor, and no live availability is implied.
+const offersView = { category: "all", mode: "all", location: null, error: "" };
+const offerText = (de, en) => getLanguage() === "en" ? en : de;
+function offersLocation() { return offersView.location || (state.authenticated ? state.household : {}); }
+function offerCard(item) {
+  const category = offerCategories.find(category => category.id === item.category);
+  const label = item.mode === "local" ? offerText("Regionaler Anbieter", "Regional provider") : item.mode === "finder" ? offerText("Bundesweiter Finder", "Germany-wide finder") : offerText("Online · standortunabhängig", "Online · any location");
+  return `<article class="offer-card" data-offer-id="${esc(item.id)}"><div class="offer-card-top">${icon(category.icon)}<span>${label}</span></div><small>${esc(item.provider)}</small><h3>${esc(getLanguage() === "en" ? item.en : item.de)}</h3><p>${esc(getLanguage() === "en" ? item.descriptionEn : item.descriptionDe)}</p>${item.city ? `<div class="offer-place">${esc(item.address || item.city)}</div>` : ""}<a class="outline" href="${esc(safeExternalUrl(item.url))}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">${item.mode === "finder" ? offerText("Beim Anbieter suchen", "Search with provider") : offerText("Anbieter ansehen", "View provider")} ↗</a><small class="offer-check">${offerText("Quelle geprüft", "Source checked")}: <time datetime="${item.checkedAt}">${new Date(`${item.checkedAt}T12:00:00Z`).toLocaleDateString(getLanguage() === "en" ? "en-GB" : "de-DE")}</time></small></article>`;
+}
+function renderOffers() {
+  const location = offersLocation();
+  const items = selectOffers({ ...offersView, location });
+  const value = state.authenticated ? score() : null;
+  const english = getLanguage() === "en";
+  const stale = !navigator.onLine || Date.now() - Date.parse(offersCheckedAt) > 90 * 86400000;
+  const finderFallback = offersView.mode === "local" || offersView.category === "regional";
+  const categoryButtons = offerCategories.map(category => `<button class="offer-category ${offersView.category === category.id ? "active" : ""}" data-offer-category="${category.id}" aria-pressed="${offersView.category === category.id}"><div class="offer-category-image" style="background-image:url('assets/${category.image}')">${icon(category.icon)}</div><strong>${english ? category.en : category.de}</strong><span>${english ? category.copyEn : category.copyDe}</span><b>${offerText("Entdecken", "Explore")} →</b></button>`).join("");
+  const content = `<section class="offers-hero"><div class="offers-hero-copy"><small>${offerText("ANGEBOTE FÜR DEINE VORSORGE", "OFFERS FOR YOUR PREPAREDNESS")}</small><h1>${offerText("Passende Angebote<br>für deinen", "Useful offers<br>for your")} <em>RedScore</em></h1><p>${offerText("Finde Kurse, Ausrüstung und Organisationen, die dir bei deiner persönlichen Vorsorge helfen. Regional, wo ein Angebot belegt ist. Online, wo dein Standort keine Rolle spielt.", "Find courses, equipment and organisations to help you prepare. Regional where a service is documented. Online where location does not matter.")}</p><button class="green link-button" data-offer-discover>${offerText("Angebote entdecken", "Discover offers")} ↓</button><div class="trust-row"><span>✓ ${offerText("Offizielle Anbieter-Seiten", "Official provider websites")}</span><span>✓ ${offerText("Keine Affiliate-Links", "No affiliate links")}</span></div></div><aside class="offers-score">${scoreRing(value)}<h2>${offerText("Deine Vorsorge. Dein nächster Schritt.", "Your preparedness. Your next step.")}</h2><p>${value === null ? offerText("Dein persönlicher Score entsteht nach dem Vorsorge-Check. Du kannst alle Angebote auch ohne Anmeldung entdecken.", "Your personal score is calculated after your preparedness check. Explore all offers without signing in.") : offerText("Das ist derselbe Score wie auf deiner Startseite. Ein Kauf erhöht deinen Score nicht automatisch.", "This is the same score as on your home page. A purchase does not automatically increase it.")}</p>${value === null ? `<button class="outline" ${state.authenticated ? "data-open-assessment" : 'data-open-auth="register"'}>${offerText("Kostenlos Vorsorge prüfen", "Check your preparedness for free")} →</button>` : `<button class="outline" data-route="supplies">${offerText("Eigenen Bedarf prüfen", "Check what you need")} →</button>`}</aside></section>
+  <section class="offers-content"><div class="offers-section-title"><div><small>${offerText("KATEGORIEN", "CATEGORIES")}</small><h2>${offerText("Gezielt besser vorbereitet", "Prepare with a purpose")}</h2></div><button class="outline" data-offer-reset>${offerText("Alle Angebote", "All offers")}</button></div><div class="offer-categories">${categoryButtons}</div>
+  <section id="offers-results" class="offers-results" aria-label="${offerText("Angebote filtern", "Filter offers")}"><div class="offers-filter-bar"><div role="group" aria-label="${offerText("Angebotsart", "Offer type")}">${[["all","Alle","All"],["online","Online","Online"],["local","In deiner Nähe","Near you"]].map(([id,de,en]) => `<button data-offer-mode="${id}" aria-pressed="${offersView.mode === id}" class="${offersView.mode === id ? "active" : ""}">${offerText(de,en)}</button>`).join("")}</div><p>${offerText("Katalogstand", "Catalog checked")}: ${new Date(`${offersCheckedAt}T12:00:00Z`).toLocaleDateString(english ? "en-GB" : "de-DE")}</p></div>
+  <form class="offers-location" data-offers-location><label><span>${offerText("Postleitzahl", "Postcode")}</span><input name="offerPostcode" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" autocomplete="postal-code" value="${esc(location.postalCode || "")}" required></label><label><span>${offerText("Ort in Deutschland", "Town in Germany")}</span><input name="offerCity" maxlength="80" autocomplete="address-level2" value="${esc(location.city || "")}" required></label><button class="green">${offerText("Region anwenden", "Apply location")}</button>${state.authenticated && offersView.location ? `<button type="button" class="outline" data-offer-profile>${offerText("Profilstandort verwenden", "Use profile location")}</button>` : ""}<small>${offerText("Der Ortsabgleich bleibt auf deinem Gerät. Dein Standort wird nicht an Anbieter übermittelt.", "Location matching stays on your device. Your location is not sent to providers.")}</small><p class="offer-location-error" role="alert" ${offersView.error ? "" : "hidden"}>${esc(offersView.error)}</p></form>
+  <p class="offers-region-note">${state.authenticated && !offersView.location ? offerText("Standort aus deinem Profil. ", "Using your profile location. ") : ""}${location.city ? `${offerText("Ausgewählte Region", "Selected location")}: ${esc([location.postalCode,location.city].filter(Boolean).join(" "))}. ` : ""}${offerText("Regionale Einträge sind derzeit für Stade / Landkreis Stade, Hamburg und Heidelberg erfasst. Keine Entfernungs- oder Verfügbarkeitszusage. Bundesweite Finder decken weitere Orte ab.", "Regional entries currently cover Stade / the Stade district, Hamburg and Heidelberg. No distance or availability guarantee. Germany-wide finders cover other locations.")}</p>
+  ${stale ? `<p class="offers-status" role="status">${offerText("Gespeicherter Katalog · keine aktuelle Verfügbarkeitsprüfung. Zum Öffnen der Anbieter-Seiten brauchst du Internet.", "Saved catalog · availability has not been checked live. You need internet to open provider websites.")}</p>` : ""}
+  <div class="offers-result-heading"><h2>${offersView.category === "all" ? offerText("Deine Auswahl", "Your selection") : (english ? offerCategories.find(c => c.id === offersView.category)?.en : offerCategories.find(c => c.id === offersView.category)?.de)}</h2><span role="status">${items.length} ${offerText("Einträge", "entries")}</span></div>
+  ${items.length ? `<div class="offers-grid">${items.map(offerCard).join("")}</div>` : `<div class="offers-empty">${icon("map")}<h3>${offerText("Keine belegten regionalen Einträge in dieser Auswahl", "No documented regional entries for this selection")}</h3><p>${offerText("Das bedeutet nicht, dass es dort kein Angebot gibt. Nutze die bundesweiten Finder oder ändere Kategorie und Region.", "This does not mean no services exist there. Use the Germany-wide finders or change category and location.")}</p><button class="outline" data-offer-reset>${offerText("Alle Angebote", "All offers")}</button></div>`}
+  ${finderFallback ? `<div class="offers-section-title"><div><h2>${offerText("Weitere Orte selbst finden", "Find services in other locations")}</h2><p>${offerText("Diese Suchportale sind keine bestätigten lokalen Treffer.", "These search portals are not confirmed local results.")}</p></div></div><div class="offers-grid">${offerCatalog.filter(item => item.mode === "finder" && (["all","regional"].includes(offersView.category) || offersView.category === item.category)).map(offerCard).join("")}</div>` : ""}
+  </section><details class="offers-method"><summary>${offerText("Wie wir Angebote auswählen", "How we select offers")}</summary><p>${offerText("Wir verlinken nachvollziehbare Angebote auf den offiziellen Seiten etablierter Hilfsorganisationen, Behörden, Händler und Hersteller. Das ist eine redaktionelle Auswahl, kein Produkttest und keine Partnerschaft. Es gibt keine bezahlte Platzierung oder Provision. Preise, Lieferbarkeit, Kurstermine und Eignung bitte beim Anbieter prüfen. Externe Seiten können auf Deutsch sein.", "We link documented services on the official websites of established aid organisations, authorities, retailers and manufacturers. This is an editorial selection, not a product test or a partnership. There are no paid placements or commissions. Check prices, availability, course dates and suitability with the provider. External websites may be in German.")}</p></details></section>`;
+  if (state.authenticated) app.innerHTML = loggedShell("angebote", content, "offers-page");
+  else { document.body.className = "public-mode"; app.innerHTML = `<div class="public-page offers-page">${publicHeader("angebote")}<main>${content}</main>${footer()}</div>${modal()}`; }
 }
 function warningSummary(compact = false) {
   const region = state.household.district || state.household.state || state.household.city || "deinen Standort";
@@ -1187,21 +1267,28 @@ function modal() {
     const selected = scoreLabSelection.has(step.id);
     const result = scoreLabResult();
     const status = selected ? "In der Simulation eingeplant" : "Aus der Simulation entfernt";
-    return `<div class="modal-backdrop"><section class="modal scorelab-why-modal" role="dialog" aria-modal="true" aria-labelledby="scorelab-why-title"><button class="modal-close" data-close-modal aria-label="${getLanguage() === "en" ? "Close" : "Schließen"}">×</button>${icon(step.icon,"modal-icon")}<small>${translateText("WARUM VORSORGE?")}</small><h2 id="scorelab-why-title">${esc(translateText(step.label))}</h2><p>${esc(translateText(step.why))}</p><div class="scorelab-why-note"><b>${translateText("Darum zählt dieser Schritt")}</b><span>${esc(translateText(step.detail))}</span></div><div class="scorelab-result"><span>${translateText(status)}</span><strong>${result.value}<small>${translateText("von 100")}</small></strong></div><button class="green full" data-close-modal>${translateText("Verstanden")} →</button></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal scorelab-why-modal" role="dialog" aria-modal="true" aria-labelledby="scorelab-why-title"><button class="modal-close" data-close-modal aria-label="${getLanguage() === "en" ? "Close" : "Schließen"}">×</button>${icon(step.icon,"modal-icon")}<small>${translateText("WARUM VORSORGE?")}</small><h2 id="scorelab-why-title">${esc(translateText(step.label))}</h2><p>${esc(translateText(step.why))}</p><div class="scorelab-result"><span>${translateText(status)}</span><strong>${result.value}<small>${translateText("von 100")}</small></strong></div><button class="green full" data-close-modal>${translateText("Verstanden")} →</button></section></div>`;
   }
   if (state.ui.modal.startsWith("legal:")) {
     const page = state.ui.modal.slice(6);
     const contents = {
       about: ["Über RedScore", `<p>RedScore ist ein bürgerfreundliches Katastrophenvorbereitungssystem. Es verbindet persönliche Vorsorge, Vorratsplanung, verifizierte Anlaufstellen, Warnwege und eine strukturierte Lageübersicht.</p><p>RedScore ersetzt keine amtliche Warnung oder fachliche Beratung. Im Ereignisfall gelten die Anweisungen der zuständigen Behörden.</p>`],
       privacy: ["Datenschutzhinweise", `<h3>Welche Daten verarbeitet werden</h3><p>Für das Konto werden E-Mail-Adresse, Anzeigename, freiwillige Haushaltsangaben, Standortangaben, Vorsorgeantworten und Bestände verarbeitet. Private Fotos werden weder angefordert noch verarbeitet.</p><h3>Zweck und Speicherung</h3><p>Die Daten dienen ausschließlich der personalisierten Vorsorgeplanung, Synchronisierung und Offline-Nutzung. Kontodaten werden bei Supabase in der EU gespeichert; die Webanwendung wird über Vercel bereitgestellt. Zusätzlich hält das Endgerät eine Offline-Kopie.</p><h3>Deine Rechte</h3><p>Du kannst Auskunft, Berichtigung, Löschung, Einschränkung oder Datenübertragbarkeit anfragen. Kontakt: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p><p>Die Live-Lage speichert keine privaten Profile in externen Feeds. Browser-Mitteilungen werden nur nach ausdrücklicher Freigabe aktiviert.</p>`],
-      imprint: ["Impressum", `<h3>Angaben gemäß § 5 DDG</h3><p><b>Webduction (Einzelunternehmen)</b><br>RedScore – Weil der Ernstfall nicht fragt, ob du bereit bist.</p><h3>Kontakt</h3><p>E-Mail: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a><br>Web: <a href="https://www.redscore.de">www.redscore.de</a></p><h3>Gerichtsstand</h3><p>Für Rechtsverhältnisse, bei denen eine Gerichtsstandsvereinbarung gesetzlich zulässig ist, ist die Hansestadt Stade als Gerichtsstand vereinbart. Gesetzlich zwingende Gerichtsstände bleiben unberührt.</p><h3>Verantwortung und Haftung</h3><p>RedScore bereitet öffentlich zugängliche Vorsorgeinformationen auf. Trotz sorgfältiger Prüfung besteht kein Anspruch auf Vollständigkeit oder ständige Aktualität. Amtliche Warnungen und behördliche Anweisungen haben Vorrang.</p>`],
+      imprint: ["Impressum", `<h3>Angaben gemäß § 5 DDG</h3><p><b>commit&amp;push Venture Builder</b><br>RedScore – Weil der Ernstfall nicht fragt, ob du bereit bist.</p><h3>Kontakt</h3><p>E-Mail: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a><br>Web: <a href="https://www.redscore.de">www.redscore.de</a></p><h3>Gerichtsstand</h3><p>Für Rechtsverhältnisse, bei denen eine Gerichtsstandsvereinbarung gesetzlich zulässig ist, ist die Hansestadt Stade als Gerichtsstand vereinbart. Gesetzlich zwingende Gerichtsstände bleiben unberührt.</p><h3>Verantwortung und Haftung</h3><p>RedScore bereitet öffentlich zugängliche Vorsorgeinformationen auf. Trotz sorgfältiger Prüfung besteht kein Anspruch auf Vollständigkeit oder ständige Aktualität. Amtliche Warnungen und behördliche Anweisungen haben Vorrang.</p>`],
     };
     const [title, content] = contents[page] || contents.about;
     return `<div class="modal-backdrop"><section class="modal legal-modal"><button class="modal-close" data-close-modal>×</button><small>REDSCORE</small><h2>${title}</h2>${content}<small>Stand: 1. Oktober 2026</small></section></div>`;
   }
   if (["login", "register"].includes(state.ui.modal)) {
     const register = state.ui.modal === "register";
-    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>SICHERES REDSCORE-KONTO</small><h2>${register ? "Kostenlos registrieren" : "Einloggen"}</h2><div class="auth-tabs"><button data-open-auth="login" class="${register ? "" : "active"}">Einloggen</button><button data-open-auth="register" class="${register ? "active" : ""}">Registrieren</button></div><form data-auth-form="${register ? "register" : "login"}">${register ? `<label><span>Name</span><input name="displayName" autocomplete="name" maxlength="80" required></label>` : ""}<label><span>E-Mail</span><input name="email" type="email" autocomplete="email" value="${esc(authEmailDraft)}" maxlength="254" required></label><label><span>Passwort</span><input name="password" type="password" autocomplete="${register ? "new-password" : "current-password"}" minlength="8" required></label><button class="green full" ${accountBusy ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : register ? "Konto anlegen →" : "Einloggen →"}</button></form><button type="button" class="auth-help" data-open-auth="resend">Bestätigungsmail fehlt?</button><em>${register ? "Nach der Registrierung richtest du deinen Haushalt inklusiv ein. Private Fotos werden nicht benötigt." : "Deine Daten werden zwischen deinen Geräten synchronisiert und bleiben offline verfügbar."}</em></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>SICHERES REDSCORE-KONTO</small><h2>${register ? "Kostenlos registrieren" : "Einloggen"}</h2><div class="auth-tabs"><button data-open-auth="login" class="${register ? "" : "active"}">Einloggen</button><button data-open-auth="register" class="${register ? "active" : ""}">Registrieren</button></div><form data-auth-form="${register ? "register" : "login"}">${register ? `<label><span>Name</span><input name="displayName" autocomplete="name" maxlength="80" required></label>` : ""}<label><span>E-Mail</span><input name="email" type="email" autocomplete="email" value="${esc(authEmailDraft)}" maxlength="254" required></label><label><span>Passwort</span><input name="password" type="password" autocomplete="${register ? "new-password" : "current-password"}" minlength="8" required></label><button class="green full" ${accountBusy ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : register ? "Konto anlegen →" : "Einloggen →"}</button></form>${passwordResetCompleted && !register ? `<p class="auth-notice" role="status">Dein Passwort wurde geändert. Bitte melde dich mit dem neuen Passwort an.</p>` : ""}<button type="button" class="auth-help" data-open-auth="forgot">Passwort vergessen?</button><button type="button" class="auth-help" data-open-auth="resend">Bestätigungsmail fehlt?</button><em>${register ? "Nach der Registrierung richtest du deinen Haushalt inklusiv ein. Private Fotos werden nicht benötigt." : "Deine Daten werden zwischen deinen Geräten synchronisiert und bleiben offline verfügbar."}</em></section></div>`;
+  }
+  if (state.ui.modal === "forgot") {
+    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button><small>SICHERES REDSCORE-KONTO</small><h2>Passwort vergessen?</h2><p>Wir helfen dir, wieder Zugang zu deinem Konto zu erhalten. Fordere einen sicheren Rücksetz-Link per E-Mail an.</p><form data-password-request-form><label><span>E-Mail</span><input name="email" type="email" maxlength="254" autocomplete="email" value="${esc(authEmailDraft)}" required></label><button class="green full" data-recovery-submit ${accountBusy || resendSeconds() ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : resendSeconds() ? `Erneut anfordern in ${resendSeconds()} Sek.` : "Rücksetz-Link anfordern →"}</button></form>${passwordResetRequested ? `<p class="auth-notice" role="status">Falls für diese Adresse ein Konto vorliegt, erhältst du einen RedScore-Rücksetz-Link. Bitte prüfe auch den Spamordner.</p>` : ""}<p class="auth-mail-hint">Öffne den neuesten Link aus deiner E-Mail. Gib dein Passwort niemals per E-Mail weiter.</p><button type="button" class="auth-help" data-open-auth="login">Zurück zum Einloggen</button></section></div>`;
+  }
+  if (state.ui.modal === "reset-password") {
+    const ready = recoveryStatus === "ready";
+    return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal ${accountBusy ? "disabled" : ""}>×</button><small>SICHERES REDSCORE-KONTO</small><h2>Neues Passwort festlegen</h2>${ready ? `<p>Wähle ein neues Passwort mit 8 bis 128 Zeichen. Verwende ein Passwort, das du nicht für andere Dienste nutzt.</p><form data-password-update-form><label><span>Neues Passwort</span><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><label><span>Neues Passwort wiederholen</span><input name="passwordRepeat" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><button class="green full" ${accountBusy ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : "Neues Passwort speichern →"}</button></form>` : recoveryStatus === "checking" ? `<p role="status">Rücksetz-Link wird geprüft …</p>` : recoveryStatus === "unavailable" ? `<p class="auth-notice" role="status">Der Link kann gerade nicht geprüft werden. Prüfe deine Internetverbindung und versuche es erneut.</p><button class="green full" data-recovery-retry>Erneut prüfen</button>` : `<p class="auth-notice" role="alert">${RECOVERY_ERROR}</p><button class="green full" data-open-auth="forgot">Neuen Rücksetz-Link anfordern</button>`}<button type="button" class="auth-help" data-open-auth="login" ${accountBusy ? "disabled" : ""}>Zurück zum Einloggen</button></section></div>`;
   }
   if (state.ui.modal === "resend") {
     return `<div class="modal-backdrop"><section class="modal login-modal"><button class="modal-close" data-close-modal>×</button>${icon("profile","modal-icon")}<small>SICHERES REDSCORE-KONTO</small><h2>Bestätigungsmail fehlt?</h2><p>Fordere eine neue Bestätigung für deine Registrierung an. Du benötigst dafür kein Passwort.</p><form data-resend-form><label><span>E-Mail</span><input name="email" type="email" autocomplete="email" value="${esc(authEmailDraft)}" maxlength="254" required></label><button class="green full" data-resend-submit ${accountBusy || resendSeconds() ? "disabled" : ""}>${accountBusy ? "Bitte warten …" : resendSeconds() ? `Erneut anfordern in ${resendSeconds()} Sek.` : "Bestätigungsmail anfordern →"}</button></form>${confirmationRequested ? `<p class="auth-notice" role="status">Falls für diese Adresse eine unbestätigte Registrierung vorliegt, erhältst du eine RedScore-Bestätigungsmail. Bitte prüfe auch den Spamordner. Bereits bestätigt? Du kannst dich direkt einloggen.</p>` : ""}<p class="auth-mail-hint">Achte auf den Absender RedScore mit administration@redscore.de. Die Bestätigung erfolgt ausschließlich über den Link in der E-Mail.</p><button type="button" class="auth-help" data-open-auth="login">Zurück zum Einloggen</button></section></div>`;
@@ -1258,7 +1345,8 @@ function render() {
   const focusName = sameDialog && oldDialog.contains(active) ? active.name : null;
   const focusAttributes = active && app.contains(active) ? [...active.attributes].filter(attribute => attribute.name.startsWith("data-")).map(attribute => [attribute.name, attribute.value]) : [];
   if (!renderedModal && state.ui.modal && active && app.contains(active)) modalReturnFocus = focusAttributes;
-  if (!state.authenticated) renderPublic();
+  if (hashRoute() === "angebote") renderOffers();
+  else if (!state.authenticated) renderPublic();
   else {
     const route = hashRoute();
     ({ home: renderHome, plan: renderPlan, packliste: renderPacklist, supplies: renderSupplies, map: renderMap, warnschutz: renderWarnschutz, knowledge: renderKnowledge, profile: renderProfile }[route] || renderHome)();
@@ -1341,10 +1429,25 @@ async function requestWarnings(force = false) {
 app.addEventListener("click", async event => {
   const button = event.target.closest("button");
   if (!button) {
+    if (state.ui.modal === "reset-password" && event.target.classList.contains("modal-backdrop")) {
+      if (accountBusy) return;
+      clearRecoveryContext(); state.ui.modal = "login"; return render();
+    }
     if (event.target.classList.contains("modal-backdrop") && !(state.ui.modal === "onboarding" && !state.profile.onboardingCompleted)) { state.ui.modal = null; render(); }
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
+  if (button.hasAttribute("data-offer-discover")) { document.querySelector("#offers-results")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  if (button.dataset.scroll) {
+    const target = button.dataset.scroll;
+    if (hashRoute() === "angebote") { history.pushState(null, "", "#/public"); render(); }
+    document.querySelector(`#${target}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (button.dataset.offerCategory) { offersView.category = button.dataset.offerCategory; offersView.mode = button.dataset.offerCategory === "regional" ? "local" : "all"; render(); document.querySelector("#offers-results")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  if (button.dataset.offerMode) { offersView.mode = button.dataset.offerMode; if (offersView.mode === "online" && offersView.category === "regional") offersView.category = "all"; return render(); }
+  if (button.hasAttribute("data-offer-reset")) { offersView.category = "all"; offersView.mode = "all"; return render(); }
+  if (button.hasAttribute("data-offer-profile")) { offersView.location = null; offersView.error = ""; return render(); }
   if (button.dataset.scoreLabStep) {
     updateScoreLab(button.dataset.scoreLabStep);
     state.ui.modal = `scorelab:${button.dataset.scoreLabStep}`;
@@ -1411,9 +1514,9 @@ app.addEventListener("click", async event => {
   }
   if (button.matches("[data-live-refresh]")) return requestLiveLage(true);
   if (button.dataset.liveDetail) { state.ui.modal = `live:${button.dataset.liveDetail}`; return render(); }
-  if (button.dataset.scroll) return document.querySelector("#"+button.dataset.scroll)?.scrollIntoView({ behavior: "smooth" });
   if (button.dataset.openAuth) {
     if (accountBusy) return;
+    if (state.ui.modal === "reset-password") clearRecoveryContext();
     const email = app.querySelector('.modal input[name="email"]');
     if (email) authEmailDraft = email.value;
     state.ui.modal = button.dataset.openAuth;
@@ -1428,7 +1531,8 @@ app.addEventListener("click", async event => {
     try { localStorage.removeItem(STORAGE_KEY); } catch { toast("Lokale Kontodaten konnten nicht entfernt werden. Bitte Browserspeicher prüfen."); }
     location.hash = ""; return render();
   }
-  if (button.matches("[data-close-modal]") || event.target.classList.contains("modal-backdrop")) { if (state.ui.modal === "onboarding" && !state.profile.onboardingCompleted) return; state.ui.modal = null; return render(); }
+  if (button.matches("[data-recovery-retry]")) { if (recoveryStatus === "checking") return; const checking = validateRecoveryContext(); render(); await checking; return render(); }
+  if (button.matches("[data-close-modal]") || event.target.classList.contains("modal-backdrop")) { if (state.ui.modal === "onboarding" && !state.profile.onboardingCompleted) return; if (state.ui.modal === "reset-password") { if (accountBusy) return; clearRecoveryContext(); state.ui.modal = "login"; } else state.ui.modal = null; return render(); }
   if (button.matches("[data-open-packlist]")) { state.ui.modal = null; return navigate("packliste"); }
   if (button.matches("[data-open-assessment]")) { state.ui.modal = "assessment"; return render(); }
   if (button.dataset.answer) { const [id,val] = button.dataset.answer.split(":"); state.assessment.answers[id] = val === "true"; save(); return render(); }
@@ -1461,21 +1565,50 @@ app.addEventListener("click", async event => {
 app.addEventListener("submit", async event => {
   event.preventDefault();
   const form = event.target;
+  if (form.matches("[data-offers-location]")) {
+    const input = new FormData(form);
+    const postalCode = String(input.get("offerPostcode") || "").trim();
+    const city = String(input.get("offerCity") || "").trim();
+    if (!/^\d{5}$/.test(postalCode) || !city || city.length > 80) { offersView.error = offerText("Bitte eine deutsche Postleitzahl und einen Ort eingeben.", "Please enter a German postcode and town."); return render(); }
+    offersView.location = { postalCode, city, country: "DE" };
+    offersView.mode = "local"; offersView.error = "";
+    return render();
+  }
   formError = null;
   updateFormFeedback(form);
-  if (form.matches("[data-resend-form]")) {
+  if (form.matches("[data-password-update-form]")) {
+    if (accountBusy) return;
+    if (!recoveryContext || recoveryContext.expiresAt <= Date.now() || recoveryStatus !== "ready") { clearRecoveryContext(); recoveryStatus = "invalid"; return render(); }
+    const formData = new FormData(form);
+    const password = String(formData.get("password") || "");
+    if (password.length < 8 || password.length > 128) return reportFormError(form, "password", "Bitte ein neues Passwort mit 8 bis 128 Zeichen eingeben.");
+    if (password !== formData.get("passwordRepeat")) return reportFormError(form, "passwordRepeat", "Die beiden Passwörter stimmen nicht überein.");
+    if (!navigator.onLine) return reportFormError(form, null, "Du bist offline. Zum Ändern des Passworts brauchst du eine Internetverbindung.");
+    const accessToken = recoveryContext.accessToken;
+    accountBusy = true; render();
+    try {
+      await accountRequest("update_password", { password }, accessToken);
+      clearRecoveryContext(); passwordResetCompleted = true; state.ui.modal = "login";
+    } catch (error) {
+      if ([401,403].includes(error.status)) { clearRecoveryContext(); recoveryStatus = "invalid"; }
+      else reportFormError(app.querySelector("[data-password-update-form]"), null, error instanceof Error ? error.message : "Das Passwort konnte nicht geändert werden.");
+    } finally { accountBusy = false; render(); }
+    return;
+  }
+  if (form.matches("[data-resend-form]") || form.matches("[data-password-request-form]")) {
     if (accountBusy || resendSeconds()) return;
+    const reset = form.matches("[data-password-request-form]");
     authEmailDraft = String(new FormData(form).get("email") || "").trim();
     if (!navigator.onLine) return reportFormError(form, null, "Du bist offline. Zum Anfordern der Bestätigung brauchst du eine Internetverbindung.");
-    confirmationRequested = false;
+    if (reset) passwordResetRequested = false; else confirmationRequested = false;
     accountBusy = true;
     resendCooldownUntil = Date.now() + 60_000;
     render();
     try {
-      await accountRequest("resend_confirmation", { email: authEmailDraft }, "");
-      confirmationRequested = true;
+      await accountRequest(reset ? "request_password_reset" : "resend_confirmation", { email: authEmailDraft }, "");
+      if (reset) passwordResetRequested = true; else confirmationRequested = true;
     } catch (error) {
-      reportFormError(app.querySelector("[data-resend-form]"), null, error instanceof Error ? error.message : "Die Bestätigung kann gerade nicht angefordert werden. Bitte versuche es später erneut.");
+      reportFormError(app.querySelector(reset ? "[data-password-request-form]" : "[data-resend-form]"), null, error instanceof Error ? error.message : "Die Bestätigung kann gerade nicht angefordert werden. Bitte versuche es später erneut.");
     } finally { accountBusy = false; render(); }
     return;
   }
@@ -1598,15 +1731,15 @@ window.addEventListener("hashchange", render);
 window.addEventListener("beforeunload", event => {
   if (localSaveFailed && state.sync.pending) { event.preventDefault(); event.returnValue = ""; }
 });
-window.addEventListener("offline", () => { liveState.status = "offline"; warningState.status = "fallback"; updateSyncStatus("offline"); placesState.status = placesState.places.length ? "offline" : "error"; if (state.authenticated) render(); });
-window.addEventListener("online", () => { if (state.authenticated) { updateSyncStatus(state.sync.pending ? "pending" : "saved"); requestLiveLage(true); requestWarnings(true); if (hashRoute() === "map") requestNearbyPlaces(true); syncAccount().catch(() => {}); } });
+window.addEventListener("offline", () => { liveState.status = "offline"; warningState.status = "fallback"; updateSyncStatus("offline"); placesState.status = placesState.places.length ? "offline" : "error"; if (state.authenticated || hashRoute() === "angebote") render(); });
+window.addEventListener("online", () => { if (hashRoute() === "angebote") render(); if (state.authenticated) { updateSyncStatus(state.sync.pending ? "pending" : "saved"); requestLiveLage(true); requestWarnings(true); if (hashRoute() === "map") requestNearbyPlaces(true); syncAccount().catch(() => {}); } });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && state.authenticated) { requestLiveLage(); requestWarnings(); if (state.sync.pending) syncAccount().catch(() => {}); } });
 document.addEventListener("keydown", event => {
   const dialog = app.querySelector(".modal");
   if (event.key === "Escape") {
     if (languageMenuOpen) { languageMenuOpen = false; render(); return; }
     if (!dialog || (state.ui.modal === "onboarding" && !state.profile.onboardingCompleted)) return;
-    state.ui.modal = null; render(); return;
+    if (state.ui.modal === "reset-password") { if (accountBusy) return; clearRecoveryContext(); state.ui.modal = "login"; } else state.ui.modal = null; render(); return;
   }
   if (event.key !== "Tab" || !dialog) return;
   const controls = [...dialog.querySelectorAll("button,a[href],input,select,textarea,[tabindex='0']")].filter(element => !element.disabled && !element.hidden && element.getClientRects().length);
@@ -1619,6 +1752,15 @@ liveClockTimer = setInterval(() => { updateLiveClock(); updateResendClock(); }, 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 async function initialize() {
   const authRedirect = consumeAuthRedirect();
+  if (authRedirect.recovery || recoveryContext) {
+    state.authenticated = false;
+    state.ui.modal = "reset-password";
+    recoveryStatus = "checking";
+    render();
+    await validateRecoveryContext();
+    render();
+    return;
+  }
   if (session) {
     try {
       if (!navigator.onLine && canResumeOffline()) { state.authenticated = true; updateSyncStatus("offline"); }

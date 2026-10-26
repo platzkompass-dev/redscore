@@ -8,8 +8,9 @@ export function previewConfirmation(template) {
     .replace(/(<body\b[^>]*>)/i, '$1<p style="margin:0;padding:12px;text-align:center;background:#fff3c4;color:#3f3210;font:14px Arial,sans-serif;">VORSCHAU – keine E-Mail versendet, kein gültiger Bestätigungslink</p>');
 }
 
-export async function createPreviewServer() {
-  const template = await readFile(new URL("../supabase/templates/confirmation.html", import.meta.url), "utf8");
+export async function createPreviewServer({ templateName = "confirmation" } = {}) {
+  if (!["confirmation", "recovery"].includes(templateName)) throw new Error("Unsupported preview template");
+  const template = await readFile(new URL(`../supabase/templates/${templateName}.html`, import.meta.url), "utf8");
   const logo = await readFile(new URL("../dist/assets/redscore-logo.png", import.meta.url));
   const preview = previewConfirmation(template).replace("https://www.redscore.de/assets/redscore-logo.png", "/logo.png");
   return http.createServer((request, response) => {
@@ -33,6 +34,6 @@ export async function createPreviewServer() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const server = await createPreviewServer();
+  const server = await createPreviewServer({templateName:process.argv.includes("--recovery") ? "recovery" : "confirmation"});
   server.listen(4182, "127.0.0.1", () => console.log("RedScore E-Mail-Vorschau (kein Mailversand): http://127.0.0.1:4182"));
 }

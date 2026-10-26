@@ -23,6 +23,11 @@ http.createServer(async (request, response) => {
       const chunks = []; for await (const chunk of request) chunks.push(chunk);
       const input = JSON.parse(Buffer.concat(chunks).toString() || "{}");
       if (input.action === "resend_confirmation") return json(response, 200, { ok: true, retryAfter: 60 }); // Mock only: never sends mail.
+      if (input.action === "request_password_reset") return json(response, 200, { ok: true, retryAfter: 60 }); // Mock only: never sends mail.
+      if (input.action === "check_password_reset" || input.action === "update_password") {
+        if (request.headers.authorization !== "Bearer development-recovery") return json(response, 401, {error:"Development: invalid recovery token"});
+        return json(response, 200, input.action === "check_password_reset" ? {user:{id:"development-recovery-user",email:"recovery@example.test"}} : {ok:true}); // No actual account or password changes.
+      }
       if (input.action === "sign_up") return json(response, 200, { confirmationRequired: true, session: null }); // Mock only: never creates an account.
       if (input.action === "sign_in") {
         if (input.email !== user.email) return json(response, 400, { error: "Development QA: use qa@example.test with a test-only password." });

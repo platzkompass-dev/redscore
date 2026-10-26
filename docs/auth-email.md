@@ -1,5 +1,23 @@
 # RedScore-Bestätigungsmail
 
+## Passwortwiederherstellung seit 26. Oktober 2026
+
+„Passwort vergessen?“ fordert über `/api/account` einen Provider-Recovery-Link mit
+festem RedScore-Rückleitungsziel an. Die Rückmeldung verrät nicht, ob ein Konto
+existiert. Der Browser trennt `type=recovery` von Registrierungsbestätigungen und
+prüft das temporäre Token beim Server, bevor er das Passwortformular anbietet.
+Das Token bleibt im Arbeitsspeicher / `sessionStorage`; die normale Kontositzung
+und andere Haushaltsdaten werden nicht überschrieben. Nach Erfolg wird der
+temporäre Kontext entfernt und ein normaler Login verlangt.
+
+`supabase/templates/recovery.html` und `recovery-subject.txt` enthalten die neue
+RedScore-Vorlage. Vorschau: `node scripts/preview-auth-email.mjs --recovery`.
+Die gehostete Vorlage wurde noch nicht nachweislich gespeichert: Der Edge-Zugriff
+wurde wegen nicht sicher erkennbarer Browser-URL gestoppt. Die bestehende
+Supabase-Vorlage bleibt maßgeblich, bis das Update tatsächlich bestätigt ist.
+Die Tests verwenden ausschließlich synthetische Konten und Provider-Antworten;
+kein realer Reset-Versand oder Passwortwechsel wird damit behauptet.
+
 ## Selbstbedienung seit 25. Oktober 2026
 
 Im Einloggen-/Registrierungsdialog führt „Bestätigungsmail fehlt?“ zu einem eigenen

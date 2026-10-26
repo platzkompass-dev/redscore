@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>RedScore – Passwort zurücksetzen</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#eef3f6;color:#132c3b;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">Setze dein RedScore-Passwort sicher zurück. Gib diesen Link nicht weiter.</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef3f6;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:580px;background-color:#ffffff;border:1px solid #dae3e9;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px;background-color:#071d2a;border-bottom:3px solid #eb2843;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="56" style="width:56px;vertical-align:middle;">
+                      <img src="https://www.redscore.de/assets/redscore-logo.png" alt="" width="44" height="44" style="display:block;border:0;width:44px;height:44px;">
+                    </td>
+                    <td style="vertical-align:middle;font-size:32px;line-height:40px;font-weight:bold;letter-spacing:-1px;"><span style="color:#ff3853;">Red</span><span style="color:#ffffff;">Score</span></td>
+                  </tr>
+                </table>
+                <p style="margin:10px 0 0;font-size:13px;line-height:20px;color:#d2e1eb;">Dein RedScore-Konto</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 24px 12px;">
+                <h1 style="margin:0 0 18px;font-size:26px;line-height:34px;color:#102b3c;">Setze dein Passwort zurück</h1>
+                <p style="margin:0 0 16px;font-size:16px;line-height:26px;">Für dein <strong>RedScore</strong>-Konto wurde ein Link zum Zurücksetzen des Passworts angefordert. Über den Button kannst du ein neues Passwort festlegen.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#c51f38" style="background-color:#c51f38;border-radius:8px;mso-padding-alt:16px 20px;">
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:16px 20px;border:1px solid #c51f38;border-radius:8px;background-color:#c51f38;color:#ffffff;text-decoration:none;font-size:16px;line-height:24px;font-weight:bold;">Neues Passwort festlegen</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 18px;font-size:15px;line-height:25px;">Der Link öffnet das sichere Rücksetzformular auf RedScore. Lege dort dein neues Passwort fest und melde dich anschließend damit an.</p>
+                <p style="margin:0 0 20px;font-size:14px;line-height:23px;color:#536675;">Du hast keine Passwortänderung angefordert? Dann ignoriere diese Nachricht. Dein bisheriges Passwort bleibt unverändert. Gib diesen persönlichen, zeitlich begrenzten Link nicht weiter.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 24px;background-color:#f6f8fa;border-top:1px solid #e0e7ec;">
+                <p style="margin:0 0 8px;font-size:13px;line-height:22px;color:#536675;">Der Button funktioniert nicht? Kopiere den vollständigen Link in deinen Browser:</p>
+                <p style="margin:0 0 16px;font-size:12px;line-height:20px;word-break:break-all;overflow-wrap:anywhere;"><a href="{{ .ConfirmationURL }}" style="color:#0b526b;text-decoration:underline;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+                <p style="margin:0;font-size:13px;line-height:22px;color:#536675;"><strong>RedScore</strong> · <a href="https://www.redscore.de/" style="color:#0b526b;text-decoration:underline;">www.redscore.de</a><br>Fragen zu deinem Konto? <a href="mailto:administration@redscore.de" style="color:#0b526b;text-decoration:underline;">administration@redscore.de</a></p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:16px 0 0;max-width:540px;font-size:12px;line-height:20px;color:#536675;">Diese Nachricht gehört zur Passwortwiederherstellung bei RedScore und ist keine Werbung. RedScore fragt dich per E-Mail niemals nach deinem Passwort.</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

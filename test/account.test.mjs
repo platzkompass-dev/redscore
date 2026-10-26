@@ -112,6 +112,55 @@ test("resend validation, privacy, provider throttling and failures", async () =>
   assert.doesNotMatch(await failure.text(),/SMTP secret/);
 });
 
+test("password reset request uses recover with the existing fixed callback and no account creation", async () => {
+  process.env.SUPABASE_URL="https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY="publishable-test-key";
+  let called;
+  globalThis.fetch=async(url,options)=>{called={url:new URL(url),options};return Response.json({});};
+  const response=await POST(new Request("https://www.redscore.de/api/account",{method:"POST",body:JSON.stringify({action:"request_password_reset",email:"PERSON@EXAMPLE.ORG",redirectTo:"https://evil.example",user_id:"other-user"})}));
+  assert.equal(response.status,200);
+  assert.equal(called.url.pathname,"/auth/v1/recover");
+  assert.equal(called.url.searchParams.get("redirect_to"),"https://www.redscore.de/?auth=confirmed");
+  assert.deepEqual(JSON.parse(called.options.body),{email:"person@example.org"});
+  assert.deepEqual(await response.json(),{ok:true,retryAfter:60});
+});
+
+test("password changes require a provider-validated token and update only that user", async () => {
+  process.env.SUPABASE_URL="https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY="publishable-test-key";
+  const calls=[];
+  globalThis.fetch=async(url,options)=>{calls.push({url:String(url),options});return Response.json({id:"token-owner",email:"owner@example.org"});};
+  const send=(action,password,authorization="Bearer recovery-token")=>POST(new Request("https://www.redscore.de/api/account",{method:"POST",headers:{authorization},body:JSON.stringify({action,password,user_id:"wrong-user",email:"wrong@example.org",refresh_token:"must-not-forward"})}));
+  assert.equal((await send("update_password","test-only-new-password","")).status,401);
+  assert.equal(calls.length,0);
+  assert.equal((await send("update_password","short")).status,400);
+  assert.equal(calls.length,1);
+  calls.length=0;
+  assert.equal((await send("update_password","test-only-new-password")).status,200);
+  assert.equal(calls.length,2);
+  assert.equal(calls[0].options.headers.authorization,"Bearer recovery-token");
+  assert.equal(calls[1].url,"https://example.supabase.co/auth/v1/user");
+  assert.equal(calls[1].options.method,"PUT");
+  assert.deepEqual(JSON.parse(calls[1].options.body),{password:"test-only-new-password"});
+  globalThis.fetch=async()=>Response.json({msg:"expired"},{status:401});
+  assert.equal((await send("update_password","test-only-new-password")).status,401);
+});
+
+test("password validation handles expiry and provider policies without exposing provider details", async () => {
+  process.env.SUPABASE_URL="https://example.supabase.co";
+  process.env.SUPABASE_ANON_KEY="publishable-test-key";
+  const send=action=>POST(new Request("https://www.redscore.de/api/account",{method:"POST",headers:{authorization:"Bearer recovery-token"},body:JSON.stringify({action,password:"test-only-new-password"})}));
+  globalThis.fetch=async(_url,options)=>options.method==="PUT" ? Response.json({code:"same_password",msg:"private detail"},{status:422}) : Response.json({id:"owner",email:"owner@example.org",user_metadata:{private:"omit"}});
+  assert.deepEqual(await (await send("check_password_reset")).json(),{user:{id:"owner",email:"owner@example.org"}});
+  const response=await send("update_password");
+  assert.equal(response.status,400);
+  assert.equal((await response.json()).error,"Bitte ein anderes Passwort als bisher verwenden.");
+  globalThis.fetch=async(_url,options)=>options.method==="PUT" ? Response.json({msg:"private upstream detail"},{status:500}) : Response.json({id:"owner"});
+  const unavailable=await send("update_password");
+  assert.equal(unavailable.status,503);
+  assert.doesNotMatch(await unavailable.text(),/private upstream detail/);
+});
+
 test("normalizes per-child image metadata while retaining legacy account compatibility", async () => {
   process.env.SUPABASE_URL = "https://example.supabase.co";
   process.env.SUPABASE_ANON_KEY = "publishable-test-key";

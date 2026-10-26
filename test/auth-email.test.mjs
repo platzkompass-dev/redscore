@@ -35,6 +35,20 @@ test("preview cannot confirm a real account or reuse a real verification token",
   assert.equal((html.match(/http:\/\/127\.0\.0\.1:4182\/preview-confirmation/g) || []).length, 3);
 });
 
+test("recovery mail is RedScore-branded and uses only the provider's expiring link", async () => {
+  const html=await readFile(new URL("../supabase/templates/recovery.html",import.meta.url),"utf8");
+  const subject=await readFile(new URL("../supabase/templates/recovery-subject.txt",import.meta.url),"utf8");
+  assert.match(subject,/^RedScore – Dein Link zum Zurücksetzen/);
+  assert.match(html,/<span[^>]*>Red<\/span><span[^>]*>Score<\/span>/);
+  assert.match(html,/Dein bisheriges Passwort bleibt unverändert/);
+  assert.match(html,/zeitlich begrenzten Link/);
+  assert.equal((html.match(/{{ \.ConfirmationURL }}/g)||[]).length,3);
+  assert.doesNotMatch(html,/{{[^}]*(?:Token|Email|RedirectTo|Data)|<script|<form|pixel|utm_|localhost/i);
+  const server=await createPreviewServer({templateName:"recovery"});
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  try {const html=await(await fetch(`http://127.0.0.1:${server.address().port}`)).text();assert.match(html,/Setze dein Passwort zurück/);assert.doesNotMatch(html,/{{ \.ConfirmationURL }}/);} finally {await new Promise(resolve=>server.close(resolve));}
+});
+
 test("isolated preview serves only the template, logo and inert example; never forwards POST requests", async () => {
   const server = await createPreviewServer();
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));

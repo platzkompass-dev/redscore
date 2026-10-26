@@ -1,5 +1,32 @@
 # RedScore Qualitätsprüfung
 
+## Angebote, Navigation und Recovery — 26. Oktober 2026
+
+- `node --test`: **113 Tests bestanden**. `npm run build:guides`: acht Ratgeber
+  und Sitemap erfolgreich erzeugt; keine unerwarteten Änderungen an diesen Dateien.
+- `scripts/qa-offers.mjs`: isolierter Headless-Edge-Test bei 360, 390, 768 und
+  1440 Pixeln. Keine horizontale Dokument-Überbreite, alle sieben mobilen
+  Navigationsziele erreichbar. Größenübergänge in der Kopfzeile korrigiert.
+- Standort Stade zeigt die belegten Johanniter-/THW-Einträge; Berlin erhält keine
+  vorgetäuschten lokalen Treffer. Kursfinder bleiben als Suchportale erkennbar.
+  Online-Auswahl, DE/EN-Wechsel und Rückkehr zur Startseite geprüft.
+- Echter Offline-Neuladevorgang mit aktivem Service Worker erfolgreich: Seite,
+  sechs Kategorien und gespeicherter Katalog bleiben verfügbar. Zusätzlich
+  Offline-Umschaltung im geöffneten Browser geprüft. Keine Drittanbieter-Anfragen
+  allein durch Laden oder Filtern der Angebotsseite.
+- `scripts/qa-password-reset.mjs`: erfolgreich bei 390, 768 und 1440 Pixeln;
+  temporäres Recovery-Token getrennt von bestehendem Konto, Neuladen, falsche
+  Passwortwiederholung, ungültiger Link und abschließender Login geprüft.
+  Provider-Antworten und Konten synthetisch; **keine realen Passwörter geändert**.
+- Alle fünf Simulations-Popups ohne den entfernten Zusatzkasten geprüft;
+  gewünschte Navigation und Impressumsname ebenfalls bestätigt.
+- Die Recovery-Mailvorlage liegt im Repository. Die Speicherung im gehosteten
+  Supabase-Editor ist noch nicht bestätigt; echter Versand-/Linkklick-Test bleibt
+  offen. Das ist kein Nachweis einer vollständig geprüften Produktionsplattform.
+
+Browserbilder: `%TEMP%/redscore-offers-qa` und
+`%TEMP%/redscore-password-reset-qa` (nur synthetische Testdaten).
+
 ## Bestätigungsmail-Selbstbedienung — 25. Oktober 2026
 
 **Ablauf:** Einloggen / Registrierung → Bestätigung anfordern → bestehende Konto-API

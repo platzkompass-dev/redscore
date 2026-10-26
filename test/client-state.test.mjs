@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 import * as data from "../dist/data.js";
+import * as offers from "../dist/offers.js";
 
 const source = (await readFile(new URL("../dist/app.js", import.meta.url), "utf8"))
   .replace(/^import .*;\r?$/gm, "").replace(/^initialize\(\);\r?$/m, "");
@@ -17,7 +18,7 @@ function client(options = {}) {
   const liveElements = Object.fromEntries(["#live-age", "[data-live-title]", "[data-live-dot]", "[data-live-note]"].map(key => [key, { textContent: "", className: "", hidden: false }]));
   const app = { innerHTML: "", addEventListener(type, handler) { appEvents.set(type, handler); }, querySelector() { return null; }, querySelectorAll() { return []; }, contains() { return false; } };
   const context = vm.createContext({
-    ...data, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
+    ...data, ...offers, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
     navigator: { onLine: options.online !== false }, location: { search: "", hash: "#/profile" },
     history: { replaceState() {} },
     document: { hidden: false, activeElement: null, body: { className: "", classList: { toggle() {} } }, querySelector: selector => selector === "#app" ? app : selector === "[data-sync-status]" ? syncRegion : liveElements[selector] || null, addEventListener() {} },
@@ -53,6 +54,78 @@ test("resend self-service makes one request, keeps the session and enforces its 
   await c.appEvents.get("submit")({preventDefault(){},target:form});
   assert.equal(requests.length,1);
   assert.match(c.run("modal()"),/Falls für diese Adresse eine unbestätigte Registrierung/);
+});
+
+test("a recovery callback is not a signup confirmation and never replaces the normal session", () => {
+  const c=client();
+  const temporary=new Map();let replaced="";
+  c.context.sessionStorage={getItem:key=>temporary.get(key)||null,setItem:(key,value)=>temporary.set(key,value),removeItem:key=>temporary.delete(key)};
+  c.context.history.replaceState=(_a,_b,url)=>{replaced=url;};
+  c.run("location.search='?auth=confirmed';location.hash='#access_token=recovery-only&refresh_token=never-store&type=recovery&expires_in=3600'");
+  assert.equal(c.run("consumeAuthRedirect().confirmed"),false);
+  assert.equal(replaced,"/#/home");
+  assert.equal(c.run("session.access_token"),"test-access");
+  assert.equal(c.run("recoveryContext.accessToken"),"recovery-only");
+  assert.doesNotMatch(temporary.get("redscore-recovery-v1"),/refresh_token|never-store/);
+  assert.ok(![...c.storage.values()].some(value=>value.includes("recovery-only")));
+  assert.equal(c.run("readRecoveryContext().accessToken"),"recovery-only");
+  c.run("clearRecoveryContext()");
+  assert.equal(temporary.size,0);
+});
+
+test("recovery initialization checks only the temporary token, not another account's household", async () => {
+  let called;
+  const c=client({fetch:async(_url,options)=>{called={body:JSON.parse(options.body),headers:options.headers};return Response.json({user:{id:"recovery-user",email:"target@example.org"}});}});
+  c.run("recoveryContext={accessToken:'recovery-only',expiresAt:Date.now()+60000}");
+  await c.run("initialize()");
+  assert.equal(called.body.action,"check_password_reset");
+  assert.equal(called.headers.authorization,"Bearer recovery-only");
+  assert.equal(c.run("recoveryStatus"),"ready");
+  assert.equal(c.run("state.ui.modal"),"reset-password");
+  assert.equal(c.run("state.authenticated"),false);
+  assert.equal(c.run("session.access_token"),"test-access");
+  assert.equal(c.run("authEmailDraft"),"target@example.org");
+});
+
+test("invalid and expired recovery contexts never expose the password form", async () => {
+  const c=client();
+  c.run("location.search='?auth=recovery';location.hash='#type=recovery';consumeAuthRedirect();state.ui.modal='reset-password'");
+  await c.run("validateRecoveryContext()");
+  assert.equal(c.run("recoveryStatus"),"invalid");
+  assert.doesNotMatch(c.run("modal()"),/data-password-update-form/);
+  c.run("recoveryContext={accessToken:'expired',expiresAt:Date.now()-1}");
+  await c.run("validateRecoveryContext()");
+  assert.equal(c.run("recoveryContext"),null);
+});
+
+test("a transient recovery failure can be retried without discarding the temporary context", async () => {
+  let fail=true;
+  const c=client({fetch:async()=>fail ? Response.json({error:"Unavailable"},{status:503}) : Response.json({user:{id:"target",email:"target@example.org"}})});
+  c.run("recoveryContext={accessToken:'recovery-only',expiresAt:Date.now()+60000}");
+  await c.run("validateRecoveryContext()");
+  assert.equal(c.run("recoveryStatus"),"unavailable");
+  fail=false;
+  await c.run("validateRecoveryContext()");
+  assert.equal(c.run("recoveryStatus"),"ready");
+});
+
+test("successful password reset uses only its temporary token and clears recovery storage", async () => {
+  let called;
+  const c=client({fetch:async(_url,options)=>{called={body:JSON.parse(options.body),headers:options.headers};return Response.json({ok:true});}});
+  const temporary=new Map();
+  c.context.sessionStorage={removeItem:key=>temporary.delete(key)};
+  temporary.set("redscore-recovery-v1","temporary");
+  c.context.FormData=class {get(){return "test-only-new-password";}};
+  c.run("state.ui.modal='reset-password';recoveryStatus='ready';recoveryContext={accessToken:'recovery-only',expiresAt:Date.now()+60000}");
+  const form={matches:selector=>selector==="[data-password-update-form]",querySelectorAll:()=>[],querySelector:()=>null};
+  await c.appEvents.get("submit")({preventDefault(){},target:form});
+  assert.equal(called.headers.authorization,"Bearer recovery-only");
+  assert.deepEqual(called.body,{action:"update_password",password:"test-only-new-password"});
+  assert.equal(c.run("recoveryContext"),null);
+  assert.equal(c.run("session.access_token"),"test-access");
+  assert.equal(c.run("state.ui.modal"),"login");
+  assert.equal(c.run("passwordResetCompleted"),true);
+  assert.equal(temporary.size,0);
 });
 
 test("offline resend shows a clear error without attempting mail delivery", async () => {
@@ -288,6 +361,41 @@ test("public score lab explains why each click matters", () => {
   assert.match(html, /aria-label="Wasser einplanen – Klicke für die Vorsorge-Erklärung"/);
   assert.match(html, /data-score-lab-step="water"[^>]*aria-pressed="false"/);
   assert.match(html, /Jetzt meinen echten Score kostenlos prüfen/);
+});
+
+test("simulation dialogs omit the removed detail box for every topic", () => {
+  const c=client();
+  for(const id of c.run("scoreLabSteps.map(step=>step.id)")) {
+    c.run(`state.ui.modal='scorelab:${id}'`);
+    const html=c.run("modal()");
+    assert.doesNotMatch(html,/scorelab-why-note|Darum zählt dieser Schritt/);
+    assert.match(html,/scorelab-result/);
+    assert.match(html,/WARUM VORSORGE/);
+  }
+});
+
+test("public navbar omits about while the footer remains unchanged, and imprint uses the requested name", () => {
+  const c=client();
+  assert.doesNotMatch(c.run("publicHeader()"),/Über RedScore|data-scroll="about"/);
+  assert.match(c.run("publicHeader()"),/>Informationen<\/a>/);
+  assert.equal(data.navItems.find(item=>item.id==="knowledge").label,"Informationen");
+  assert.match(c.run("footer()"),/Über RedScore/);
+  c.run("state.ui.modal='legal:imprint'");
+  assert.match(c.run("modal()"),/commit&amp;push Venture Builder/);
+  assert.doesNotMatch(c.run("modal()"),/Webduction|Einzelunternehmen/);
+});
+
+test("offers use the single actual household score and never a visitor example score", () => {
+  const c=client();
+  c.run("state.authenticated=false; renderOffers()");
+  assert.match(c.app.innerHTML,/nicht berechnet/);
+  assert.match(c.app.innerHTML,/href="#\/angebote"/);
+  c.run("state.authenticated=true;state.assessment.answers=Object.fromEntries(relevantAssessmentQuestions().map(([id])=>[id,true]));state.assessment.completedAt='2026-10-26';renderOffers()");
+  const value=c.run("score()");
+  assert.ok(value>0);
+  assert.ok(c.app.innerHTML.includes(`<strong>${value}</strong>`));
+  c.run("offersView.mode='online';renderOffers()");
+  assert.equal(c.run("score()"),value);
 });
 
 test("score lab click opens the matching explanation and retains its effect across renders", async () => {

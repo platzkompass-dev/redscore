@@ -1,6 +1,6 @@
 # RedScore – offene Punkte
 
-Stand: 25. Oktober 2026. Diese Liste unterscheidet erledigte Implementierung von
+Stand: 26. Oktober 2026. Diese Liste unterscheidet erledigte Implementierung von
 externen Freigaben und noch nicht belegten Tests. Sie behauptet keine vollständige
 Prüfung der gesamten Plattform.
 
@@ -13,12 +13,19 @@ Prüfung der gesamten Plattform.
 - Die bereits gehostete RedScore-Mailvorlage samt sicherer lokaler Vorschau und Tests
   ist im Repository gesichert. Kein erneuter Versand an bestehende Nutzer.
 - README zu Kinderangaben und vorhandenen Quellenadaptern aktualisiert.
+- Angebote-Seite mit DE-/EN-Katalog, überprüften offiziellen Quellen, regionalem
+  Ortsabgleich und ortsunabhängigen Online-Angeboten. Abdeckung und Pflege: `offers.md`.
+- Navigation: „Informationen“ und „Angebote“, kein „Über RedScore“ in der Navbar.
+  Impressumsname nach Auftrag geändert; zusätzlicher Score-Simulationskasten entfernt.
+- Passwort-Reset als eigener Ablauf mit isoliertem temporärem Token, Validierung,
+  Wiederholung bei Dienstfehlern und DE-/EN-Formularen implementiert und lokal getestet.
 
 ## Nächste technische Prioritäten
 
-1. Passwort vergessen / sichere Passwortwiederherstellung: noch kein vollständiger
-   öffentlicher RedScore-Ablauf. Recovery-Link und Formular müssen als eigener
-   Auth-Flow behandelt werden, nicht als normale Registrierungsbestätigung.
+1. RedScore-Recovery-Mailvorlage in Supabase aktivieren und anschließend mit einem
+   kontrollierten eigenen Testkonto den echten Versand → Link → Passwort → Login
+   prüfen. Die Vorlage ist im Repo vorbereitet, ihre gehostete Speicherung ist
+   nicht bestätigt. Keine echten Nutzerpasswörter wurden automatisiert geändert.
 2. Vollständiger Zustell-, Linkklick- und Login-Test mit einem kontrollierten eigenen
    Testkonto sowie Prüfung von SPF/DKIM/DMARC im tatsächlich empfangenen Header.
    Der bisherige Zustelltest allein belegt diesen Gesamtweg nicht.

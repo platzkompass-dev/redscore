@@ -113,11 +113,12 @@ export async function POST(request) {
   const action = String(input.action || "");
 
   try {
-    if (action === "resend_confirmation") {
+    if (["resend_confirmation", "request_password_reset"].includes(action)) {
       const email = String(input.email || "").trim().toLowerCase();
       if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "Bitte eine gültige E-Mail-Adresse eingeben." });
-      const { result, payload } = await upstream(config, `/auth/v1/resend?redirect_to=${encodeURIComponent(config.confirmationUrl)}`, {
-        method: "POST", body: JSON.stringify({ type: "signup", email }),
+      // Reuse the allowlisted callback. Supabase's returned type=recovery selects the reset UI.
+      const { result, payload } = await upstream(config, `/auth/v1/${action === "request_password_reset" ? "recover" : "resend"}?redirect_to=${encodeURIComponent(config.confirmationUrl)}`, {
+        method: "POST", body: JSON.stringify(action === "request_password_reset" ? { email } : { type: "signup", email }),
       });
       if (result.status === 429) return json(429, { error: "Bitte warte mindestens eine Minute, bevor du erneut eine Bestätigung anforderst." }, { "retry-after": "60" });
       // Never disclose whether this address is registered or already confirmed.
@@ -146,6 +147,20 @@ export async function POST(request) {
     const user = await currentUser(config, accessToken);
     if (!user) return json(401, { error: "Bitte erneut anmelden." });
     const authHeaders = { authorization: `Bearer ${accessToken}` };
+
+    if (action === "check_password_reset") return json(200, { user: { id: user.id, email: user.email || "" } });
+    if (action === "update_password") {
+      const password = typeof input.password === "string" ? input.password : "";
+      if (password.length < 8 || password.length > 128) return json(400, { error: "Bitte ein neues Passwort mit 8 bis 128 Zeichen eingeben." });
+      const { result, payload } = await upstream(config, "/auth/v1/user", { method: "PUT", headers: authHeaders, body: JSON.stringify({ password }) });
+      if (!result.ok) {
+        if (result.status >= 500) return json(503, { error: "Das Passwort konnte nicht geändert werden. Bitte versuche es später erneut." });
+        if ([401,403].includes(result.status)) return json(401, { error: "Der Rücksetz-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an." });
+        if ((payload.code || payload.error_code) === "same_password") return json(400, { error: "Bitte ein anderes Passwort als bisher verwenden." });
+        return json(result.status === 429 ? 429 : 400, { error: "Das neue Passwort wurde nicht akzeptiert. Bitte beachte die Passwortregeln oder fordere einen neuen Link an." });
+      }
+      return json(200, { ok: true });
+    }
 
     if (action === "sign_out") {
       await upstream(config, "/auth/v1/logout", { method: "POST", headers: authHeaders, body: "{}" });
