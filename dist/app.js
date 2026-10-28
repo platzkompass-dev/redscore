@@ -1,6 +1,7 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=7";
 import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=25";
 import { offerCatalog, offerCategories, offersCheckedAt, selectOffers } from "./offers.js?v=1";
+import { newSupplyTwinPlan, supplyTwinModel, supplyTwinMarkup, updateSupplyTwin } from "./supply-twin.js?v=1";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");
@@ -1104,7 +1105,24 @@ function renderPacklist() {
   app.innerHTML = loggedShell("packliste", content, "packlist-page");
 }
 
+let supplyTwinPlan = newSupplyTwinPlan();
+let supplyTwinFingerprint = "";
+function supplyTwinSnapshot() { return { people:householdPeople(), water:state.supplies.water, food:state.supplies.food }; }
+function prepareSupplyTwin() {
+  const snapshot=supplyTwinSnapshot(),fingerprint=JSON.stringify([state.profile.id,snapshot]);
+  if(fingerprint!==supplyTwinFingerprint){supplyTwinPlan=newSupplyTwinPlan();supplyTwinFingerprint=fingerprint;}
+  return snapshot;
+}
+function refreshSupplyTwin() { updateSupplyTwin(app.querySelector('[data-supply-twin]'),supplyTwinSnapshot(),supplyTwinPlan,getLanguage()); }
+function setSupplyTwinField(field,value) {
+  if(!['guests','water','food','hour','readyPercent'].includes(field))return;
+  const numeric=Number(value);
+  if(field==='readyPercent')supplyTwinPlan.readyPercent=value===''?null:[0,25,50,75,100].includes(numeric)?numeric:null;
+  else if(Number.isFinite(numeric))supplyTwinPlan[field]=clamp(numeric,0,({guests:6,water:1000,food:100,hour:supplyTwinPlan.target*24})[field]);
+  refreshSupplyTwin();
+}
 function renderSupplies() {
+  const twinSnapshot=prepareSupplyTwin();
   const percent = supplyPercent();
   const customSupplies = normalizeCustomSupplies(state.customSupplies);
   const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt", ...(customSupplies.some(item => item.category === "Sonstiges") ? ["Sonstiges"] : [])];
@@ -1115,6 +1133,7 @@ function renderSupplies() {
   const shownGroups = relevantGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
   const shownCustomSupplies = customSupplies.filter(item => state.ui.supplyFilter === "Alle" || item.category === state.ui.supplyFilter);
   const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
+    <div class="content-wrap">${supplyTwinMarkup(twinSnapshot,supplyTwinPlan,getLanguage())}</div>
     <div class="content-wrap supplies-layout"><aside class="side-card supply-progress-card"><small>VORRATSFORTSCHRITT</small><strong>${percent === null ? "Noch nicht erfasst" : `${percent} %`}</strong><div class="bar"><i style="width:${percent === null ? 0 : percent}%"></i></div><p>${progressCopy}</p><p>${percent === null ? "Trage deine tatsächlichen Bestände ein." : "Aus deinen selbst eingetragenen Beständen berechnet."}</p><small>Nicht erfasste Bereiche zählen noch nicht als vorbereitet.</small><button class="outline" data-open-supply="${nextGroup.id}">${recordedCount === relevantGroups.length ? "Bestände prüfen" : "Nächsten Bereich erfassen"}</button></aside>
     <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>${esc(householdSummary())}</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b> · <button data-edit-household>Angaben ändern</button></p></div></article>
       <div class="supply-toolbar"><div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div><button class="green add-supply-button" data-add-custom-supply>+ Eigenen Vorrat hinzufügen</button></div>
@@ -1458,6 +1477,18 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
+  if(button.dataset.twinScenario){supplyTwinPlan.scenario=button.dataset.twinScenario==='no-cook'?'no-cook':'shopping';return refreshSupplyTwin();}
+  if(button.dataset.twinTarget){const target=Number(button.dataset.twinTarget);if([3,7,10].includes(target)){supplyTwinPlan.target=target;supplyTwinPlan.hour=Math.min(supplyTwinPlan.hour,target*24);}return refreshSupplyTwin();}
+  if(button.dataset.twinAction){
+    const model=supplyTwinModel(supplyTwinSnapshot(),supplyTwinPlan);
+    if(button.dataset.twinAction==='reset')supplyTwinPlan=newSupplyTwinPlan();
+    else if(model.complete){
+      if(button.dataset.twinAction==='water')supplyTwinPlan.water=Math.min(1000,supplyTwinPlan.water+6);
+      if(button.dataset.twinAction==='food')supplyTwinPlan.food=Math.min(100,supplyTwinPlan.food+1);
+      if(button.dataset.twinAction==='balance'){supplyTwinPlan.water=model.toGoal.water;supplyTwinPlan.food=model.toGoal.food;}
+    }
+    return refreshSupplyTwin();
+  }
   if (button.hasAttribute("data-offer-discover")) { document.querySelector("#offers-results")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (button.dataset.scroll) {
     const target = button.dataset.scroll;
@@ -1718,6 +1749,7 @@ app.addEventListener("submit", async event => {
 });
 
 app.addEventListener("input", event => {
+  if(event.target.dataset.twinField){setSupplyTwinField(event.target.dataset.twinField,event.target.value);return;}
   if (formError && event.target.name === formError.field) { formError = null; updateFormFeedback(event.target.closest("form")); }
   if (event.target.matches('input[name="adultCount"]')) {
     updateAdultIdentities(event.target.closest("form"));
@@ -1742,6 +1774,7 @@ function updateWaterMode(form) {
   form.elements.liters.disabled = !direct; form.elements.liters.required = direct;
 }
 app.addEventListener("change", event => {
+  if(event.target.dataset.twinField){setSupplyTwinField(event.target.dataset.twinField,event.target.value);return;}
   if (event.target.matches('select[name="quantityMode"]')) {
     updateWaterMode(event.target.closest("form"));
     event.target.dispatchEvent(new Event("input", { bubbles: true }));

@@ -4,6 +4,7 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 import * as data from "../dist/data.js";
 import * as offers from "../dist/offers.js";
+import * as twin from "../dist/supply-twin.js";
 
 const source = (await readFile(new URL("../dist/app.js", import.meta.url), "utf8"))
   .replace(/^import .*;\r?$/gm, "").replace(/^initialize\(\);\r?$/m, "");
@@ -18,7 +19,7 @@ function client(options = {}) {
   const liveElements = Object.fromEntries(["#live-age", "[data-live-title]", "[data-live-dot]", "[data-live-note]"].map(key => [key, { textContent: "", className: "", hidden: false }]));
   const app = { innerHTML: "", addEventListener(type, handler) { appEvents.set(type, handler); }, querySelector() { return null; }, querySelectorAll() { return []; }, contains() { return false; } };
   const context = vm.createContext({
-    ...data, ...offers, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
+    ...data, ...offers, ...twin, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
     navigator: { onLine: options.online !== false }, location: { search: "", hash: "#/profile" },
     history: { replaceState() {} },
     document: { hidden: false, activeElement: null, body: { className: "", classList: { toggle() {} } }, querySelector: selector => selector === "#app" ? app : selector === "[data-sync-status]" ? syncRegion : liveElements[selector] || null, addEventListener() {} },
@@ -681,6 +682,20 @@ test("supply progress contributes to the one score without manufacturing an inco
   assert.equal(c.run("score()"), 100);
   c.run("state.supplies.water=0");
   assert.equal(c.run("score()"), 94);
+});
+
+test("supply simulation actions stay outside the saved household, stock and actual score",async()=>{
+  const c=client();
+  c.run("state.household.adults=[{gender:'woman'},{gender:'man'}];state.household.children=1;state.supplies.water=18;state.supplies.food=3;prepareSupplyTwin()");
+  const before=c.run("JSON.stringify(state)"),value=c.run("score()");
+  const button=action=>({dataset:{twinAction:action},hasAttribute:()=>false});
+  await c.appEvents.get('click')({target:{closest:()=>button('water')}});
+  await c.appEvents.get('click')({target:{closest:()=>button('food')}});
+  assert.equal(c.run("supplyTwinPlan.water"),6);assert.equal(c.run("supplyTwinPlan.food"),1);
+  assert.equal(c.run("supplyTwinModel(supplyTwinSnapshot(),supplyTwinPlan).plannedFirst"),4);
+  assert.equal(c.run("JSON.stringify(state)"),before);assert.equal(c.run("score()"),value);
+  c.run("state.supplies.water=24;prepareSupplyTwin()");
+  assert.equal(c.run("supplyTwinPlan.water"),0,"real stock updates reset the hypothetical additions");
 });
 
 test("directly entered liters are reopened without rounding into container counts", () => {
