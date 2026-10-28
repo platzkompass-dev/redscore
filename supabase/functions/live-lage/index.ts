@@ -6,6 +6,7 @@ import { clusterLiveEvents } from "../_shared/live-lage/cluster.ts";
 import { candidateParams, feedLimit, selectOverview, validCoordinates } from "../_shared/live-lage/selection.ts";
 import { liveLanguage, localizedSourceName, localizeLiveEvent } from "../_shared/live-lage/localize.ts";
 import type { UserContext } from "../_shared/live-lage/types.ts";
+import { isConflictIncident } from "../_shared/live-lage/conflicts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -39,6 +40,7 @@ Deno.serve(async request => {
   });
 
   const ranked = events.map(event => ({ ...event, relevance: calculateRelevance(event, user) }))
+    .filter(event => event.category !== "international_security" || isConflictIncident(`${event.title} ${event.summary || ""}`))
     .filter(event => !["low", "info"].includes(String(event.severity)))
     .filter(event => scope !== "for_you" || event.relevance.score >= 70)
     .sort((a, b) => b.relevance.score - a.relevance.score || Date.parse(b.published_at) - Date.parse(a.published_at));

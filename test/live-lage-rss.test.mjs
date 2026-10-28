@@ -77,3 +77,23 @@ test("supports category restrictions and a declared feed language", async () => 
   assert.ok(events[0].tags.includes("source-language:de"));
   assert.equal((await importItems([rssItem("Iran: USA melden Luftangriff")], { categories: ["cyber"] })).length, 0);
 });
+
+test("does not interpret German war, ordinary crime, animals or country names as war", async () => {
+  const rejected = [
+    "Mordfall Marburg: Getötete Dejana (†35) war schwanger und hatte drei Kinder",
+    "USA: Frau war nach einem Streit getötet worden",
+    "Bärenattacke in Russland: Handy rettet Jungen (15)",
+    "Israel: Journalistin Einreise verweigert – Angriff auf Pressefreiheit",
+    "Feuerwehr befreit Fahrgäste: Grund war ein Stromausfall",
+    "Ukraine: Mann nach einem Raub getötet",
+  ];
+  assert.equal((await importItems(rejected.map((title,i)=>rssItem(title,"",undefined,String(i))))).length,0);
+  assert.equal((await importItems(rejected.map((title,i)=>rssItem(title,"",undefined,String(i))),{categories:[]})).length,0,"rejected crime must not fall through into another crisis category");
+  const events=await importItems([
+    rssItem("Russian missiles kill civilians in Ukraine"),
+    rssItem("USA: Military confirms attack on base"),
+    rssItem("Israeli army reports fighting in Gaza"),
+    rssItem("Sudan: Drone strikes kill civilians"),
+  ]);
+  assert.equal(events.length,4);
+});

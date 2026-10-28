@@ -1,5 +1,6 @@
 import type { NewsCategory, NewsSourceAdapter, NormalizedNewsItem, Severity, SourceConfig } from "../types.ts";
 import { assertAllowedHttpsUrl, fetchStructured, plainText, safePublicUrl } from "../security.ts";
+import { isConflictIncident } from "../conflicts.ts";
 
 function field(block: string, names: string[]): string {
   for (const name of names) {
@@ -7,18 +8,6 @@ function field(block: string, names: string[]): string {
     if (match?.[1]) return plainText(match[1].trim().replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, ""), 4000);
   }
   return "";
-}
-
-function isConflictIncident(value: string): boolean {
-  const text = value.toLowerCase();
-  const explicit = /luftangriff|raketenangriff|drohnenangriff|militärschlag|bombardement|beschuss|gefechte?|kampfhandlungen|waffenruhe|waffenstillstand|invasion|militäroffensive|air\s?strikes?|missile attacks?|drone attacks?|military strikes?|bombardment|shelling|armed clashes?|ceasefires?/;
-  const context = /\bwar\b|krieg|militär|military|armee|army|armed forces|ukrain|russland|russian?|iran|israel|gaza|huthi|houthis|hamas|hezbollah|hisbollah|\busa\b|u\.s\.|united states|amerikanisch/;
-  const action = /angriff|attack|greif\w*\b.{0,100}\ban\b|griff\w*\b.{0,100}\ban\b|offensive|fighting|strikes?|eskalation|escalat|vorrück|advance|raketen|missiles?|drohneneinschlag|töte|getötet|killed|verwundet|wounded|kampf|kämpfe|combat/;
-  // Country names alone are not a war incident. Liveblogs on an actual conflict
-  // are admitted, but elections, interviews and general diplomacy are not.
-  return explicit.test(text) || (context.test(text) && action.test(text)) ||
-    (context.test(text) && /(?:end to|end of|halt|stop|ende|beenden|beendigung).{0,80}(?:conflict|war|krieg|konflikt)/.test(text)) ||
-    (/liveblog|liveticker|live updates/.test(text) && /krieg|\bwar\b|konflikt|conflict/.test(text));
 }
 
 function categoryFor(value: string): NewsCategory | null {
@@ -41,7 +30,7 @@ function categoryFor(value: string): NewsCategory | null {
   if (/großbrand|grossbrand|brandserie|major fire/.test(text)) return "major_fire";
   if (/chemieunfall|gefahrstoff|chemical|hazmat/.test(text)) return "chemical_incident";
   if (/radioaktiv|radiologisch|nuklear|nuclear/.test(text)) return "radiological";
-  if (/kritische infrastr|critical infrastr|sabotage|angriff auf/.test(text)) return "critical_infrastructure";
+  if (/kritische infrastr|critical infrastr|sabotage/.test(text)) return "critical_infrastructure";
   if (/it.?ausfall|systemausfall|serverausfall|dienste? (?:nicht erreichbar|ausgefallen)|systeme? (?:nicht erreichbar|ausgefallen)|network outage/.test(text)) return "it_outage";
   if (/versorgungs(?:störung|ausfall|engpass)|lieferengpass|supply disruption/.test(text)) return "supply_disruption";
   if (/(?:bahnstrecke|flughafen|airport|verkehrsinfrastr).*(?:gesperrt|geschlossen|ausfall|eingestellt|unterbrochen)|(?:gesperrt|geschlossen|ausfall).*(?:bahnstrecke|flughafen|airport)/.test(text)) return "transport_outage";

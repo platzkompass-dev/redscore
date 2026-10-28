@@ -1,5 +1,13 @@
 # RedScore Live-Lage – MVP
 
+## Korrektur der Konfliktklassifizierung · 28.10.2026
+
+`conflicts.ts` enthält die gemeinsame Regel für RSS-Import und Ausgabe bereits gespeicherter Ereignisse. Das deutsche Vergangenheitswort „war“, einzelne Todesfälle und Ländernamen reichen nicht als Konfliktnachweis. Die Regel verlangt konkrete militärische Ereignisse oder einen belegbaren bewaffneten Konfliktkontext. Einzelkriminalität, Tierangriffe und metaphorische Angriffe auf Pressefreiheit werden ausgeschlossen. Ein allgemeines „Angriff auf“ ist auch kein Nachweis für kritische Infrastruktur.
+
+Der gemeldete Mordfall und drei weitere geprüfte Fehlzuordnungen wurden in der Produktionsdatenbank deaktiviert, ohne Datensätze zu löschen. Der Ausgabe-Filter schützt zusätzlich vor alten Fehlklassifizierungen. Keine Änderung an Schema, Rollen oder Authentifizierung. Produktiver Import: Version 15; Ausgabe: Version 13.
+
+Verifikation: 134 Tests bestanden. Der produktive Endpunkt `scope=world&filter=conflicts&language=de` lieferte nach der Korrektur sieben Konfliktmeldungen und keinen Treffer für den Mordfall, Tierangriff, Pressefreiheitsfall oder die zuvor falsch zugeordnete Schwebebahnmeldung. Die Regel ist heuristisch; unklare Meldungen werden eher weggelassen als als Krieg eingestuft.
+
 ## Datenfluss
 
 ```text
