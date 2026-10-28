@@ -1,7 +1,7 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=7";
 import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=25";
 import { offerCatalog, offerCategories, offersCheckedAt, selectOffers } from "./offers.js?v=1";
-import { newSupplyTwinPlan, supplyTwinModel, supplyTwinMarkup, updateSupplyTwin } from "./supply-twin.js?v=1";
+import { newSupplyTwinPlan, supplyTwinModel, supplyTwinMarkup, updateSupplyTwin } from "./supply-twin.js?v=2";
 
 const app = document.querySelector("#app");
 const toastRegion = document.querySelector("#toast-region");

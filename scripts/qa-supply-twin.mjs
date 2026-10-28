@@ -39,10 +39,14 @@ try{
   for(const width of [360,390,768,1440]){
     await page.setViewportSize({width,height:1050});await noOverflow();
     assert.ok(await page.locator('.supply-twin-modal').evaluate(element=>element.scrollWidth<=element.clientWidth+1));
-    await page.screenshot({path:path.join(output,`supply-twin-${width}.png`),fullPage:true});
+    await page.locator('.supply-twin-modal').evaluate(element=>element.scrollTop=0);
+    assert.equal(await page.locator('.twin-extra').getAttribute('open'),null);
+    if(width<=768)assert.ok(await page.locator('.twin-controls').evaluate(element=>element.getBoundingClientRect().top<element.parentElement.querySelector('.twin-results').getBoundingClientRect().top));
+    await page.screenshot({path:path.join(output,`supply-twin-${width}.png`)});
   }
   await page.locator('[data-twin-action="balance"]').click();assert.equal(await page.locator('[data-twin-projected]').innerText(),'10 Tage');
   assert.equal(await page.locator('[data-twin-field="water"]').inputValue(),'42');
+  await page.locator('.twin-extra summary').click();
   await range('guests',3);assert.equal(await page.locator('[data-twin-projected]').innerText(),'5 Tage');
   await page.locator('[data-twin-scenario="no-cook"]').click();assert.equal(await page.locator('[data-twin-first]').innerText(),'Noch offen');
   await page.locator('[data-twin-field="readyPercent"]').selectOption('50');assert.equal(await page.locator('[data-twin-projected]').innerText(),'4 Tage 6 h');
