@@ -325,3 +325,71 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
   .logged-mode .toast-region{bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 }
 @media(prefers-reduced-motion:reduce){.app-header nav[aria-label] button{transition:none}}
+/* Mobile ergonomics: readable content, deliberate tap targets and one bottom inset. */
+@media(max-width:760px){
+  .app-header .user-tools{gap:6px}
+  .app-header .user-tools :is(.bell,.avatar),.language-flag{width:44px;height:44px;min-width:44px}
+  .public-actions .outline{min-height:44px}
+  .public-header nav{height:44px}
+  .public-header nav>*{min-height:44px}
+  .logged-page>main{padding-bottom:24px}
+  .logged-page>.site-footer{margin-bottom:0;padding-bottom:calc(124px + env(safe-area-inset-bottom,0px))}
+  .site-footer{gap:22px;padding-top:26px}
+  .site-footer nav :is(a,button){display:flex;align-items:center;justify-content:center;min-height:44px;font-size:14px}
+  .logged-page main button{min-height:44px;min-width:44px}
+  .logged-page main :is(input:not([type=range]),select,textarea),.modal :is(input:not([type=range]),select,textarea){font-size:16px;min-height:48px}
+  .logged-page main :is(p,small){overflow-wrap:break-word}
+  .household-card button{display:inline-flex;align-items:center;padding:6px 0;font-size:14px}
+  .article-grid article button{display:inline-flex;align-items:center;font-size:14px;padding:8px 0}
+  .knowledge-side a,.subhero>div>a,.saved-location [data-save-offline]{display:inline-flex;align-items:center;min-height:44px;font-size:13px}
+  .pack-filters button,.filter-row button,.offer-scope button{font-size:13px}
+  .pack-item{grid-template-columns:44px 32px minmax(0,1fr);gap:10px;padding:14px 12px}
+  .pack-check{width:44px;height:44px;min-width:44px}
+  .pack-item-heading h3{font-size:15px;line-height:1.4}
+  .pack-item-copy p{font-size:13px;line-height:1.55;margin:6px 0}
+  .pack-item-copy small{font-size:12px;line-height:1.5}
+  .pack-priority{font-size:9px}
+  .packlist-note,.packlist-summary{font-size:12px;line-height:1.5}
+  .packlist-visual{grid-template-columns:80px minmax(0,1fr);text-align:left;justify-items:stretch;gap:7px 16px;padding:18px}
+  .pack-visual-art{grid-column:1;grid-row:1/4;width:80px;height:104px;align-self:start}
+  .pack-visual-art .pack-bag-icon{width:76px;height:76px}
+  .packlist-visual .pack-ring{grid-column:1;grid-row:1/4;align-self:end;justify-self:center;margin:0 0 -5px;width:62px;height:62px}
+  .packlist-visual .pack-ring strong{font-size:17px}
+  .packlist-visual .pack-ring small{font-size:8px}
+  .packlist-visual>h2,.packlist-visual>p,.packlist-visual>.bar{grid-column:2}
+  .packlist-visual>h2{font-size:19px}
+  .packlist-visual>.packlist-note{grid-column:1/-1;margin-top:9px}
+  .live-lage-panel{height:auto;min-height:0;grid-template-rows:auto auto auto minmax(0,1fr) auto}
+  .live-list{min-height:0;max-height:65dvh;overscroll-behavior:contain}
+  .live-lage-panel>header{padding:16px}
+  .live-lage-panel>header h2{font-size:20px}
+  .live-lage-panel>header small,.live-lage-panel>footer :is(span,small){font-size:12px;line-height:1.5}
+  .live-lage-panel>header button{width:44px;height:44px}
+  .live-scope{padding:10px 10px 5px}
+  .live-scope button{font-size:12px;padding:9px 3px}
+  .live-filters button{flex:0 0 auto;font-size:13px}
+  .live-event{padding:15px 12px}
+  .live-event h3{font-size:16px;line-height:1.45}
+  .live-event>p{font-size:14px;line-height:1.6}
+  .live-relevance button{font-size:13px}
+  .live-event-top{gap:5px}
+  .live-empty{padding:24px 16px}
+  .live-empty p{font-size:13px}
+  .map-canvas-toolbar{flex-wrap:wrap}
+  .map-canvas-toolbar button{font-size:12px}
+  .map-page .emergency-callout button{min-height:44px}
+  .warning-layout a{display:inline-flex;align-items:center;min-height:44px}
+  .profile-card{min-width:0}
+  .modal{scroll-padding-top:60px;scroll-padding-bottom:24px}
+  .modal :is(button.green,button.outline,.auth-tabs button){min-height:44px}
+  .modal p{line-height:1.6}
+  .modal:is(.onboarding-modal,.assessment-modal,.legal-modal)>.modal-close{position:sticky;top:0;float:right;margin:-8px -6px -36px 8px;z-index:8;background:#f8fbfdf5;border:1px solid #b8ccd6;border-radius:8px}
+}
+@media(max-width:360px){
+  .app-header .wordmark{min-width:0}
+  .app-header .wordmark>span{font-size:22px}
+  .app-header .wordmark{grid-template-columns:30px auto;column-gap:5px}
+  .app-header .wordmark>img{width:30px;height:30px}
+  .pack-item{grid-template-columns:44px minmax(0,1fr)}
+  .pack-item-icon{display:none}
+}
