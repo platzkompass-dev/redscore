@@ -4,6 +4,7 @@ Im eingeloggten Bereich Vorräte: interaktive, rein lokale Was-wäre-wenn-Rechnu
 
 ## Bedienung
 
+- Auf der Vorratsseite öffnet „Zeitmaschine starten“ das Werkzeug als Popup. Der Hintergrund ist währenddessen gesperrt; Schließen und Escape führen zurück zum Startbutton. Der Plan bleibt beim Schließen und erneuten Öffnen derselben Sitzung erhalten.
 - Szenario ohne Einkauf oder zusätzlich ohne Herd. Beim Herd-Ausfall muss der Nutzer selbst den nutzbaren Lebensmittelanteil auswählen; es wird kein Anteil erfunden.
 - Bis zu sechs zusätzliche Personen simulieren.
 - Wasser und Lebensmittel hypothetisch ergänzen; beide Reichweiten und der erste Engpass werden unmittelbar neu berechnet.

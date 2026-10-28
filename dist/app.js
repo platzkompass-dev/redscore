@@ -1122,7 +1122,8 @@ function setSupplyTwinField(field,value) {
   refreshSupplyTwin();
 }
 function renderSupplies() {
-  const twinSnapshot=prepareSupplyTwin();
+  prepareSupplyTwin();
+  const twinEnglish=getLanguage()==='en';
   const percent = supplyPercent();
   const customSupplies = normalizeCustomSupplies(state.customSupplies);
   const filters = ["Alle", "Versorgung", "Gesundheit", "Haushalt", ...(customSupplies.some(item => item.category === "Sonstiges") ? ["Sonstiges"] : [])];
@@ -1133,7 +1134,7 @@ function renderSupplies() {
   const shownGroups = relevantGroups.filter(group => state.ui.supplyFilter === "Alle" || group.category === state.ui.supplyFilter);
   const shownCustomSupplies = customSupplies.filter(item => state.ui.supplyFilter === "Alle" || item.category === state.ui.supplyFilter);
   const content = `<section class="image-hero pantry-hero" ${sceneStyle("supplies")}><div><h1>Vorräte</h1><h2>Heute vorsorgen. Morgen sicher.</h2><p>Ein alltagstauglicher Vorrat schafft Handlungsspielraum, wenn Versorgung oder Strom ausfallen.</p><a href="${sources.bbkGuide}" target="_blank" rel="noreferrer">Empfehlungen des BBK öffnen →</a></div></section>
-    <div class="content-wrap">${supplyTwinMarkup(twinSnapshot,supplyTwinPlan,getLanguage())}</div>
+    <div class="content-wrap"><button class="twin-launch" data-open-supply-twin aria-haspopup="dialog"><span class="twin-launch-orbit" aria-hidden="true"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="23"/><path d="M32 18v15l11 7M8 17l5-6 7 3M56 47l-5 6-7-3"/></svg></span><span class="twin-launch-copy"><small>${twinEnglish?'WHAT IF?':'WAS WÄRE WENN?'}</small><strong>${twinEnglish?'Your supplies. A journey ahead.':'Dein Vorrat. Eine Reise voraus.'}</strong><span>${twinEnglish?'Discover your first shortfall — and how to move it.':'Entdecke deinen ersten Engpass — und wie du ihn verschiebst.'}</span></span><span class="twin-launch-cta">${twinEnglish?'Start time machine':'Zeitmaschine starten'} <b aria-hidden="true">↗</b></span></button></div>
     <div class="content-wrap supplies-layout"><aside class="side-card supply-progress-card"><small>VORRATSFORTSCHRITT</small><strong>${percent === null ? "Noch nicht erfasst" : `${percent} %`}</strong><div class="bar"><i style="width:${percent === null ? 0 : percent}%"></i></div><p>${progressCopy}</p><p>${percent === null ? "Trage deine tatsächlichen Bestände ein." : "Aus deinen selbst eingetragenen Beständen berechnet."}</p><small>Nicht erfasste Bereiche zählen noch nicht als vorbereitet.</small><button class="outline" data-open-supply="${nextGroup.id}">${recordedCount === relevantGroups.length ? "Bestände prüfen" : "Nächsten Bereich erfassen"}</button></aside>
     <section><article class="household-card">${icon("profile","big-icon")}<div><small>HAUSHALT</small><h2>${esc(householdSummary())}</h2><p>Empfohlener Betrachtungszeitraum: <b>10 Tage</b> · <button data-edit-household>Angaben ändern</button></p></div></article>
       <div class="supply-toolbar"><div class="filter-row">${filters.map(f => `<button data-supply-filter="${f}" class="${f===state.ui.supplyFilter?"active":""}">${f}</button>`).join("")}</div><button class="green add-supply-button" data-add-custom-supply>+ Eigenen Vorrat hinzufügen</button></div>
@@ -1297,6 +1298,10 @@ function renderProfile() {
 
 function modal() {
   if (!state.ui.modal) return "";
+  if (state.ui.modal === "supply-twin" && state.authenticated) {
+    const snapshot=prepareSupplyTwin(),english=getLanguage()==='en';
+    return `<div class="modal-backdrop twin-backdrop"><section class="modal supply-twin-modal"><div class="twin-dialog-bar"><span>${english?'YOUR PERSONAL SUPPLY LAB':'DEIN PERSÖNLICHES VORRATSLABOR'}</span><button class="modal-close" data-close-modal aria-label="${english?'Close':'Schließen'}">×</button></div>${supplyTwinMarkup(snapshot,supplyTwinPlan,getLanguage())}</section></div>`;
+  }
   if (state.ui.modal === "install") {
     const english = getLanguage() === "en";
     return `<div class="modal-backdrop install-backdrop"><section class="modal install-modal" role="dialog" aria-modal="true" aria-labelledby="install-title"><button class="modal-close" data-install-dismiss aria-label="${english ? "Close" : "Schließen"}">×</button><img class="install-logo" src="assets/app-icon-192.png?v=5" alt=""><small>${english ? "REDScore DESKTOP-APP" : "REDSCORE DESKTOP-APP"}</small><h2 id="install-title">${english ? "RedScore always at hand" : "RedScore immer griffbereit"}</h2><p>${english ? "Install RedScore as a desktop app for fast access to your preparedness status, supplies and live situation updates." : "Installiere RedScore als Desktop-App und erreiche Vorsorgestand, Vorräte und Live-Lage schneller."}</p><button class="green full" data-install-app>${english ? "Download and install" : "Download & installieren"} →</button><button class="install-later" data-install-dismiss>${english ? "Maybe later" : "Später"}</button></section></div>`;
@@ -1380,7 +1385,7 @@ function render() {
   const active = document.activeElement;
   const sameDialog = oldDialog && renderedModal === state.ui.modal && renderedModalLanguage === getLanguage();
   if (formError?.modal !== state.ui.modal) formError = null;
-  const fields = sameDialog ? [...oldDialog.querySelectorAll("input,select,textarea")].map(field => ({ name: field.name, value: field.value, checked: field.checked })) : [];
+  const fields = sameDialog ? [...oldDialog.querySelectorAll("input,select,textarea")].filter(field=>field.name).map(field => ({ name: field.name, value: field.value, checked: field.checked })) : [];
   const oldScroll = oldDialog?.scrollTop || 0;
   const focusName = sameDialog && oldDialog.contains(active) ? active.name : null;
   const focusAttributes = active && app.contains(active) ? [...active.attributes].filter(attribute => attribute.name.startsWith("data-")).map(attribute => [attribute.name, attribute.value]) : [];
@@ -1395,7 +1400,7 @@ function render() {
   if (dialog) {
     dialog.setAttribute("role", "dialog"); dialog.setAttribute("aria-modal", "true"); dialog.tabIndex = -1;
     const title = dialog.querySelector("h2");
-    if (title) { title.id = "dialog-title"; dialog.setAttribute("aria-labelledby", title.id); }
+    if (title) { if(!title.id)title.id = "dialog-title"; dialog.setAttribute("aria-labelledby", title.id); }
     dialog.querySelector(".modal-close")?.setAttribute("aria-label", "Schließen");
     if (state.ui.modal === "onboarding" && state.profile.onboardingCompleted) {
       const close = document.createElement("button"); close.className = "modal-close"; close.dataset.closeModal = ""; close.setAttribute("aria-label", "Schließen"); close.textContent = "×"; dialog.prepend(close);
@@ -1477,6 +1482,7 @@ app.addEventListener("click", async event => {
     return;
   }
   if (button.hasAttribute("data-language-toggle")) { languageMenuOpen = !languageMenuOpen; return render(); }
+  if(button.hasAttribute('data-open-supply-twin') && state.authenticated){state.ui.modal='supply-twin';return render();}
   if(button.dataset.twinScenario){supplyTwinPlan.scenario=button.dataset.twinScenario==='no-cook'?'no-cook':'shopping';return refreshSupplyTwin();}
   if(button.dataset.twinTarget){const target=Number(button.dataset.twinTarget);if([3,7,10].includes(target)){supplyTwinPlan.target=target;supplyTwinPlan.hour=Math.min(supplyTwinPlan.hour,target*24);}return refreshSupplyTwin();}
   if(button.dataset.twinAction){
