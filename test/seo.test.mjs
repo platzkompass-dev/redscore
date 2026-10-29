@@ -29,7 +29,7 @@ test("publishes crawler controls and the canonical sitemap", async () => {
 test("loads privacy-friendly analytics only on the production domain", async () => {
   const analytics = await readFile(new URL("../dist/analytics.js", import.meta.url), "utf8");
   assert.match(analytics, /redscore\\\.de/);
-  assert.match(analytics, /\/_vercel\/insights\/script\.js/);
+  assert.ok(analytics.includes("fetch('/api/visit'"));
 });
 
 test("every sitemap guide has crawlable content, matching canonical metadata and working local links", async () => {
