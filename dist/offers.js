@@ -1,6 +1,6 @@
 // Editorial catalog: official provider pages, checked on the date below.
 // No affiliate parameters, paid placements, live stock, prices or invented dates.
-export const offersCheckedAt = "2026-10-25";
+export const offersCheckedAt = "2026-10-28";
 export const offerCategories = [
   { id: "first-aid", icon: "medical", image: "knowledge.png", de: "Erste Hilfe", en: "First aid", copyDe: "Wissen auffrischen. Im Notfall handeln können.", copyEn: "Refresh your skills. Know how to help." },
   { id: "volunteer", icon: "profile", image: "shelter.png", de: "Katastrophenschutz & Ehrenamt", en: "Civil protection & volunteering", copyDe: "Organisationen kennenlernen und mithelfen.", copyEn: "Meet organisations and get involved." },
@@ -25,6 +25,30 @@ export const offerCatalog = [
 ].map(item => Object.freeze({ ...item, checkedAt: offersCheckedAt, country: "DE" }));
 
 const normalise = value => String(value || "").trim().toLocaleLowerCase("de-DE").replace(/^landkreis\s+|^kreis\s+|^freie und hansestadt\s+|^hansestadt\s+/g, "");
+const searchText = value => String(value || "").normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g,"ss").replace(/[^\p{L}\p{N}]+/gu," ").trim();
+export function offerMatchesSearch(item, query = "") {
+  const text=searchText([item.provider,item.de,item.en,item.descriptionDe,item.descriptionEn,item.city,item.address].filter(Boolean).join(" "));
+  return searchText(String(query).slice(0,120)).split(/\s+/).filter(Boolean).every(term=>text.includes(term));
+}
+export function offerPreparation(item, language="de") {
+  const de=language!=="en";
+  return ({
+    "first-aid":de?["Kursinhalt und Zielgruppe passend?","Termin, Kursort und Gesamtkosten prüfen.","Freie Plätze erst beim Anbieter bestätigen."]:["Does the course suit your needs?","Check date, venue and total cost.","Confirm available places with the provider."],
+    volunteer:de?["Zeitaufwand und Voraussetzungen klären.","Kennenlerntermin direkt vereinbaren.","Keine Aufnahmezusage durch RedScore."]:["Check time commitment and requirements.","Arrange an introduction directly.","RedScore does not guarantee admission."],
+    equipment:de?["Zuerst vorhandene Ausrüstung prüfen.","Maße, Gewicht und Einsatzgrenzen vergleichen.","Lieferumfang und Rückgabebedingungen prüfen."]:["Check equipment you already own first.","Compare size, weight and usage limits.","Check included items and return terms."],
+    safety:de?["Eignung für Wohnung und Einsatzort prüfen.","Montage und Wartung berücksichtigen.","Lieferumfang und Folgekosten vergleichen."]:["Check suitability for your home and location.","Consider installation and maintenance.","Compare included items and ongoing costs."],
+    events:de?["Aktuellen Termin beim Veranstalter prüfen.","Ort, Anmeldung und mögliche Kosten klären.","Ohne bestätigten Termin keine Reise planen."]:["Check the current date with the organiser.","Confirm venue, registration and possible cost.","Do not plan travel without a confirmed date."],
+  })[item.category] || [];
+}
+export function offerNeedHints({people,water,backpack}={}) {
+  const hints=[];
+  if(Number.isInteger(people)&&people>0&&people<=20){
+    if(water===null||water===undefined)hints.push({id:"water",route:"supplies",de:"Dein Wasserbestand ist noch nicht erfasst. Kläre zuerst euren Bedarf.",en:"Your water stock has not been recorded. Check your needs first."});
+    else if(typeof water==="number"&&Number.isFinite(water)&&water>=0&&water<people*20)hints.push({id:"water",route:"supplies",de:"Dein eingetragener Wasservorrat liegt unter eurem 10-Tage-Planungsziel. Ein Wasserfilter ersetzt diesen Vorrat nicht.",en:"Your recorded water stock is below your 10-day planning target. A water filter does not replace stored water."});
+  }
+  if(backpack===false)hints.push({id:"backpack",route:"packliste",de:"Notgepäck ist in deinem Vorsorge-Check noch offen. Prüfe mit der Packliste, was du bereits besitzt.",en:"Emergency luggage is still marked as incomplete in your check. Use the packing list to see what you already own."});
+  return hints;
+}
 export function localOfferMatches(offer, location = {}) {
   if (offer.mode !== "local") return false;
   if (location.country && !["de", "deutschland", "germany"].includes(normalise(location.country))) return false;
@@ -34,11 +58,12 @@ export function localOfferMatches(offer, location = {}) {
   return Boolean(offer.postalCodes?.includes(location.postalCode) || (offer.postalPattern && new RegExp(offer.postalPattern).test(location.postalCode)));
 }
 
-export function selectOffers({ category = "all", mode = "all", location = {}, catalog = offerCatalog } = {}) {
+export function selectOffers({ category = "all", mode = "all", location = {}, query = "", sort = "recommended", catalog = offerCatalog } = {}) {
   return catalog.filter(item => {
+    if (!offerMatchesSearch(item,query)) return false;
     if (category !== "all" && category !== item.category && !(category === "regional" && item.mode === "local")) return false;
     if (item.mode === "local") return mode !== "online" && localOfferMatches(item, location);
     if (mode === "local" || category === "regional") return false;
     return mode !== "online" || item.mode === "online";
-  }).sort((a, b) => Number(b.mode === "local") - Number(a.mode === "local"));
+  }).sort((a, b) => sort === "provider" ? a.provider.localeCompare(b.provider,"de") || a.id.localeCompare(b.id) : Number(b.mode === "local") - Number(a.mode === "local"));
 }

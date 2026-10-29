@@ -1,6 +1,6 @@
 # Angebote
 
-Stand: 26. Oktober 2026. Öffentliche und eingeloggte Seite: `/#/angebote`.
+Stand: 28. Oktober 2026. Öffentliche und eingeloggte Seite: `/#/angebote`.
 
 Die Seite verwendet das vorhandene Routing, die gemeinsame Navbar, den Footer und
 denselben persönlichen Score wie die Startseite. Ohne vollständigen Vorsorge-Check
@@ -10,7 +10,7 @@ erscheint kein erfundener Score. Käufe beeinflussen die Bewertung nicht.
 
 `dist/offers.js` enthält die redaktionelle Auswahl, sechs Kategorien, deutsche und
 englische Texte, offizielle Anbieter-URLs und das tatsächliche Prüfdatum
-25. Oktober 2026. Keine Werbung, Provision, Affiliate-Parameter oder behaupteten
+28. Oktober 2026. Keine Werbung, Provision, Affiliate-Parameter oder behaupteten
 Partnerschaften. Die Recherche bestätigt das Angebot auf der offiziellen Seite,
 nicht Produktqualität, freie Plätze, Lieferbarkeit oder aktuelle Preise.
 
@@ -26,6 +26,12 @@ nicht Produktqualität, freie Plätze, Lieferbarkeit oder aktuelle Preise.
 - [Bevölkerungsschutztag](https://bevoelkerungsschutztag.de/): Veranstalter meldet Verschiebung auf 2027 ohne festen neuen Termin. Kein kommender Termin erfunden.
 
 ## Standort und Filter
+
+Eine lokale Suche berücksichtigt deutsche und englische Titel, Anbieter und Beschreibungen sowie Schreibweisen mit/ohne Umlaute. Alle Suchwörter müssen passen. Sortierung: regionale Einträge zuerst oder Anbieter A–Z. Suche und Filter umgehen nie den Ortsabgleich. Leere Suchergebnisse unterscheiden sich von fehlender regionaler Katalogabdeckung; separate bundesweite Finder berücksichtigen ebenfalls den Suchbegriff.
+
+Angemeldete Nutzer sehen bei fehlendem/zu geringem Wasserbestand oder explizit offenem Notgepäck zuerst einen Verweis zu ihren Vorräten bzw. zur Packliste. Fehlende Daten werden nicht als bestätigter Mangel behandelt, Käufe nicht als Lösung unterstellt. Ein Filter wird ausdrücklich nicht als Ersatz für Trinkwasservorrat empfohlen. Kein Profil wird dazu an einen Anbieter geschickt.
+
+Jede Angebotskarte zeigt eine ausklappbare Prüfcheckliste und die Ziel-Domain des externen Links. Mobile Kategorien sind kompakte Auswahlflächen. Quellenseiten wurden am 28.10.2026 erneut redaktionell geprüft; Preise, Termine und Plätze werden weiterhin nicht erfunden oder als live zugesichert.
 
 Der Abgleich bleibt vollständig im Browser. Angemeldete Nutzer sehen keine PLZ-/
 Ortseingabe: Es zählt ausschließlich der aktuelle Standort aus den Einstellungen,

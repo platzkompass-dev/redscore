@@ -24,10 +24,20 @@ async function location(postcode,city) {
 }
 try {
   await page.goto("http://127.0.0.1:4181/#/angebote");
+  await page.locator('[data-consent-choice="necessary"]').click();
   await page.locator('.offers-hero h1').waitFor();
   assert.equal(await page.locator('.offer-category').count(),6);
   assert.equal(await page.locator('[data-offer-id="johanniter-stade"]').count(),0);
   assert.match(await page.locator('.offers-score').innerText(),/nicht berechnet/);
+  await page.locator('[name="offerQuery"]').fill('Rucksack');await page.locator('[data-offer-search-submit]').click();
+  assert.equal(await page.locator('.offer-card').count(),1);
+  assert.equal(await page.locator('[data-offer-id="decathlon-backpacks"]').count(),1);
+  await page.locator('[data-offer-sort]').selectOption('provider');
+  await page.locator('[data-offer-clear-query]').click();
+  await page.locator('[name="offerQuery"]').fill('NichtvorhandenesAngebot');await page.locator('[data-offer-search-submit]').click();
+  assert.match(await page.locator('.offers-empty h3').innerText(),/Suchbegriff/);
+  assert.equal(await page.locator('.offer-card').count(),0);
+  await page.locator('.offers-active-query [data-offer-clear-query]').click();
   await page.locator('[data-offer-discover]').click();
   assert.ok(page.url().endsWith("#/angebote"));
   await location("21680","Stade");
@@ -70,6 +80,7 @@ try {
   await page.locator('.offers-hero').waitFor();
   assert.equal(await page.locator('[data-offers-location]').count(),0);
   assert.match(await page.locator('.offers-profile-location').innerText(),/YOUR SAVED LOCATION/);
+  assert.equal(await page.locator('.offers-needs').count(),1);
   await page.setViewportSize({width:390,height:844}); await noOverflow();
   assert.equal(await page.locator('.app-header nav button').count(),7);
   const bounds=await page.locator('.app-header nav button').evaluateAll(buttons=>buttons.map(button=>({left:button.getBoundingClientRect().left,right:button.getBoundingClientRect().right,width:button.getBoundingClientRect().width})));
