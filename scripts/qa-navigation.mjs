@@ -12,6 +12,7 @@ const errors=[];page.on('pageerror',error=>errors.push(error.message));
 const output=path.join(os.tmpdir(),'redscore-navigation-qa');await mkdir(output,{recursive:true});
 try{
   await page.goto('http://127.0.0.1:4181/#/home');
+  await page.locator('[data-consent-choice="necessary"]').click();
   await page.locator('[data-open-auth="login"]').first().click();
   await page.locator('[name="email"]').fill('qa@example.test');
   await page.locator('[name="password"]').fill('test-only-password');

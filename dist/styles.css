@@ -425,3 +425,32 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
   .pack-item{grid-template-columns:44px minmax(0,1fr)}
   .pack-item-icon{display:none}
 }
+/* Touch ergonomics also apply to tablets, beyond the phone layout breakpoint. */
+@media(max-width:1100px){
+  .public-actions .language-flag,.app-header .user-tools :is(.language-flag,.avatar,.bell,.search-button){min-width:44px;width:44px;min-height:44px;height:44px}
+  .logged-page main button,.offers-page main button{min-height:44px;min-width:44px}
+  .offers-page main :is(input,select),.logged-page main :is(input:not([type=range]):not([type=checkbox]):not([type=radio]),select,textarea),.modal :is(input:not([type=range]):not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px;min-height:48px}
+  .site-footer nav :is(a,button){display:inline-flex;align-items:center;justify-content:center;min-height:44px;font-size:14px}
+  .packlist-note a,.warning-layout a,.knowledge-side a,.subhero>div>a,.pantry-hero a,.saved-location [data-save-offline]{display:inline-flex;align-items:center;min-height:44px}
+}
+@media(min-width:761px) and (max-width:1100px){
+  .pack-item{grid-template-columns:44px 36px minmax(0,1fr);gap:10px}
+  .pack-check{width:44px;height:44px;min-width:44px}
+  .pack-item-icon{width:34px;height:34px}
+  .pack-item-copy p{font-size:14px;line-height:1.55}
+  .pack-item-copy small,.packlist-summary,.packlist-note{font-size:12px;line-height:1.5}
+  .live-lage-panel{height:auto;min-height:0;grid-template-rows:auto auto auto minmax(0,1fr) auto}
+  .live-list{min-height:0;max-height:65dvh}
+  .live-lage-panel>header button{width:44px;height:44px}
+  .live-filters button{flex:0 0 auto;font-size:13px}
+  .live-scope button{font-size:13px}
+  .live-event h3{font-size:16px;line-height:1.45}
+  .live-event>p{font-size:14px;line-height:1.6}
+  .live-meta,.live-relevance span,.live-evidence span,.live-lage-panel>header small,.live-lage-panel>footer :is(span,small){font-size:12px;line-height:1.5}
+  .live-evidence em{font-size:11px}
+  .live-relevance button{font-size:13px}
+  .household-card button{display:inline-flex;align-items:center;padding:6px 0}
+  .article-grid article button{display:inline-flex;align-items:center;padding:8px 0}
+  .modal{scroll-padding-top:60px;scroll-padding-bottom:24px}
+  .modal:is(.onboarding-modal,.assessment-modal,.legal-modal)>.modal-close{position:sticky;top:0;float:right;margin:-8px -6px -36px 8px;z-index:8;background:#f8fbfdf5;border:1px solid #b8ccd6;border-radius:8px}
+}
