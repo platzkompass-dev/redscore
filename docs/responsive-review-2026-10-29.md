@@ -21,4 +21,4 @@ Ergebnis: keine Dokument-Überläufe, keine gemeldeten JavaScript-Fehler, keine 
 
 136 automatisierte Tests bestanden. Die reale Supabase-Anmeldung und Synchronisierung sind wegen der pausierten Datenbank nicht Bestandteil dieses Nachweises. Kartendaten und Nachrichten wurden in der lokalen Layoutprüfung simuliert.
 
-Tracking bleibt separat auf `codex/traffic-statistics` vorbereitet. Vor dessen späterer Zusammenführung CSS-Version 49 beibehalten und Service-Worker-Version erneut erhöhen.
+Nachtrag 04.11.2026: Tracking zusammengeführt; CSS-Version 49 beibehalten und Service-Worker auf Version 66 erhöht. Supabase nach Zahlung wieder aktiv; der oben beschriebene Layoutnachweis verwendet weiterhin ausschließlich lokale Testdaten.

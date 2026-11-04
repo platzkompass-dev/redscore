@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "buildCommand": "npm run build:guides",
   "functions": {
+    "api/visit.js": {
+      "maxDuration": 10,
+      "supportsCancellation": true
+    },
     "api/live-lage.js": {
       "maxDuration": 10,
       "supportsCancellation": true
