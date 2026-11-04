@@ -3,6 +3,11 @@
 node_modules
 assets/branding
 tools
-supabase
+supabase/*
+!supabase/functions
+supabase/functions/*
+!supabase/functions/_shared
+supabase/functions/_shared/*
+!supabase/functions/_shared/visits.js
 docs
 
