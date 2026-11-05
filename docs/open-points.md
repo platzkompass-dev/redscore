@@ -9,6 +9,7 @@ Prüfung der gesamten Plattform.
 - Supabase nach Zahlung reaktiviert. Eigene Besucherstatistik seit 4. November live, mit Zustimmung und nachgewiesener Speicherung; Testaufrufe entfernt.
 - Handy-/Tabletprüfung mit größeren Touch-Flächen und lesbaren Eingaben abgeschlossen.
 - RedScore-Passwortmail in Supabase gespeichert; Empfang unter administration@redscore.de und Rückleitung bis zum echten Passwortformular geprüft.
+- Den anschließenden selbst ausgeführten Passwortwechsel und erfolgreichen Login bestätigte die Betreiberin am 5. November. Der reale Wiederherstellungsablauf ist für das Testkonto abgeschlossen.
 - Zentrales Vercel-WAF-Limit für die Konto-API veröffentlicht und mit HTTP 429 bei Anfrage 31 nachgewiesen. Verständliche Rückmeldung auf Deutsch und Englisch ergänzt.
 - Tatsächlichen Datenbank-/Quellenstatus für `/api/health` sowie privaten fünfminütigen Störungscheck eingerichtet. Ausfall und Erholung ohne bleibende Teständerungen geprüft.
 - Bildportfolio um zwei Töchter und zwei Söhne bei einem Frau/Mann-Haushalt erweitert; Auswahl, Speicherung und mobile Darstellung geprüft.
@@ -29,10 +30,9 @@ Prüfung der gesamten Plattform.
 
 ## Nächste technische Prioritäten
 
-1. Rückmeldung der Betreiberin zum selbst eingegebenen neuen RedScore-Passwort und anschließenden Login. Der echte Mail-/Linkweg bis zum Formular ist geprüft; ein abgeschlossener Passwortwechsel wird noch nicht behauptet.
-2. SPF/DKIM/DMARC anhand des tatsächlich empfangenen Headers und Darstellung in weiteren Mail-Clients prüfen.
-3. Externe Störungsbenachrichtigung mit einem festgelegten Empfänger ergänzen. Interne Störungserfassung und öffentlicher Status sind vorhanden. Weitere API-Pfade bei wachsender Nutzung gezielt absichern; das neue WAF-Limit betrifft `/api/account`.
-4. Weitere Haushaltsbilder, zusätzliche rechtlich nutzbare Nachrichtenquellen und redaktionelle Korrekturprozesse ergänzen. Nicht abgedeckte Haushalte erhalten weiterhin die Landschaft statt einer falsch zusammengesetzten Familie.
+1. SPF/DKIM/DMARC anhand des tatsächlich empfangenen Headers und Darstellung in weiteren Mail-Clients prüfen.
+2. Externe Störungsbenachrichtigung mit einem festgelegten Empfänger ergänzen. Interne Störungserfassung und öffentlicher Status sind vorhanden. Weitere API-Pfade bei wachsender Nutzung gezielt absichern; das neue WAF-Limit betrifft `/api/account`.
+3. Weitere Haushaltsbilder, zusätzliche rechtlich nutzbare Nachrichtenquellen und redaktionelle Korrekturprozesse ergänzen. Nicht abgedeckte Haushalte erhalten weiterhin die Landschaft statt einer falsch zusammengesetzten Familie.
 
 ## Externe bzw. von der Betreiberin zu klärende Punkte
 
