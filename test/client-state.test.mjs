@@ -200,7 +200,8 @@ test("unsupported or legacy households use a person-free image, not a guessed fa
   c.run("state.profile.selectedScene='family-woman-man';state.household={adults:[{gender:'woman'},{gender:'man'}],children:1,childDetails:[]}");
   assert.equal(c.run("selectedScene()"), "assets/dashboard-storm.png");
   assert.equal(c.run("chooseScene([{gender:'woman'},{gender:'man'}],2,[{gender:'boy'},{gender:'girl'}])"), "family-woman-man-boy-girl");
-  for (const details of [[{gender:"girl"},{gender:"girl"}], [{gender:"boy"},{gender:"boy"}], [{gender:"girl"},{gender:"boy"},{gender:"girl"}]]) {
+  for (const gender of ['girl','boy']) assert.equal(c.run(`chooseScene([{gender:'woman'},{gender:'man'}],2,[{gender:'${gender}'},{gender:'${gender}'}])`), `family-woman-man-${gender}-${gender}`);
+  for (const details of [[{gender:"girl"},{gender:"unspecified"}], [{gender:"girl"},{gender:"boy"},{gender:"girl"}]]) {
     assert.equal(c.run(`chooseScene([{gender:'woman'},{gender:'man'}],${details.length},${JSON.stringify(details)})`), "neutral-household");
   }
   assert.equal(c.run("chooseScene([{gender:'diverse'}],1,[{gender:'girl'}])"), "neutral-household");

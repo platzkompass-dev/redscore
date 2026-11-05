@@ -6,6 +6,7 @@ import { POST as accountHandler } from "./api/account.js";
 import { GET as placesHandler } from "./api/places.js";
 import { POST as routeHandler } from "./api/route.js";
 import { POST as visitHandler } from "./api/visit.js";
+import { GET as healthHandler } from "./api/health.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, "dist");
@@ -137,7 +138,7 @@ async function serveStatic(response, requestUrl) {
 
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "127.0.0.1"}`);
-  if (requestUrl.pathname === "/api/health") return sendJson(response, 200, { ok: true, liveLageConfigured: Boolean(supabaseUrl && anonKey), accountConfigured: Boolean(supabaseUrl && anonKey), checkedAt: new Date().toISOString() });
+  if (requestUrl.pathname === "/api/health") return runWebHandler(healthHandler, request, response, requestUrl);
   if (requestUrl.pathname === "/api/live-lage") return proxyLiveLage(request, response, requestUrl);
   if (requestUrl.pathname === "/api/visit") return runWebHandler(visitHandler, request, response, requestUrl);
   if (requestUrl.pathname === "/api/places") {

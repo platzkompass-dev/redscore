@@ -11,7 +11,7 @@ Umgesetzt sind:
 - `robots.txt` mit Sitemap-Verweis und Ausschluss der API-Routen,
 - eine XML-Sitemap mit dem kanonischen Startseiten- und Vorschaubild,
 - eine JavaScript-freie Inhaltszusammenfassung für Nutzer ohne JavaScript,
-- Vercel Web Analytics als datensparsame, first-party Reichweitenmessung.
+- einwilligungsgebundene eigene Besucherstatistik in Supabase, seit 4. November 2026.
 
 Das Analytics-Skript wird ausschließlich auf `redscore.de` geladen. Lokale
 Entwicklung, Vorschau-Hosts und fremde Domains erzeugen keine Seitenaufrufe.
@@ -40,16 +40,9 @@ ausgeführt:
    Wissensinhalte daran ausrichten – nie mit alarmistischen oder irreführenden
    Schlagzeilen arbeiten.
 
-Vercel Web Analytics bleibt für Seitenaufrufe aktiv. Custom Events und
-UTM-Auswertungen werden nicht eingebaut, weil sie im aktuellen Vercel-Hobby-
-Tarif nicht kostenlos verfügbar sind. Dadurch bleibt die Messung
-datensparsam und es entstehen keine unerwarteten Kosten.
+Die eigene Statistik zählt öffentliche Seitenaufrufe und tägliche Browser-Sitzungen nach Zustimmung. Sie übermittelt keine URL-Suchparameter oder Haushaltsdaten. Details und Auswertungsabfragen stehen in `traffic-statistics.md`.
 
-Web Analytics ist im getrennten Vercel-Projekt `redscore` aktiviert. Die
-Sitemap kann anschließend kostenlos in Google Search Console und
-Bing Webmaster Tools hinterlegt werden. Verifikations-Tokens gehören in die
-Deployment-Konfiguration beziehungsweise DNS-Verwaltung und niemals als
-erfundene Werte in den Quellcode.
+Für Bing und weitere teilnehmende Suchmaschinen ist die manuelle IndexNow-Einreichung der öffentlichen Sitemap vorbereitet: `node scripts/submit-indexnow.mjs --submit`. Die echte Domain-Verifikationsdatei wird zusammen mit der Website veröffentlicht. Google Search Console und Bing Webmaster Tools liefern weiterhin die eigentlichen Indexierungs- und Suchberichte.
 
 ## Öffentliche Ratgeber und aktuelles Suchlogo
 

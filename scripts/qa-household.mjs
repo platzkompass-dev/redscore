@@ -24,6 +24,7 @@ const output = path.join(os.tmpdir(), "redscore-household-qa");
 await mkdir(output, { recursive: true });
 try {
   await page.goto("http://127.0.0.1:4181/#/home");
+  await page.locator('[data-consent-choice="necessary"]').click();
   await page.locator('[data-open-auth="login"]').first().click();
   await page.locator('[name="email"]').fill("qa@example.test");
   await page.locator('[name="password"]').fill("test-only-password");
@@ -59,6 +60,23 @@ try {
   await page.locator("[data-edit-household]").first().click();
   assert.equal(await page.locator('[name="childGender0"]').inputValue(), "girl");
   assert.equal(await page.locator('[name="childGender1"]').inputValue(), "boy");
+  for(const gender of ['girl','boy']){
+    await page.locator('[name="childGender0"]').selectOption(gender);
+    await page.locator('[name="childGender1"]').selectOption(gender);
+    await page.locator('[data-onboarding-form] button.green').click();
+    await page.locator('.onboarding-modal').waitFor({state:'hidden'});
+    assert.equal(saved.profile.selected_scene,`family-woman-man-${gender}-${gender}`);
+    await page.goto('http://127.0.0.1:4181/#/home');
+    const image=page.locator('[style*="--hero-photo"]').first();
+    assert.ok((await image.getAttribute('style')).includes(`family-woman-man-two-${gender==='girl'?'girls':'boys'}.png`));
+    for(const width of [390,768]){
+      await page.setViewportSize({width,height:1000});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      await page.screenshot({path:path.join(output,`two-${gender}-${width}.png`)});
+    }
+    await page.goto('http://127.0.0.1:4181/#/profile');
+    await page.locator('[data-edit-household]').first().click();
+  }
   await page.locator('[name="children"]').fill("1");
   await child.selectOption("girl");
   await page.locator("[data-onboarding-form] button.green").click();

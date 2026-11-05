@@ -15,6 +15,7 @@ page.on("request",request=>{if(request.url().endsWith("/api/account")&&request.m
 const output=path.join(os.tmpdir(),"redscore-password-reset-qa");await mkdir(output,{recursive:true});
 try {
   await page.goto("http://127.0.0.1:4181/#/home");
+  await page.locator('[data-consent-choice="necessary"]').click();
   assert.equal(await page.locator('.public-header [data-scroll="about"]').count(),0);
   assert.deepEqual(await page.locator('.public-header nav > *').allTextContents(),["Start","So funktioniert’s","Informationen","Angebote"]);
   for(const id of await page.locator('[data-score-lab-step]').evaluateAll(buttons=>buttons.map(button=>button.dataset.scoreLabStep))) {

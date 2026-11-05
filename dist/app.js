@@ -283,6 +283,8 @@ const householdScenes = {
   "single-man-boy": "assets/households/single-man-boy.png",
   "single-man-girl": "assets/households/single-man-girl.png",
   "family-woman-man-boy-girl": "assets/households/family-neutral.png",
+  "family-woman-man-boy-boy": "assets/households/family-woman-man-two-boys.png",
+  "family-woman-man-girl-girl": "assets/households/family-woman-man-two-girls.png",
   "neutral-household": "assets/dashboard-storm.png",
 };
 
@@ -332,7 +334,7 @@ function chooseScene(adults, children, childDetails) {
         if (genders.every(value => value === "man")) return `family-two-men-${childGender}`;
       }
     }
-    if (details.length === 2 && childGenders === "boy|girl" && genders.join("|") === "man|woman") return "family-woman-man-boy-girl";
+    if (details.length === 2 && genders.join("|") === "man|woman") return `family-woman-man-${childGenders.replaceAll('|','-')}`;
     return "neutral-household";
   }
   if (adults.length > 2) return "neutral-household";
@@ -377,7 +379,11 @@ async function accountRequest(action, payload = {}, accessToken = session?.acces
     body: JSON.stringify({ action, ...payload }),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) { const error = new Error(result.error || "Kontodienst nicht erreichbar."); error.status = response.status; throw error; }
+  if (!response.ok) {
+    const limited = getLanguage() === "en" ? "Too many requests. Please wait a minute and try again." : "Zu viele Anfragen. Bitte warte eine Minute und versuche es erneut.";
+    const error = new Error(result.error || (response.status === 429 ? limited : "Kontodienst nicht erreichbar."));
+    error.status = response.status; throw error;
+  }
   return result;
 }
 

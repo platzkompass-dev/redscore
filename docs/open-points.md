@@ -1,10 +1,17 @@
 # RedScore – offene Punkte
 
-Stand: 26. Oktober 2026. Diese Liste unterscheidet erledigte Implementierung von
+Stand: 5. November 2026. Diese Liste unterscheidet erledigte Implementierung von
 externen Freigaben und noch nicht belegten Tests. Sie behauptet keine vollständige
 Prüfung der gesamten Plattform.
 
 ## In diesem Durchlauf erledigt
+
+- Supabase nach Zahlung reaktiviert. Eigene Besucherstatistik seit 4. November live, mit Zustimmung und nachgewiesener Speicherung; Testaufrufe entfernt.
+- Handy-/Tabletprüfung mit größeren Touch-Flächen und lesbaren Eingaben abgeschlossen.
+- RedScore-Passwortmail in Supabase gespeichert; Empfang unter administration@redscore.de und Rückleitung bis zum echten Passwortformular geprüft.
+- Zentrales Vercel-WAF-Limit für die Konto-API veröffentlicht und mit HTTP 429 bei Anfrage 31 nachgewiesen. Verständliche Rückmeldung auf Deutsch und Englisch ergänzt.
+- Tatsächlichen Datenbank-/Quellenstatus für `/api/health` sowie privaten fünfminütigen Störungscheck eingerichtet. Ausfall und Erholung ohne bleibende Teständerungen geprüft.
+- Bildportfolio um zwei Töchter und zwei Söhne bei einem Frau/Mann-Haushalt erweitert; Auswahl, Speicherung und mobile Darstellung geprüft.
 
 - Bestätigungsmails können im Login selbst erneut angefordert werden, ohne Passwort,
   mit bedingter Rückmeldung, festem Rückleitungsziel und 60-Sekunden-Bedienpause.
@@ -22,31 +29,19 @@ Prüfung der gesamten Plattform.
 
 ## Nächste technische Prioritäten
 
-1. RedScore-Recovery-Mailvorlage in Supabase aktivieren und anschließend mit einem
-   kontrollierten eigenen Testkonto den echten Versand → Link → Passwort → Login
-   prüfen. Die Vorlage ist im Repo vorbereitet, ihre gehostete Speicherung ist
-   nicht bestätigt. Keine echten Nutzerpasswörter wurden automatisiert geändert.
-2. Vollständiger Zustell-, Linkklick- und Login-Test mit einem kontrollierten eigenen
-   Testkonto sowie Prüfung von SPF/DKIM/DMARC im tatsächlich empfangenen Header.
-   Der bisherige Zustelltest allein belegt diesen Gesamtweg nicht.
-3. Ergänzender zentraler Schutz gegen automatisierten Missbrauch öffentlicher
-   Auth-/API-Endpunkte. Bestehende Provider-Limits erhalten; ein Browser-Countdown
-   ersetzt keine verteilte Rate-Limit-Lösung.
-4. Live-Lage-Betrieb: messbare Quellenausfälle, Alarmierung, redaktionelle Korrekturen,
-   weitere rechtlich nutzbare Quellen und internationale Abdeckung. Details in
-   `live-lage.md`; keine Vollständigkeitsgarantie für Ereignisse.
-5. Bildportfolio für bisher nicht exakt abgedeckte Haushalte ergänzen. Bis dahin
-   bewusst eine Landschaft statt einer falschen Familienzusammensetzung anzeigen.
+1. Rückmeldung der Betreiberin zum selbst eingegebenen neuen RedScore-Passwort und anschließenden Login. Der echte Mail-/Linkweg bis zum Formular ist geprüft; ein abgeschlossener Passwortwechsel wird noch nicht behauptet.
+2. SPF/DKIM/DMARC anhand des tatsächlich empfangenen Headers und Darstellung in weiteren Mail-Clients prüfen.
+3. Externe Störungsbenachrichtigung mit einem festgelegten Empfänger ergänzen. Interne Störungserfassung und öffentlicher Status sind vorhanden. Weitere API-Pfade bei wachsender Nutzung gezielt absichern; das neue WAF-Limit betrifft `/api/account`.
+4. Weitere Haushaltsbilder, zusätzliche rechtlich nutzbare Nachrichtenquellen und redaktionelle Korrekturprozesse ergänzen. Nicht abgedeckte Haushalte erhalten weiterhin die Landschaft statt einer falsch zusammengesetzten Familie.
 
 ## Externe bzw. von der Betreiberin zu klärende Punkte
 
-- IONOS-/Supabase-Rechnungshinweise aus dem Test vom 24. Oktober prüfen; kein
-  automatischer Tarifwechsel und keine Zahlung durch den Agenten.
+- Supabase-Rechnung durch die Betreiberin bezahlt; Projekt am 4. November erfolgreich reaktiviert. Keine Tarife geändert.
 - Impressums- und Datenschutzhinweise für den tatsächlichen Betrieb prüfen lassen.
   Keine Betreiberangaben ungefragt erfinden oder wieder einsetzen.
 - Scharfes Facebook-Profil-/Titelbild hochladen; vorhandene lokale Datei erhalten.
   Weitere Beiträge nur nach konkreter Freigabe veröffentlichen. Kein ungefragtes
   Anschreiben unbestätigter Nutzer und keine Massenwerbung.
-- Bing-Einreichung und erneute Messung der Such-/Social-Reichweite. Keine Rankings
+- IndexNow-Einreichung nach Veröffentlichung der Verifikationsdatei ausführen und Such-/Social-Reichweite erneut messen. Keine Rankings
   oder Nutzerzahlen ohne tatsächliche Messdaten behaupten. `marketing.md` enthält
   zeitlich getrennte historische Zustände, nicht durchgehend den aktuellen Status.

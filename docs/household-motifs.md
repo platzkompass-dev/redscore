@@ -14,7 +14,9 @@ The household form offers **Weiblich / Female** and **Männlich / Male** for eac
 
 ## Image selection
 
-One child is supported for a single woman, single man, woman/man couple, two women or two men, with separate boy/girl variants. A woman/man household with one boy and one girl uses the existing four-person image. Other compositions or missing details use the person-free `assets/dashboard-storm.png`; they must not show a mismatched family. This is a finite stock-image portfolio, not individualized image generation or identification of a real child's appearance. Child details do not affect quantities or the score.
+One child is supported for a single woman, single man, woman/man couple, two women or two men, with separate boy/girl variants. A woman/man household with two children has separate images for one boy and one girl, two girls, or two boys. Other compositions or missing details use the person-free `assets/dashboard-storm.png`; they must not show a mismatched family. This is a finite stock-image portfolio, not individualized image generation or identification of a real child's appearance. Child details do not affect quantities or the score.
+
+Added 5 November 2026: `family-woman-man-two-girls.png` and `family-woman-man-two-boys.png`, generated with the built-in image tool from `family-neutral.png`. Same panorama and framing, exactly two adults and two children, full heads and shoes visible. The daughters variant has two ponytails; the sons variant has two short-haired children. No user photos, no runtime image-generation service. Both images were visually inspected before integration.
 
 ## Generated assets and prompt set
 

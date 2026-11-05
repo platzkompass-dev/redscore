@@ -1,5 +1,13 @@
 # RedScore-Bestätigungsmail
 
+## Nachweis am 5. November 2026
+
+Die RedScore-Recovery-Vorlage wurde im Supabase-Projekt `kqggxhwouxbuijukcbaz` gespeichert und nach Neuladen in der Vorschau bestätigt. Betreff: „RedScore – Dein Link zum Zurücksetzen des Passworts“. Genau eine Rücksetzmail wurde an das vorhandene eigene Testkonto `administration@redscore.de` angefordert und im IONOS-Posteingang am 5. November um 14:30 Uhr geprüft. Sichtbarer Absender: RedScore mit dieser Domainadresse. Der echte Link öffnete das RedScore-Formular „Neues Passwort festlegen“ unter `https://www.redscore.de/#/home`.
+
+Die Eingabe und Speicherung des neuen Passworts sowie die anschließende Anmeldung wurden der Betreiberin übergeben; dafür liegt noch keine Rückmeldung vor. Keine Rücksetz-Tokens oder Passwörter wurden in Dateien gesichert. SPF-/DKIM-/DMARC-Ergebnisse aus dem empfangenen Header sind noch gesondert zu prüfen. Die folgenden Abschnitte dokumentieren den früheren Stand.
+
+Seit 5. November begrenzt eine veröffentlichte Vercel-WAF-Regel `/api/account` zusätzlich auf 30 Anfragen pro Minute und IP. Der Test mit ungültigem JSON lieferte nach 30 Ablehnungen bei Anfrage 31 HTTP 429. Dabei wurden keine Authentifizierungsversuche an Supabase weitergeleitet und keine Mails versandt. Direkte Supabase-Aufrufe unterliegen weiterhin den Provider-Limits. Die RedScore-Oberfläche erklärt auch HTML-basierte WAF-429-Antworten auf Deutsch und Englisch.
+
 ## Passwortwiederherstellung seit 26. Oktober 2026
 
 „Passwort vergessen?“ fordert über `/api/account` einen Provider-Recovery-Link mit
