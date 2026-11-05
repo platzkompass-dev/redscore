@@ -42,6 +42,6 @@ Prüfung der gesamten Plattform.
 - Scharfes Facebook-Profil-/Titelbild hochladen; vorhandene lokale Datei erhalten.
   Weitere Beiträge nur nach konkreter Freigabe veröffentlichen. Kein ungefragtes
   Anschreiben unbestätigter Nutzer und keine Massenwerbung.
-- IndexNow-Einreichung nach Veröffentlichung der Verifikationsdatei ausführen und Such-/Social-Reichweite erneut messen. Keine Rankings
+- IndexNow hat am 5. November neun öffentliche URLs mit HTTP 202 angenommen; Schlüsselprüfung und tatsächliche Indexierung bleiben zu prüfen. Such-/Social-Reichweite erneut messen. Keine Rankings
   oder Nutzerzahlen ohne tatsächliche Messdaten behaupten. `marketing.md` enthält
   zeitlich getrennte historische Zustände, nicht durchgehend den aktuellen Status.

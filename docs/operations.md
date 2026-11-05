@@ -30,3 +30,5 @@ from redscore_private.operational_alerts order by last_seen_at desc;
 ## Suche
 
 `scripts/submit-indexnow.mjs` meldet ausschließlich die neun öffentlichen kanonischen Sitemap-URLs. Standard ist eine lokale Vorschau; erst `--submit` sendet. Vorher wird die veröffentlichte Domain-Verifikationsdatei geprüft. Keine Kontoseiten, URL-Parameter oder Profile werden eingereicht. Eine Annahme durch IndexNow beweist keine Indexierung oder Platzierung. Google-Search-Console-Berichte sind separat zu prüfen.
+
+Produktionsnachweis 05.11.2026: `/api/health` liefert HTTP 200, Datenbank erreichbar, neun von neun aktivierten Quellen aktuell, keine Quellenfehler. Die beiden letzten fünfminütigen Monitorläufe waren erfolgreich; keine offenen Störungen. Die einmalige IndexNow-Einreichung der neun URLs wurde mit HTTP 202 angenommen (Schlüsselprüfung ausstehend). Keine erneute unmittelbare Einreichung vorgenommen.
