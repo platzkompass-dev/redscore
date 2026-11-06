@@ -1,6 +1,19 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Was, wenn …?": "What if …?",
+  "Mögliche Szenarien · KI-generierte Illustrationen": "Possible scenarios · AI-generated illustrations",
+  "Sechs mögliche Krisenszenarien": "Six possible emergency scenarios",
+  "Schwerer Sturm": "Severe storm",
+  "Extreme Hitze": "Extreme heat",
+  "Versorgungsengpass": "Supply disruption",
+  "Seitlich wischen, um alle Szenarien zu sehen →": "Swipe sideways to see all scenarios →",
+  "Szenario: dunkle Wohnstraße bei einem Stromausfall": "Scenario: a dark residential street during a power outage",
+  "Szenario: überflutete Wohnstraße mit Sandsäcken": "Scenario: a flooded residential street with sandbags",
+  "Szenario: umgestürzter Baum nach einem schweren Sturm": "Scenario: a fallen tree after a severe storm",
+  "Szenario: Waldbrand und Rauch an einem Waldweg": "Scenario: a wildfire and smoke near a forest path",
+  "Szenario: ausgetrockneter Boden und verdorrte Felder": "Scenario: parched soil and withered fields",
+  "Szenario: weitgehend leere Lebensmittelregale": "Scenario: largely empty grocery shelves",
   "DEINE VORSORGE. DEINE ENTSCHEIDUNG.": "YOUR PREPAREDNESS. YOUR CHOICE.",
   "Ab heute zählt": "From today, what counts is",
   "dein": "your",
@@ -789,7 +802,7 @@ const EN = new Map(Object.entries({
   "Die aktuelle Ortsliste ist offline gespeichert. Kartenkacheln benötigen weiterhin Internet.": "The current place list is saved offline. Map tiles still require internet access."
 }));
 
-const ATTRIBUTES = ["aria-label", "placeholder", "title"];
+const ATTRIBUTES = ["aria-label", "placeholder", "title", "alt"];
 
 export function getLanguage() {
   return localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "de";
@@ -900,7 +913,7 @@ export function applyLanguage(root = document) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let node;
   while ((node = walker.nextNode())) replaceNodeText(node);
-  root.querySelectorAll?.("[aria-label],[placeholder],[title]").forEach(element => {
+  root.querySelectorAll?.("[aria-label],[placeholder],[title],[alt]").forEach(element => {
     for (const attribute of ATTRIBUTES) {
       const value = element.getAttribute(attribute);
       if (value) element.setAttribute(attribute, translateText(value));

@@ -1,6 +1,6 @@
 // Editorial catalog: official provider pages, checked on the date below.
 // No affiliate parameters, paid placements, live stock, prices or invented dates.
-export const offersCheckedAt = "2026-10-28";
+export const offersCheckedAt = "2026-11-06";
 export const offerCategories = [
   { id: "first-aid", icon: "medical", image: "knowledge.png", de: "Erste Hilfe", en: "First aid", copyDe: "Wissen auffrischen. Im Notfall handeln können.", copyEn: "Refresh your skills. Know how to help." },
   { id: "volunteer", icon: "profile", image: "shelter.png", de: "Katastrophenschutz & Ehrenamt", en: "Civil protection & volunteering", copyDe: "Organisationen kennenlernen und mithelfen.", copyEn: "Meet organisations and get involved." },
@@ -11,6 +11,14 @@ export const offerCategories = [
 ];
 
 export const offerCatalog = [
+  { id:"decathlon-luebeck",provider:"DECATHLON Lübeck",category:"equipment",mode:"local",city:"Lübeck",postalPattern:"^235[0-9]{2}$",address:"Lohgerberstraße 1 · 23556 Lübeck",url:"https://www.decathlon.de/vc/s-outdoor-shop-lubeck",checkedAt:"2026-11-06",keywords:["Rucksack","Rucksäcke","Notfallrucksack","Backpack","Taschenlampe","Trinkflasche"],de:"Rucksäcke und Outdoor-Ausrüstung in Lübeck",en:"Backpacks and outdoor equipment in Lübeck",descriptionDe:"Die offizielle Filialseite nennt Rucksäcke, Stirnlampen und Trinkflaschen. Passform, Sortiment und Bestand des gewünschten Artikels vor dem Besuch beim Anbieter prüfen.",descriptionEn:"The official store page lists backpacks, headlamps and water bottles. Check fit, the product range and the desired item's stock with the provider before visiting."},
+  { id:"trekking-koenig-luebeck",provider:"Trekking König",category:"equipment",mode:"local",city:"Lübeck",postalPattern:"^235[0-9]{2}$",address:"Königstraße 71 · 23552 Lübeck",url:"https://trekking-koenig.de/unternehmen/filialen/luebeck/",checkedAt:"2026-11-06",keywords:["Rucksack","Rucksäcke","Notfallrucksack","Backpack","Outdoor"],de:"Outdoor-Fachberatung und Ausrüstung in Lübeck",en:"Outdoor advice and equipment in Lübeck",descriptionDe:"Die Filiale in der Altstadt bietet persönliche Beratung zu Outdoor-Ausrüstung. Geeignete Rucksäcke und deren Verfügbarkeit direkt erfragen; kein fertig gepacktes Notfallset zugesagt.",descriptionEn:"The old-town store offers personal advice on outdoor equipment. Ask directly about suitable backpacks and availability; a pre-packed emergency kit is not promised."},
+  { id:"drk-luebeck",provider:"DRK Kreisverband Lübeck",category:"first-aid",mode:"local",city:"Lübeck",postalPattern:"^235[0-9]{2}$",address:"Herrendamm 42–50 · 23556 Lübeck",url:"https://www.drk-luebeck.de/kurse/erste-hilfe/rotkreuzkurs-erste-hilfe.html",checkedAt:"2026-11-06",de:"Erste-Hilfe-Kurse in Lübeck",en:"First-aid courses in Lübeck",descriptionDe:"Der Kreisverband veröffentlicht Kurse und eine Terminübersicht für Lübeck. Zielgruppe, Kursort und freie Plätze direkt auf der Kursseite prüfen.",descriptionEn:"The local Red Cross publishes courses and a timetable for Lübeck. Check the audience, venue and available places directly on the course page."},
+  { id:"thw-luebeck",provider:"THW Ortsverband Lübeck",category:"volunteer",mode:"local",city:"Lübeck",postalPattern:"^235[0-9]{2}$",url:"https://ov-luebeck.thw.de/",checkedAt:"2026-11-06",de:"Technisches Ehrenamt in Lübeck",en:"Technical volunteering in Lübeck",descriptionDe:"Offizielle Seite des THW-Ortsverbands mit Informationen zu Einheiten, THW-Jugend und Mitmachen. Kennenlernen und Voraussetzungen direkt mit dem Ortsverband abstimmen.",descriptionEn:"The official local THW website covers its units, youth organisation and volunteering. Arrange an introduction and check requirements with the local unit."},
+  { id:"bergfreunde-backpacks",provider:"Bergfreunde",category:"equipment",mode:"online",url:"https://www.bergfreunde.de/trekkingrucksaecke/",checkedAt:"2026-11-06",keywords:["Notfallrucksack","Notgepäck","Backpack"],de:"Trekkingrucksäcke in verschiedenen Größen",en:"Trekking backpacks in different sizes",descriptionDe:"Online-Sortiment mit Trekkingrucksäcken verschiedener Hersteller. Tragesystem, Volumen und Eigengewicht vergleichen; Inhalt für dein Notgepäck separat anhand der Packliste planen.",descriptionEn:"An online range of trekking backpacks from different manufacturers. Compare carrying systems, capacity and weight; plan emergency contents separately using your packing list."},
+  { id:"intersport-backpacks",provider:"INTERSPORT",category:"equipment",mode:"online",url:"https://www.intersport.de/d/sportarten/outdoor/bergsport_wandern/ausruestung/rucksaecke/wanderrucksaecke",checkedAt:"2026-11-06",keywords:["Notfallrucksack","Notgepäck","Backpack"],de:"Wanderrucksäcke und Tragesysteme vergleichen",en:"Compare hiking backpacks and carrying systems",descriptionDe:"Online-Übersicht zu Wanderrucksäcken. Prüfe passende Größe, Händler, Lieferumfang und Lieferbarkeit beim Anbieter. Die Auswahl ist keine Zusage über den Bestand einer Filiale.",descriptionEn:"An online selection of hiking backpacks. Check size, seller, included items and delivery with the provider. The selection does not confirm stock at a local store."},
+  { id:"anker-powerbanks",provider:"Anker",category:"equipment",mode:"online",url:"https://www.anker.com/eu-de/collections/powerbanks",checkedAt:"2026-11-06",keywords:["Powerbank","Powerbanks","Akku","Ladegerät","Energie"],de:"Powerbanks für Handy und mobile Geräte",en:"Power banks for phones and mobile devices",descriptionDe:"Hersteller-Sortiment für mobile Stromversorgung. Kapazität, Anschlüsse und kompatible Kabel prüfen. Eine Powerbank hilft nur, wenn sie geladen und einsatzbereit ist.",descriptionEn:"The manufacturer's portable power range. Check capacity, connectors and compatible cables. A power bank only helps when it is charged and ready to use."},
+  { id:"ledlenser-light",provider:"Ledlenser",category:"equipment",mode:"online",url:"https://ledlenser.com/de-de/taschenlampen/akku-taschenlampen/",checkedAt:"2026-11-06",keywords:["Licht","Lampe","Taschenlampe","Stromausfall","Flashlight","Torch"],de:"Akku-Taschenlampen für deine Vorsorge",en:"Rechargeable torches for your preparations",descriptionDe:"Offizielles Hersteller-Sortiment an Akku-Taschenlampen. Laufzeit, Ladeverfahren und Ersatzstromversorgung für einen längeren Ausfall berücksichtigen.",descriptionEn:"The manufacturer's official range of rechargeable torches. Consider runtime, charging and backup power for a longer outage."},
   { id: "drk-courses", provider: "Deutsches Rotes Kreuz", category: "first-aid", mode: "finder", url: "https://www.rotkreuzkurs.de/start.html", de: "Rotkreuzkurs: Erste-Hilfe-Kurse finden", en: "Find Red Cross first-aid courses", descriptionDe: "Der offizielle Kursfinder sucht nach Postleitzahl oder Ort. Termine und Anmeldung prüfst du beim DRK.", descriptionEn: "Search the official course finder by postcode or town. Check dates and registration with the German Red Cross." },
   { id: "malteser-courses", provider: "Malteser Hilfsdienst", category: "first-aid", mode: "finder", url: "https://www.malteser.de/erste-hilfe/grundlagen.html", de: "Erste-Hilfe-Ausbildung bei den Maltesern", en: "First-aid training with Malteser", descriptionDe: "Informationen zur Ausbildung und Zugang zur Kurssuche. Kein bereits bestätigter Kursplatz in deiner Nähe.", descriptionEn: "Training information and access to the course search. This is not a confirmed local booking." },
   { id: "thw-finder", provider: "Technisches Hilfswerk", category: "volunteer", mode: "finder", url: "https://rb-hamburg.thw.de/mitmachen-unterstuetzen/aktiv-helfen", de: "Beim THW mitmachen", en: "Volunteer with THW", descriptionDe: "Informationen zum Ehrenamt und Ortsverbandssuche mit Postleitzahl oder Ort auf der offiziellen THW-Seite.", descriptionEn: "Learn about volunteering and use the postcode or town search for local THW units on the official website." },
@@ -22,13 +30,23 @@ export const offerCatalog = [
   { id: "globetrotter-water", provider: "Globetrotter", category: "equipment", mode: "online", url: "https://www.globetrotter.de/ausruestung/campingkueche/wasserfilter/?show=all", de: "Wasserfilter und Aufbereitung vergleichen", en: "Compare water filters and treatment", descriptionDe: "Online-Sortiment für Wasseraufbereitung unterwegs. Einsatzgrenzen des jeweiligen Produkts beachten; ein Filter ersetzt keinen Trinkwasservorrat.", descriptionEn: "An online range of water treatment equipment. Check each product’s limitations; a filter does not replace stored drinking water." },
   { id: "abus-detectors", provider: "ABUS", category: "safety", mode: "online", url: "https://www.abus.com/de/Privat/Brandschutz-Gefahrenmelder/Brandschutz/Rauchwarnmelder", de: "Rauch- und Hitzewarnmelder", en: "Smoke and heat detectors", descriptionDe: "Herstellerübersicht zu Warnmeldern und deren Eigenschaften. Produktberatung; Kaufmöglichkeiten, Eignung und Montage beim Anbieter prüfen.", descriptionEn: "The manufacturer’s detector range and specifications. Product information; check purchase options, suitability and installation with the provider." },
   { id: "bbk-awareness-day", provider: "Bundesamt für Bevölkerungsschutz und Katastrophenhilfe", category: "events", mode: "online", url: "https://bevoelkerungsschutztag.de/", de: "Bevölkerungsschutztag: Veranstalter-Information", en: "Civil Protection Day: organiser information", descriptionDe: "Der Veranstalter meldet eine Verschiebung auf 2027; ein neuer Termin steht noch nicht fest (Stand 25.10.2026). Aktuelle Hinweise direkt dort prüfen.", descriptionEn: "The organiser reports a postponement to 2027; no new date has been set (checked 25 October 2026). Check the organiser’s page for updates." },
-].map(item => Object.freeze({ ...item, checkedAt: offersCheckedAt, country: "DE" }));
+].map(item => Object.freeze({ checkedAt:"2026-10-28", ...item, country: "DE" }));
 
-const normalise = value => String(value || "").trim().toLocaleLowerCase("de-DE").replace(/^landkreis\s+|^kreis\s+|^freie und hansestadt\s+|^hansestadt\s+/g, "");
-const searchText = value => String(value || "").normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g,"ss").replace(/[^\p{L}\p{N}]+/gu," ").trim();
-export function offerMatchesSearch(item, query = "") {
-  const text=searchText([item.provider,item.de,item.en,item.descriptionDe,item.descriptionEn,item.city,item.address].filter(Boolean).join(" "));
-  return searchText(String(query).slice(0,120)).split(/\s+/).filter(Boolean).every(term=>text.includes(term));
+const searchText = value => String(value || "").normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g,"ss").replace(/ae/g,"a").replace(/oe/g,"o").replace(/ue/g,"u").replace(/[^\p{L}\p{N}]+/gu," ").trim();
+const normalise = value => searchText(value).replace(/^(?:landkreis|kreis|freie und hansestadt|hansestadt)\s+/, "");
+const topicTerms = [
+  [/^(?:(?:notfall|not|trekking|wander|reise)?rucks[aä]cke?n?|rucksack|ruksack|backpacks?|notgepack)$/i,"rucksack"],
+  [/^(?:powerbanks?|power|akkus?)$/i,"powerbank"],
+  [/^(?:(?:taschen|stirn)?lampen?|flashlights?|torches|torch)$/i,"lampe"],
+];
+function tokens(value) { return searchText(value).split(/\s+/).filter(Boolean).map(term => topicTerms.find(([pattern])=>pattern.test(term))?.[1] || term); }
+export function offerMatchesSearch(item, query = "", location = {}) {
+  const text=searchText([item.provider,item.de,item.en,item.descriptionDe,item.descriptionEn,item.city,item.address,...(item.keywords || [])].filter(Boolean).join(" "));
+  const searchable = `${text} ${tokens(text).join(" ")}`;
+  // A selected town is a location constraint, not a requirement that an online
+  // product page mention that town. Local offers still pass the location check.
+  const locationTerms = new Set(tokens([location.city,location.postalCode].filter(Boolean).join(" ")));
+  return tokens(String(query).slice(0,120)).filter(term=>!locationTerms.has(term)).every(term=>searchable.includes(term));
 }
 export function offerPreparation(item, language="de") {
   const de=language!=="en";
@@ -54,13 +72,17 @@ export function localOfferMatches(offer, location = {}) {
   if (location.country && !["de", "deutschland", "germany"].includes(normalise(location.country))) return false;
   // A known district is a regional match, never a claimed distance or a free place.
   if (offer.district && normalise(location.district) === normalise(offer.district)) return true;
-  if (normalise(location.city) !== normalise(offer.city) || !/^\d{5}$/.test(String(location.postalCode || ""))) return false;
+  if (normalise(location.city) !== normalise(offer.city)) return false;
+  // City-only searches can show a documented city service. If a postcode is
+  // supplied it must also match, preventing contradictory city/postcode pairs.
+  if (!String(location.postalCode || "").trim()) return true;
+  if (!/^\d{5}$/.test(String(location.postalCode))) return false;
   return Boolean(offer.postalCodes?.includes(location.postalCode) || (offer.postalPattern && new RegExp(offer.postalPattern).test(location.postalCode)));
 }
 
 export function selectOffers({ category = "all", mode = "all", location = {}, query = "", sort = "recommended", catalog = offerCatalog } = {}) {
   return catalog.filter(item => {
-    if (!offerMatchesSearch(item,query)) return false;
+    if (!offerMatchesSearch(item,query,location)) return false;
     if (category !== "all" && category !== item.category && !(category === "regional" && item.mode === "local")) return false;
     if (item.mode === "local") return mode !== "online" && localOfferMatches(item, location);
     if (mode === "local" || category === "regional") return false;

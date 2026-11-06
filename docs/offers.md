@@ -1,6 +1,36 @@
 # Angebote
 
-Stand: 28. Oktober 2026. Öffentliche und eingeloggte Seite: `/#/angebote`.
+Stand: 6. November 2026. Öffentliche und eingeloggte Seite: `/#/angebote`.
+
+## Erweiterung vom 6. November 2026
+
+Die Ortseingabe aktiviert nicht mehr automatisch „In deiner Nähe“. Der gewählte
+Modus bleibt erhalten, sodass Onlineangebote nach Eingabe eines Orts sichtbar
+bleiben. Bei einer leeren ausdrücklich regionalen Suche werden passende
+Online-Alternativen separat als solche angezeigt. Ein Ort allein reicht für
+belegte Einträge derselben Stadt; eine zusätzlich eingegebene PLZ muss passen.
+
+Die Suche berücksichtigt kuratierte Schlagwörter, deutsche/englische Begriffe,
+Singular/Plural für Rucksäcke, „Notfallrucksack“, „Notgepäck“, „Backpack“,
+„Ruksack“ sowie Umlautschreibweisen wie „Luebeck“ und „Lübeck“. Der ausgewählte
+Ort wird als Standort berücksichtigt und muss nicht im Text eines Onlineangebots
+stehen. Keine unscharfe Treffer-Erfindung für beliebige Produkte oder Orte.
+
+Neu auf offiziellen Seiten geprüft:
+
+- [DECATHLON Lübeck](https://www.decathlon.de/vc/s-outdoor-shop-lubeck): Rucksäcke und Outdoor-Sortiment, Lohgerberstraße 1.
+- [Trekking König Lübeck](https://trekking-koenig.de/unternehmen/filialen/luebeck/): Outdoor-Fachgeschäft und Beratung, Königstraße 71; konkreten Rucksackbestand direkt erfragen.
+- [DRK Lübeck](https://www.drk-luebeck.de/kurse/erste-hilfe/rotkreuzkurs-erste-hilfe.html): Kurse, Herrendamm 42–50.
+- [THW Lübeck](https://ov-luebeck.thw.de/): technisches Ehrenamt und Kontakt.
+- [Bergfreunde](https://www.bergfreunde.de/trekkingrucksaecke/): Online-Trekkingrucksäcke.
+- [INTERSPORT](https://www.intersport.de/d/sportarten/outdoor/bergsport_wandern/ausruestung/rucksaecke/wanderrucksaecke): Online-Wanderrucksäcke.
+- [Anker](https://www.anker.com/eu-de/collections/powerbanks): Online-Powerbanks.
+- [Ledlenser](https://ledlenser.com/de-de/taschenlampen/akku-taschenlampen/): Akku-Taschenlampen.
+
+Jeder neue Eintrag trägt das Prüfdatum 06.11.2026. Unveränderte ältere Einträge
+behalten den tatsächlichen früheren Prüfstand. Keine flächendeckende lokale
+Live-Suche und keine zugesagten Filialbestände. Die frühere Übersicht unten
+dokumentiert die ursprünglichen Einträge.
 
 Die Seite verwendet das vorhandene Routing, die gemeinsame Navbar, den Footer und
 denselben persönlichen Score wie die Startseite. Ohne vollständigen Vorsorge-Check
@@ -41,9 +71,9 @@ Nur Gäste erhalten die freiwillige PLZ-/Ortseingabe. Manuelle Gästeangaben gel
 nur während der aktuellen Sitzung und ändern kein Profil. Keine Browser-Ortungsberechtigung.
 Anbieter werden erst durch ausdrückliches Öffnen des externen Links kontaktiert.
 
-Regionale Treffer verlangen einen passenden Ort samt bekannter PLZ oder einen
-explizit hinterlegten Landkreis. Erfasst sind zunächst Stade / Landkreis Stade,
-Hamburg und Heidelberg. Es wird keine Entfernung berechnet. Außerhalb dieser
+Regionale Treffer verlangen einen passenden Ort (eine angegebene PLZ muss ebenfalls
+passen) oder einen explizit hinterlegten Landkreis. Erfasst sind Lübeck,
+Stade / Landkreis Stade, Hamburg und Heidelberg. Es wird keine Entfernung berechnet. Außerhalb dieser
 Abdeckung erscheinen keine erfundenen örtlichen Treffer; bundesweite Finder sind
 separat als Suchportale gekennzeichnet. Online-Einträge sind ortsunabhängig.
 

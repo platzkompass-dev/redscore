@@ -57,3 +57,19 @@ test("need hints distinguish missing records from known gaps and never recommend
   assert.equal(offerNeedHints({people:3,water:60}).length,0);
   for(const item of offerCatalog){assert.equal(offerPreparation(item,'de').length,3);assert.equal(offerPreparation(item,'en').length,3);}
 });
+
+test("Lübeck backpack searches return documented local stores and location-independent online ranges",()=>{
+  for(const query of ['Rucksack','Rucksäcke','Rucksaecke','Notfallrucksack','Backpack','Ruksack','Lübeck Rucksack']) {
+    const results=selectOffers({query,location:{city:'Lübeck',postalCode:'23552'}});
+    assert.ok(results.some(item=>item.id==='decathlon-luebeck'),query);
+    assert.ok(results.some(item=>item.id==='bergfreunde-backpacks'),query);
+    assert.ok(results.some(item=>item.id==='decathlon-backpacks'),query);
+    assert.ok(results.every(item=>item.category==='equipment'),query);
+  }
+  assert.ok(selectOffers({query:'Rucksack',mode:'local',location:{city:'Hansestadt Luebeck'}}).some(item=>item.id==='trekking-koenig-luebeck'));
+  assert.equal(selectOffers({query:'Rucksack',mode:'local',location:{city:'Lübeck',postalCode:'10115'}}).length,0);
+  assert.ok(selectOffers({query:'Rucksack',mode:'local',location:{city:'Berlin',postalCode:'10115'}}).every(item=>item.city!=='Lübeck'));
+  assert.ok(selectOffers({query:'Luebeck Rucksack',mode:'online',location:{city:'Lübeck'}}).length>=3);
+  assert.ok(selectOffers({query:'Powerbank',mode:'online'}).some(item=>item.id==='anker-powerbanks'));
+  assert.ok(selectOffers({query:'Taschenlampe',mode:'online'}).some(item=>item.id==='ledlenser-light'));
+});
