@@ -1,5 +1,5 @@
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=7";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=25";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=27";
 import { offerCatalog, offerCategories, offersCheckedAt, selectOffers, offerMatchesSearch, offerPreparation, offerNeedHints } from "./offers.js?v=2";
 import { newSupplyTwinPlan, supplyTwinModel, supplyTwinMarkup, updateSupplyTwin } from "./supply-twin.js?v=2";
 
@@ -155,6 +155,36 @@ let liveRequestKey = null;
 let liveAttempt = { key: null, at: 0 };
 let liveRefreshTimer = null;
 let liveClockTimer = null;
+const LIVE_DETAIL_CACHE_KEY = "redscore-live-details-v1";
+const liveDetails = (() => { try { return new Map(JSON.parse(localStorage.getItem(LIVE_DETAIL_CACHE_KEY) || "[]").slice(-20)); } catch { return new Map(); } })();
+const liveDetailPending = new Set();
+const liveDetailKey = event => `${event.id}|${getLanguage()}|${event.updated_at || event.published_at}`;
+async function loadLiveDetail(id, force = false) {
+  const event = visibleLiveEvents().find(item => item.id === id);
+  if (!event) return;
+  const language = getLanguage(), key = liveDetailKey(event), cached = liveDetails.get(key);
+  if (liveDetailPending.has(key) || (!force && cached?.data && Date.now()-cached.loadedAt < 30*60_000)) return;
+  if (!navigator.onLine) return;
+  liveDetailPending.add(key);
+  try {
+    const response = await fetch(`/api/live-lage-detail?${new URLSearchParams({id,language})}`,{signal:AbortSignal.timeout(23_000)});
+    if (!response.ok) throw new Error("Detail request failed");
+    const data = await response.json();
+    if (data.id !== id || !data.summary || !data.original) throw new Error("Invalid details");
+    liveDetails.set(key,{data,loadedAt:Date.now()});
+    while (liveDetails.size > 20) liveDetails.delete(liveDetails.keys().next().value);
+    try { localStorage.setItem(LIVE_DETAIL_CACHE_KEY,JSON.stringify([...liveDetails].filter(([,entry])=>entry.data))); } catch { /* Existing feed cache is unaffected. */ }
+  } catch { if (!cached?.data) liveDetails.set(key,{error:true}); }
+  finally { liveDetailPending.delete(key); if (state.ui.modal === `live:${id}` && getLanguage() === language) render(); }
+}
+function liveDetailCopy(event) {
+  const entry = liveDetails.get(liveDetailKey(event)), data = entry?.data;
+  if (data) {
+    const sameLanguage = data.language === getLanguage();
+    return `<div class="live-detail-copy"><h3>Was die Quelle berichtet</h3>${!navigator.onLine ? "<small>Gespeicherte Details · Offline-Stand</small>" : ""}${sameLanguage ? `<p>${esc(data.summary)}</p>${data.translated ? "<small>Automatisch übersetzter Quellenauszug. Maßgeblich ist die Originalmeldung.</small>" : "<small>Auszug aus dem veröffentlichten Feed der Quelle.</small>"}` : "<p>Die Übersetzung ist gerade nicht verfügbar. Der Originalauszug ist unten nachlesbar.</p>"}${data.translated || !sameLanguage ? `<details${!sameLanguage ? " open" : ""}><summary>Originalauszug anzeigen</summary><div lang="${data.translated ? (getLanguage() === "de" ? "en" : "de") : data.language}" translate="no"><b>${esc(data.original.title)}</b><p>${esc(data.original.summary)}</p></div></details>` : ""}</div>`;
+  }
+  return `<p>${esc(event.summary)}</p><div class="live-detail-loading" role="status">${!navigator.onLine ? "Für diese Meldung sind noch keine zusätzlichen Details offline gespeichert." : entry?.error ? `Die Einzelheiten konnten gerade nicht geladen werden. <button class="outline" data-live-detail-retry="${esc(event.id)}">Erneut versuchen</button>` : "Einzelheiten aus der Quelle werden geladen …"}</div>`;
+}
 const placesCache = (() => {
   try { return JSON.parse(localStorage.getItem(PLACES_CACHE_KEY) || "null"); }
   catch { return null; }
@@ -754,6 +784,10 @@ function renderPublic() {
       </div>
       <aside class="public-score-card public-score-invite"><small>Vorbereitung wird sichtbar.</small><button class="score-invite-play" data-scroll="score-lab" aria-label="Interaktive Score-Simulation ausprobieren"><span aria-hidden="true">▶</span></button><strong>Was verändert deinen Score?</strong><p>Probiere es aus. Ohne Anmeldung.</p><button class="score-invite-link" data-scroll="score-lab">Score live erleben ↓</button></aside>
       <div class="script-note">Niemand kann es sich leisten,<br>unvorbereitet zu sein.</div>
+    </section>
+    <section class="public-score-purpose" aria-labelledby="score-purpose-title">
+      <div class="score-purpose-copy"><small>DEINE VORSORGE. DEINE ENTSCHEIDUNG.</small><h2 id="score-purpose-title">Ab heute zählt<br>dein <em>RedScore.</em></h2><p class="score-purpose-lead">Für dich. Für deine Familie. Für das, was dir wichtig ist.</p><p>Du kannst nicht jede Krise verhindern. Aber du kannst heute entscheiden, wie vorbereitet du ihr begegnest. Dein RedScore macht sichtbar, was du bereits geregelt hast – und wo du noch handeln kannst.</p><div class="cta-row"><button class="green large" data-open-auth="register">Meinen RedScore kostenlos ermitteln →</button><button class="outline" data-scroll="score-lab">Erst ausprobieren ↓</button></div></div>
+      <div class="score-purpose-steps"><h3>Aus „wird schon gutgehen“<br>wird ein konkreter Plan.</h3><ol><li><span>01</span><div><b>Ehrlich hinschauen.</b><p>Was wäre bei einem Ausfall wirklich griffbereit?</p></div></li><li><span>02</span><div><b>Deinen Stand erkennen.</b><p>Erfasse deine Vorsorge und entdecke offene Punkte.</p></div></li><li><span>03</span><div><b>Verantwortung übernehmen.</b><p>Schließe deine Lücken – einen machbaren Schritt nach dem anderen.</p></div></li></ol><small>Dein Score beruht auf deinen Angaben. Er ist eine Orientierung, keine Sicherheitsgarantie.</small></div>
     </section>
     ${scoreLab()}
     <section class="public-categories">${categories.map(item => categoryCard(...item)).join("")}</section>
@@ -1386,7 +1420,7 @@ function modal() {
     const originalUrl = safeExternalUrl(event.canonical_url);
     const affected = Array.isArray(event.affected_regions) ? event.affected_regions : [];
     const locale = getLanguage() === "en" ? "en-GB" : "de-DE";
-    return `<div class="modal-backdrop"><section class="modal live-detail-modal"><button class="modal-close" data-close-modal>×</button>${icon(liveEventIcon(event.category),"modal-icon")}<small>${esc(liveCategoryLabels[event.category] || "LAGEEREIGNIS")} · ${esc(liveVerificationLabels[event.verification_status] || liveVerificationLabels.unknown)}</small><h2>${esc(event.title)}</h2><p>${esc(event.summary)}</p>${Number(event.cluster_count) > 1 ? `<div class="cluster-explanation"><b>${Number(event.cluster_count)} gleichartige Regionalmeldungen zusammengefasst</b><span>RedScore zeigt sie als ein Lageereignis, die einzelnen betroffenen Gebiete bleiben nachvollziehbar.</span></div>` : ""}<dl><div><dt>Veröffentlicht</dt><dd>${new Date(event.published_at).toLocaleString(locale)}</dd></div><div><dt>Von RedScore gefunden</dt><dd>${new Date(event.first_seen_at).toLocaleString(locale)}</dd></div><div><dt>Region</dt><dd>${esc([event.city,event.region,event.country].filter(Boolean).join(" · ") || "nicht ermittelt")}</dd></div><div><dt>Relevanz</dt><dd>${esc(liveSeverityLabels[event.relevance?.level] || "GERING")}</dd></div></dl>${affected.length ? `<h3>Betroffene Gebiete (${affected.length})</h3><div class="live-region-list">${affected.map(region => `<span>${esc(region)}</span>`).join("")}</div>` : ""}<h3>Nachvollziehbare Quellen (${originals.length})</h3><div class="live-source-list">${originals.map(source => `<a href="${safeExternalUrl(source.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(source.name)}</b><small>${esc(source.title || "Originalmeldung")} · ${relativeTime(source.published_at)}</small></a>`).join("") || "<p>Keine veröffentlichte Original-URL verfügbar.</p>"}</div>${originalUrl ? `<a class="green link-button" href="${originalUrl}" target="_blank" rel="noopener noreferrer">Originalmeldung öffnen ↗</a>` : ""}<em>Diese Lageübersicht ersetzt keine amtliche Warnung. Folge im Ereignisfall den Anweisungen der Behörden.</em></section></div>`;
+    return `<div class="modal-backdrop"><section class="modal live-detail-modal"><button class="modal-close" data-close-modal>×</button>${icon(liveEventIcon(event.category),"modal-icon")}<small>${esc(liveCategoryLabels[event.category] || "LAGEEREIGNIS")} · ${esc(liveVerificationLabels[event.verification_status] || liveVerificationLabels.unknown)}</small><h2>${esc(liveDetails.get(liveDetailKey(event))?.data?.language === getLanguage() ? liveDetails.get(liveDetailKey(event)).data.title : event.title)}</h2>${liveDetailCopy(event)}${Number(event.cluster_count) > 1 ? `<div class="cluster-explanation"><b>${Number(event.cluster_count)} gleichartige Regionalmeldungen zusammengefasst</b><span>RedScore zeigt sie als ein Lageereignis, die einzelnen betroffenen Gebiete bleiben nachvollziehbar.</span></div>` : ""}<dl><div><dt>Veröffentlicht</dt><dd>${new Date(event.published_at).toLocaleString(locale)}</dd></div><div><dt>Von RedScore gefunden</dt><dd>${new Date(event.first_seen_at).toLocaleString(locale)}</dd></div><div><dt>Region</dt><dd>${esc([event.city,event.region,event.country].filter(Boolean).join(" · ") || "nicht ermittelt")}</dd></div><div><dt>Relevanz</dt><dd>${esc(liveSeverityLabels[event.relevance?.level] || "GERING")}</dd></div></dl>${affected.length ? `<h3>Betroffene Gebiete (${affected.length})</h3><div class="live-region-list">${affected.map(region => `<span>${esc(region)}</span>`).join("")}</div>` : ""}<h3>Nachvollziehbare Quellen (${originals.length})</h3><div class="live-source-list">${originals.map(source => `<a href="${safeExternalUrl(source.url)}" target="_blank" rel="noopener noreferrer"><b>${esc(source.name)}</b><small>${esc(source.title || "Originalmeldung")} · ${relativeTime(source.published_at)}</small></a>`).join("") || "<p>Keine veröffentlichte Original-URL verfügbar.</p>"}</div>${originalUrl ? `<a class="green link-button" href="${originalUrl}" target="_blank" rel="noopener noreferrer">Originalmeldung öffnen ↗</a>` : ""}<em>Diese Lageübersicht ersetzt keine amtliche Warnung. Folge im Ereignisfall den Anweisungen der Behörden.</em></section></div>`;
   }
   return "";
 }
@@ -1582,7 +1616,8 @@ app.addEventListener("click", async event => {
     liveState.events = []; liveState.status = "loading"; liveState.receivedAt = null; render(); return requestLiveLage(true);
   }
   if (button.matches("[data-live-refresh]")) return requestLiveLage(true);
-  if (button.dataset.liveDetail) { state.ui.modal = `live:${button.dataset.liveDetail}`; return render(); }
+  if (button.dataset.liveDetail) { state.ui.modal = `live:${button.dataset.liveDetail}`; render(); void loadLiveDetail(button.dataset.liveDetail); return; }
+  if (button.dataset.liveDetailRetry) { void loadLiveDetail(button.dataset.liveDetailRetry,true); return; }
   if (button.dataset.openAuth) {
     if (accountBusy) return;
     if (state.ui.modal === "reset-password") clearRecoveryContext();

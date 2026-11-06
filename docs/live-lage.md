@@ -10,6 +10,36 @@ Verifikation: 134 Tests bestanden. Der produktive Endpunkt `scope=world&filter=c
 
 ## Datenfluss
 
+### Einzelheiten im Meldungs-Popup (6. November 2026)
+
+`GET /api/live-lage-detail?id=<UUID>&language=de|en` liest über
+`get_live_lage_event_detail` ausschließlich den gespeicherten öffentlichen
+Titel/Feed-Auszug einer aktiven Meldung der letzten sieben Tage. Der bisherige
+Sprach-Fallback hatte fremdsprachige Einzelheiten durch pauschale Kategorietexte
+ersetzt. Im Popup steht jetzt der echte Auszug. Fremdsprachige Auszüge werden
+serverseitig über Vercel AI Gateway übersetzt, mit gekennzeichneter Übersetzung
+und aufklappbarem Original. Keine Artikel werden gescrapt, keine neuen Tatsachen
+hinzugeneriert; Quellenstatus und Relevanz bleiben unverändert.
+
+Modell: `openai/gpt-4.1-mini`, optional `NEWS_TRANSLATION_MODEL`. Authentifizierung
+über das aktuelle `x-vercel-oidc-token` der Vercel-Function; lokal optional
+`AI_GATEWAY_API_KEY` oder ein gültiges `VERCEL_OIDC_TOKEN`. Keine Secrets im Client.
+Nur gespeicherte öffentliche Nachrichten werden übersetzt, keine Profile oder
+Standorte. Keine frei wählbaren Texte, URLs oder Prompts im Detail-Endpunkt.
+
+Parallele identische Anfragen werden zusammengefasst. Begrenzter Prozesscache
+(300 Einträge, 30 Minuten), CDN-Cache für erfolgreiche Sprachfassungen (15 Minuten)
+und maximal 20 neue Detailabrufe je Minute und Function-Instanz. Die Schranke ist
+kein global verteiltes Kostenlimit; ein Gateway-Projektbudget kann zusätzlich
+gesetzt werden. Fehlende oder gescheiterte Übersetzungen zeigen den ausdrücklich
+gekennzeichneten Originalauszug statt erfundener deutscher Einzelheiten; sie
+werden nicht im CDN gespeichert. Bei Quellenausfall gibt es einen Wiederholen-Button.
+
+Der Browser speichert die zuletzt geladenen 20 Detailansichten sprach- und
+ereignisversionsbezogen in `redscore-live-details-v1`. Offline erscheinen diese
+mit „Gespeicherte Details · Offline-Stand“. Vorher nicht geöffnete Auszüge werden
+offline nicht vorgetäuscht. Der bestehende Feed-Cache bleibt davon unabhängig.
+
 ```text
 DWD / GDACS / NASA EONET / USGS / NOAA-NWS / BBK / UN News / Medienmonitor -> Source Adapter -> Supabase Import Function -> PostgreSQL
                                                     |

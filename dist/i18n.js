@@ -1,6 +1,31 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "DEINE VORSORGE. DEINE ENTSCHEIDUNG.": "YOUR PREPAREDNESS. YOUR CHOICE.",
+  "Ab heute zählt": "From today, what counts is",
+  "dein": "your",
+  "Für dich. Für deine Familie. Für das, was dir wichtig ist.": "For you. For your family. For what matters to you.",
+  "Du kannst nicht jede Krise verhindern. Aber du kannst heute entscheiden, wie vorbereitet du ihr begegnest. Dein RedScore macht sichtbar, was du bereits geregelt hast – und wo du noch handeln kannst.": "You cannot prevent every crisis. But you can decide today how prepared you will be. Your RedScore shows what you have already taken care of — and where you can still take action.",
+  "Meinen RedScore kostenlos ermitteln →": "Find my RedScore for free →",
+  "Erst ausprobieren ↓": "Try it first ↓",
+  "Aus „wird schon gutgehen“": "Turn “it will probably be fine”",
+  "wird ein konkreter Plan.": "into a concrete plan.",
+  "Ehrlich hinschauen.": "Take an honest look.",
+  "Was wäre bei einem Ausfall wirklich griffbereit?": "What would actually be within reach during an outage?",
+  "Deinen Stand erkennen.": "Know where you stand.",
+  "Erfasse deine Vorsorge und entdecke offene Punkte.": "Record your preparations and identify the gaps.",
+  "Verantwortung übernehmen.": "Take responsibility.",
+  "Schließe deine Lücken – einen machbaren Schritt nach dem anderen.": "Close the gaps — one manageable step at a time.",
+  "Dein Score beruht auf deinen Angaben. Er ist eine Orientierung, keine Sicherheitsgarantie.": "Your score is based on the information you enter. It offers guidance, not a guarantee of safety.",
+  "Was die Quelle berichtet": "What the source reports",
+  "Gespeicherte Details · Offline-Stand": "Saved details · Offline copy",
+  "Automatisch übersetzter Quellenauszug. Maßgeblich ist die Originalmeldung.": "Automatically translated source excerpt. Refer to the original report for the exact wording.",
+  "Auszug aus dem veröffentlichten Feed der Quelle.": "Excerpt from the source's published feed.",
+  "Die Übersetzung ist gerade nicht verfügbar. Der Originalauszug ist unten nachlesbar.": "The translation is currently unavailable. You can read the original excerpt below.",
+  "Originalauszug anzeigen": "Show original excerpt",
+  "Für diese Meldung sind noch keine zusätzlichen Details offline gespeichert.": "No additional details have been saved offline for this report yet.",
+  "Die Einzelheiten konnten gerade nicht geladen werden.": "The details could not be loaded right now.",
+  "Einzelheiten aus der Quelle werden geladen …": "Loading details from the source …",
   "Umgebungskarte und Ortsdaten": "Area map and place data",
   "Für die Umgebungssuche werden Postleitzahl und Ort über unseren Server an Nominatim/OpenStreetMap übermittelt. Die Ortsdaten-Abfrage sendet den Ortsmittelpunkt an Overpass oder ersatzweise Photon (komoot). Dabei werden keine Kontodaten, Haushaltsangaben oder genauen Wohnadressen übermittelt. Beim Laden der eingebetteten Karte stellt dein Browser eine Verbindung zu OpenStreetMap her; dabei wird deine IP-Adresse technisch übertragen.": "For location searches, your postcode and town are sent through our server to Nominatim/OpenStreetMap. Place queries send the town centre to Overpass or, as a fallback, Photon (komoot). Account data, household details and exact home addresses are not sent. When loading the embedded map, your browser connects to OpenStreetMap, which technically receives your IP address.",
   "Die Karte bleibt verfügbar. Die Ortsliste kann später erneut geladen werden.": "The map remains available. You can try loading the place list again later.",
@@ -854,6 +879,7 @@ export function translateText(value) {
 }
 
 function replaceNodeText(node) {
+  if (node.parentElement?.closest('[translate="no"]')) return;
   const value = node.nodeValue || "";
   const trimmed = value.trim();
   if (!trimmed) return;

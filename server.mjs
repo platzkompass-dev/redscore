@@ -7,6 +7,7 @@ import { GET as placesHandler } from "./api/places.js";
 import { POST as routeHandler } from "./api/route.js";
 import { POST as visitHandler } from "./api/visit.js";
 import { GET as healthHandler } from "./api/health.js";
+import { GET as liveDetailHandler } from "./api/live-lage-detail.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, "dist");
@@ -140,6 +141,10 @@ const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "127.0.0.1"}`);
   if (requestUrl.pathname === "/api/health") return runWebHandler(healthHandler, request, response, requestUrl);
   if (requestUrl.pathname === "/api/live-lage") return proxyLiveLage(request, response, requestUrl);
+  if (requestUrl.pathname === "/api/live-lage-detail") {
+    if (request.method !== "GET") return sendJson(response,405,{error:"GET required"});
+    return runWebHandler(liveDetailHandler,request,response,requestUrl);
+  }
   if (requestUrl.pathname === "/api/visit") return runWebHandler(visitHandler, request, response, requestUrl);
   if (requestUrl.pathname === "/api/places") {
     if (request.method !== "GET") return sendJson(response, 405, { error: "GET erforderlich" });
