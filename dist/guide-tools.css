@@ -1,4 +1,6 @@
 .guide-tool{max-width:780px;scroll-margin-top:24px}
+.guide-stock-list strong{display:block;font-size:16px;line-height:1.5}.guide-stock-list small{display:block;font-size:14px;line-height:1.6;color:#476476}.guide-stock-list .packing-check label{align-items:flex-start;min-width:0}.guide-stock-list .packing-check input{margin-top:5px}.guide-stock-list>button{margin-top:20px;min-height:44px}
+@media print{.guide-stock-list{display:none}body.print-stock .guide-stock-list{display:block}body.print-stock #rechner,body.print-stock .guide-article,body.print-stock .guide-intro,body.print-stock .guide-toc{display:none!important}.guide-stock-list>button{display:none}.guide-stock-list input[type=checkbox]{appearance:auto!important;print-color-adjust:exact}}
 .guide-tool input[type=text],.guide-tool select{width:100%;min-height:46px;padding:12px;border:1px solid #92aebc;border-radius:7px;background:#fff;color:#112f43;font:inherit}
 .guide-tool select:focus-visible{outline:3px solid #e63e4b;outline-offset:4px}
 .guide-tool [data-water-shopping]{padding:14px 16px;background:#eaf7f1;border-left:3px solid #087b59;border-radius:6px;font-weight:600}

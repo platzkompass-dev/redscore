@@ -10,7 +10,7 @@ const request=(body=payload,headers={},method='POST')=>new Request('https://www.
 });
 const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'server-only-test-key'};
 test('visit validation rejects private paths, extra data and malformed sessions',()=>{
-  assert.equal(PUBLIC_VISIT_ROUTES.size,10);
+  assert.equal(PUBLIC_VISIT_ROUTES.size,12);
   for(const route of PUBLIC_VISIT_ROUTES)assert.ok(validVisit({...payload,route}));
   for(const bad of [null,[],{...payload,email:'secret@example.test'},{...payload,consent:1},{...payload,session:'x'},
     {...payload,route:'/settings'},{...payload,route:'/?email=secret'},{...payload,route:'/#/home'}])assert.ok(!validVisit(bad));

@@ -2,7 +2,7 @@ export const PUBLIC_VISIT_ROUTES = new Set([
   '/', '/angebote', '/ratgeber/index.html', '/ratgeber/notvorrat.html',
   '/ratgeber/notfallrucksack.html', '/ratgeber/stromausfall.html',
   '/en/guides/index.html', '/en/guides/emergency-supplies.html',
-  '/en/guides/emergency-backpack.html', '/en/guides/power-outage.html',
+  '/en/guides/emergency-backpack.html', '/en/guides/power-outage.html', '/ratgeber/prepping-anfaenger.html', '/en/guides/prepping-beginners.html',
 ]);
 export function validVisit(value) {
   return value && typeof value==='object' && !Array.isArray(value)

@@ -21,7 +21,7 @@
       if(['','#/home','#/public'].includes(hash))return '/';
       return hash==='#/angebote'?'/angebote':null;
     }
-    return /^\/(?:ratgeber\/(?:index|notvorrat|notfallrucksack|stromausfall)|en\/guides\/(?:index|emergency-supplies|emergency-backpack|power-outage))\.html$/.test(location.pathname)?location.pathname:null;
+    return /^\/(?:ratgeber\/(?:index|notvorrat|notfallrucksack|stromausfall|prepping-anfaenger)|en\/guides\/(?:index|emergency-supplies|emergency-backpack|power-outage|prepping-beginners))\.html$/.test(location.pathname)?location.pathname:null;
   }
   const permitted=()=>choice?.statistics===true&&read()?.statistics===true&&Boolean(publicRoute())&&!document.hidden;
   function visitSession(){

@@ -1,6 +1,9 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Vorrat anlegen & Vorratsliste": "Plan supplies & use a checklist",
+  "Prepping für Anfänger": "Prepping for beginners",
+  "Mit Vorrat, Grundausrüstung und einem klaren Plan starten.": "Start with supplies, basic equipment and a clear plan.",
   "Was, wenn …?": "What if …?",
   "Mögliche Szenarien · KI-generierte Illustrationen": "Possible scenarios · AI-generated illustrations",
   "Sechs mögliche Krisenszenarien": "Six possible emergency scenarios",
@@ -907,8 +910,8 @@ export function applyLanguage(root = document) {
   document.title = language === "en" ? "RedScore - Are you prepared?" : "RedScore - Bist du vorbereitet?";
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = language === "en"
-    ? "RedScore helps people prepare for disasters, supply disruptions and emergencies."
-    : "RedScore hilft Bürgerinnen und Bürgern bei der Vorbereitung auf Katastrophen, Versorgungsausfälle und Notlagen.";
+    ? "Plan emergency supplies, calculate water and pack an emergency backpack: free RedScore tools for prepping and personal preparedness."
+    : "Vorrat anlegen, Wasservorrat berechnen und Notfallrucksack planen: kostenlose Tools für Notvorrat, Prepping und persönliche Notfallvorsorge mit RedScore.";
   if (language !== "en") return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let node;

@@ -33,7 +33,12 @@ document.querySelector("[data-print-water]")?.addEventListener("click", () => {
   renderWaterPlan(form);
   if (waterPlan(Number(form.elements.people.value), Number(form.elements.days.value), form.elements.stock.value, Number(form.elements.bottleSize.value))) window.print();
 });
-document.querySelector("[data-print]")?.addEventListener("click", () => window.print());
+document.querySelectorAll("[data-print]").forEach(button => button.addEventListener("click", () => window.print()));
+document.querySelector("[data-print-stock]")?.addEventListener("click", () => {
+  document.body.classList.add("print-stock");
+  window.addEventListener("afterprint", () => document.body.classList.remove("print-stock"), {once:true});
+  window.print();
+});
 document.querySelector("[data-share]")?.addEventListener("click", async () => {
   const status = document.querySelector("[data-share-status]");
   const url = document.querySelector('link[rel="canonical"]').href;
