@@ -426,6 +426,11 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
   .pack-item-icon{display:none}
 }
 /* Touch ergonomics also apply to tablets, beyond the phone layout breakpoint. */
+.public-hero{height:auto;min-height:530px}
+.public-hero .public-hero-copy{width:min(640px,calc(100% - 280px))}
+.public-hero-kicker{display:block;margin:0 0 14px;color:#83e5c7;font-size:12px;line-height:1.5;font-weight:800;letter-spacing:2px}
+.public-hero-copy>.public-hero-promise{font-size:17px;line-height:1.5;color:#d0eee4;font-weight:600;margin-bottom:22px}
+@media(max-width:900px){.public-hero{min-height:0}.public-hero .public-hero-copy{width:100%}.public-hero-kicker{font-size:11px}.public-hero-copy>.public-hero-promise{font-size:16px}}
 @media(max-width:1100px){
   .public-actions .language-flag,.app-header .user-tools :is(.language-flag,.avatar,.bell,.search-button){min-width:44px;width:44px;min-height:44px;height:44px}
   .logged-page main button,.offers-page main button{min-height:44px;min-width:44px}
