@@ -68,3 +68,9 @@ Browsertest: 320, 390, 768, 1024 und 1440 Pixel, Deutsch/Englisch, kein horizont
 Überlauf. Rechner für zwei Erwachsene/drei Tage ergibt zwölf Liter; sieben
 abhakbare Vorratsbereiche, getrennte PDF-/Druckansicht geprüft. Sicherheitsberater
 der Datenbank zeigen gegenüber dem vorherigen Stand keine zusätzlichen Hinweise.
+
+Produktionsprüfung 06.11.2026: Startseite mit App-Version 61, deutscher und
+englischer Prepping-Ratgeber, erweiterter Vorratsartikel und Sitemap liefern
+HTTP 200 mit dem neuen Inhalt. Nach Veröffentlichung einmalige IndexNow-Meldung
+der elf Sitemap-URLs: HTTP 200 angenommen. Keine Google-Indexierung oder
+Rankingänderung daraus abgeleitet; nicht sofort erneut einreichen.
