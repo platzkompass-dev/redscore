@@ -776,7 +776,7 @@ function renderPublic() {
   ];
   app.innerHTML = `<div id="top" class="public-page">${publicHeader()}
     <section class="public-hero">
-      <div class="public-hero-copy"><small class="public-hero-kicker">STELL DIR VOR …</small><h1>Das Licht geht aus.<br><em>Was fehlt dir jetzt?</em></h1><p>Dein Handy ist fast leer. Zu Hause steht kaum Trinkwasser. Und niemand kann dir sagen, wann alles wieder funktioniert.</p>
+      <div class="public-hero-copy"><small class="public-hero-kicker">STELL DIR VOR …</small><h1>Wie gut bist du<br>wirklich <em>vorbereitet?</em></h1><p>Dein Handy ist fast leer. Zu Hause steht kaum Trinkwasser. Und niemand kann dir sagen, wann alles wieder funktioniert.</p>
         <p class="public-hero-promise">Mit RedScore findest du deine Lücken – bevor du sie spürst.</p>
         <div class="cta-row"><button class="green large" data-open-auth="register">Jetzt kostenlos vorsorgen <span>→</span></button><button class="outline large" data-scroll="how">So funktioniert’s</button></div>
         <div class="trust-row"><span>✓ Kostenlos</span><span>✓ Unverbindlich</span><span>✓ Datenschutzfreundlich</span></div>
