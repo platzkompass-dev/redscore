@@ -429,7 +429,7 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 .score-purpose-copy>small{color:#70dfbe;font-size:11px;letter-spacing:2px;font-weight:800}
 .score-purpose-copy h2{font-size:clamp(34px,4.2vw,58px);line-height:1.08;letter-spacing:-1.5px;margin:18px 0 20px}
 .score-purpose-copy h2 em{font-style:normal;color:#3bd9a8}
-.score-purpose-copy h2 .score-word-highlight{color:#fff}
+.score-purpose-copy h2 .score-word-highlight{color:#ff4b55}
 .score-purpose-copy p{max-width:620px;color:#bcd1dc;font-size:17px;line-height:1.7}
 .score-purpose-copy .score-purpose-lead{color:#fff;font-weight:700;font-size:20px;line-height:1.5}
 .score-purpose-copy .cta-row{margin-top:26px;flex-wrap:wrap}
