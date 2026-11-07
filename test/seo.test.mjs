@@ -37,7 +37,7 @@ test("every sitemap guide has crawlable content, matching canonical metadata and
   const sitemap = await readFile(new URL("../dist/sitemap.xml", import.meta.url), "utf8");
   const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => new URL(match[1]));
   const guides = urls.filter(url => url.pathname !== "/");
-  assert.equal(guides.length, 10);
+  assert.equal(guides.length, 22);
   for (const url of guides) {
     assert.equal(url.origin, origin);
     const file = new URL(`../dist${url.pathname}`, import.meta.url);
@@ -95,7 +95,7 @@ test("prepping landing pages have truthful dates, matching breadcrumbs and reach
   for(const [path,language] of [['ratgeber/prepping-anfaenger.html','de-DE'],['en/guides/prepping-beginners.html','en']]){
     const html=await readFile(new URL(`../dist/${path}`,import.meta.url),'utf8');
     const schemas=[...html.matchAll(/<script type="application\/ld\+json">([^<]+)<\/script>/g)].map(match=>JSON.parse(match[1]));
-    assert.equal(schemas[0].datePublished,'2026-11-06');assert.equal(schemas[0].dateModified,'2026-11-06');assert.equal(schemas[0].inLanguage,language);
+    assert.equal(schemas[0].datePublished,'2026-11-06');assert.equal(schemas[0].dateModified,'2026-11-07');assert.equal(schemas[0].inLanguage,language);
     assert.equal(schemas[1]['@type'],'BreadcrumbList');assert.equal(schemas[1].itemListElement.at(-1).item,`https://www.redscore.de/${path}`);
     for(const [,id] of html.matchAll(/href="#([^"]+)"/g))assert.ok(html.includes(`id="${id}"`),`${path} missing ${id}`);
     assert.match(html,/<h1>Prepping/);assert.match(html,/href="\/ratgeber\/notvorrat.html"|href="\/en\/guides\/emergency-supplies.html"/);

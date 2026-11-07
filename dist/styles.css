@@ -485,3 +485,7 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 }
 
 .initial-home{max-width:1100px;margin:24px auto;padding:28px;background:#fff;color:#112f43;border-radius:12px;line-height:1.7}.initial-home h1{font-size:clamp(30px,5vw,52px);line-height:1.15}.initial-home nav{display:grid;gap:16px;margin-top:24px}.initial-home a{color:#08785b;text-decoration:underline;text-underline-offset:3px}@media(max-width:600px){.initial-home{margin:16px;padding:20px}}
+
+.public-topic-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}.public-guide-section .public-topic-links a{padding:12px 16px;border-radius:24px;min-height:44px;font-size:14px;line-height:1.5}.public-topic-links a:last-child{color:#08785b;font-weight:700}@media(max-width:480px){.public-guide-section .public-topic-links a{font-size:13px;padding:11px 14px}}
+
+.flyer-download{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:26px;border:1px solid #406372;border-radius:16px;background:#103341;margin-bottom:24px}.flyer-download small{color:#62d5b4;font-size:11px;letter-spacing:1.2px}.flyer-download h2{font-size:24px;margin:10px 0}.flyer-download p{max-width:620px;font-size:15px;line-height:1.65;color:#cadde5;margin-bottom:0}.flyer-download a{flex-shrink:0;white-space:normal;text-align:center;min-height:48px;max-width:280px}@media(max-width:760px){.flyer-download{display:block;padding:20px}.flyer-download a{max-width:none;width:100%;margin-top:18px}}

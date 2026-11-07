@@ -1,6 +1,18 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "REDSCORE ZUM WEITERGEBEN": "SHARE REDSCORE",
+  "Vorsorge beginnt vor Ort.": "Preparedness starts in your community.",
+  "Unser A4-Flugblatt für Bürgerzentren, Vereine und Einrichtungen: herunterladen, ausdrucken und auf RedScore aufmerksam machen.": "Our A4 flyer for community centres, associations and organisations: download, print and introduce people to RedScore.",
+  "Flugblatt als PDF herunterladen": "Download the flyer as PDF",
+  "Bevölkerungsschutzkampagne": "Civil protection campaigns",
+  "Eigenvorsorge": "Household preparedness",
+  "Krisenkommunikation": "Crisis communication",
+  "Bürgerinformationsportal": "Citizen information portals",
+  "Digitale Öffentlichkeitsarbeit": "Digital public communication",
+  "Selbstschutz": "Self-protection",
+  "Weitere Vorsorgethemen": "More preparedness topics",
+  "Alle Ratgeber ansehen →": "See all guides →",
   "Vorrat anlegen & Vorratsliste": "Plan supplies & use a checklist",
   "Prepping für Anfänger": "Prepping for beginners",
   "Mit Vorrat, Grundausrüstung und einem klaren Plan starten.": "Start with supplies, basic equipment and a clear plan.",

@@ -21,7 +21,7 @@
       if(['','#/home','#/public'].includes(hash))return '/';
       return hash==='#/angebote'?'/angebote':null;
     }
-    return /^\/(?:ratgeber\/(?:index|notvorrat|notfallrucksack|stromausfall|prepping-anfaenger)|en\/guides\/(?:index|emergency-supplies|emergency-backpack|power-outage|prepping-beginners))\.html$/.test(location.pathname)?location.pathname:null;
+    return /^\/(?:ratgeber\/(?:index|notvorrat|notfallrucksack|stromausfall|prepping-anfaenger|bevoelkerungsschutzkampagne|eigenvorsorge|krisenkommunikation|buergerinformationsportal|digitale-oeffentlichkeitsarbeit|selbstschutz)|en\/guides\/(?:index|emergency-supplies|emergency-backpack|power-outage|prepping-beginners|civil-protection-campaign|household-preparedness|crisis-communication|citizen-information-portal|digital-public-communication|self-protection))\.html$/.test(location.pathname)?location.pathname:null;
   }
   const permitted=()=>choice?.statistics===true&&read()?.statistics===true&&Boolean(publicRoute())&&!document.hidden;
   function visitSession(){
