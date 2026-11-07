@@ -45,3 +45,11 @@ eine neue Google-Indexierung werden damit nicht zugesichert.
 - Uses the same unmodified BBK logo as the website with explicit source attribution and no official cooperation claim. `dist/assets/bbk-logo-print.png` is a 1240px raster export of `bbk-logo.svg` for print embedding.
 - Offered beside the general flyer in the signed-in information view and German/English public guide indexes; both PDFs are German.
 - Verified with Poppler visual rendering and pypdf (one A4 page, text and two URL annotations). Public download indexes checked at 320/768/1440px in both languages.
+
+## SafePlaces / bunker question flyer
+
+- Third download: `/downloads/redscore-safeplaces-flugblatt-a4.pdf`; source `scripts/build-safeplaces-flyer.py`, local output `output/pdf/RedScore-SafePlaces-Flugblatt-A4.pdf`.
+- Headline: “Weißt du, wo der nächste Bunker ist?” Promotes SafePlaces, the personal score and preparation without promising accessible bunkers. Clearly states SafePlaces is not an official bunker directory; local authority instructions prevail.
+- Same BBK source attribution and logo as the other score flyer. Background checked against BBK Schutzbauwerke: https://www.bbk.bund.de/DE/Themen/Risikomanagement/Baulicher-Bevoelkerungsschutz/Schutzbauwerke/schutzbauwerke_node.html
+- One A4 page visually checked through Poppler; pypdf confirms three link annotations. ZXing decoded the actual rendered PDF QR at 150 and 96 dpi to https://www.redscore.de/.
+- German/English download indexes checked at 320/768/1440px. PDF language is German.

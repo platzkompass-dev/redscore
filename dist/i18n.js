@@ -1,6 +1,8 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "SafePlaces-Flugblatt herunterladen": "Download the SafePlaces flyer",
+  "Drei A4-Flugblätter für Bürgerzentren, Vereine und Einrichtungen: SafePlaces, dein persönlicher RedScore und die Plattform im Überblick. Herunterladen, ausdrucken und weitergeben.": "Three A4 flyers for community centres, associations and organisations: SafePlaces, your personal RedScore and an overview of the platform. Download, print and share.",
   "Score-Flugblatt herunterladen": "Download the score flyer",
   "Allgemeines Flugblatt herunterladen": "Download the general flyer",
   "Zwei A4-Flugblätter für Bürgerzentren, Vereine und Einrichtungen: dein RedScore im Mittelpunkt oder die Plattform im Überblick. Herunterladen, ausdrucken und weitergeben.": "Two A4 flyers for community centres, associations and organisations: focus on your RedScore or introduce the platform. Download, print and share.",
