@@ -1,6 +1,9 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Score-Flugblatt herunterladen": "Download the score flyer",
+  "Allgemeines Flugblatt herunterladen": "Download the general flyer",
+  "Zwei A4-Flugblätter für Bürgerzentren, Vereine und Einrichtungen: dein RedScore im Mittelpunkt oder die Plattform im Überblick. Herunterladen, ausdrucken und weitergeben.": "Two A4 flyers for community centres, associations and organisations: focus on your RedScore or introduce the platform. Download, print and share.",
   "Handschriftliche Liste einlesen": "Scan a handwritten list",
   "Keine Gesichtsanalyse. Listenfoto nur auf deinen Wunsch.": "No facial analysis. List photos only at your request.",
   "Ein Listenfoto wird nur auf deinen Wunsch zur Erkennung verarbeitet. RedScore führt keine Gesichtsanalyse durch.": "A list photo is only processed for recognition at your request. RedScore does not perform facial analysis.",

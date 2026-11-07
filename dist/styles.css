@@ -495,3 +495,5 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 .stock-scan-modal{width:min(850px,100%);overflow-wrap:anywhere}.stock-scan-modal :is(input:not([type=checkbox]),select){width:100%;max-width:100%;padding:10px 12px;border:1px solid #9db4c0;border-radius:7px;background:#fff;color:#0a2946}.stock-scan-modal label{display:grid;gap:6px;min-width:0}.scan-rows,.scan-row,.scan-quantity>*{min-width:0}.scan-quantity{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 
 .stock-scan-modal [hidden]{display:none!important}
+
+.flyer-download-actions{display:grid;gap:12px;min-width:0;flex:0 1 310px}.flyer-download-actions .link-button{display:flex;align-items:center;justify-content:center;text-align:center;white-space:normal;min-height:48px}.flyer-download-actions .outline{color:#0a2946;border:1px solid #9db4c0}@media(max-width:600px){.flyer-download-actions{width:100%;flex:auto}}
