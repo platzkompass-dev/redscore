@@ -497,3 +497,7 @@ button,input{font:inherit}button,a{transition:.18s ease}button{cursor:pointer}a{
 .stock-scan-modal [hidden]{display:none!important}
 
 .flyer-download-actions{display:grid;gap:12px;min-width:0;flex:0 1 310px}.flyer-download-actions .link-button{display:flex;align-items:center;justify-content:center;text-align:center;white-space:normal;min-height:48px}.flyer-download-actions .outline{color:#0a2946;border:1px solid #9db4c0}@media(max-width:600px){.flyer-download-actions{width:100%;flex:auto}}
+
+.flyer-download-actions .link-button{min-height:64px;font-size:16px;font-weight:700;line-height:1.4;text-decoration:none;padding:14px 18px}
+
+.flyer-download-actions{grid-auto-rows:1fr}
