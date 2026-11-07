@@ -53,3 +53,11 @@ eine neue Google-Indexierung werden damit nicht zugesichert.
 - Same BBK source attribution and logo as the other score flyer. Background checked against BBK Schutzbauwerke: https://www.bbk.bund.de/DE/Themen/Risikomanagement/Baulicher-Bevoelkerungsschutz/Schutzbauwerke/schutzbauwerke_node.html
 - One A4 page visually checked through Poppler; pypdf confirms three link annotations. ZXing decoded the actual rendered PDF QR at 150 and 96 dpi to https://www.redscore.de/.
 - German/English download indexes checked at 320/768/1440px. PDF language is German.
+
+## Berlin power outage campaign flyer
+
+- Fourth download: `/downloads/redscore-stromausfall-berlin-flugblatt-a4.pdf`; editable source `scripts/build-blackout-flyer.py`, local output `output/pdf/RedScore-Stromausfall-Berlin-Flugblatt-A4.pdf`.
+- Provocative editorial message “Vorsorge aufschieben ist fahrlässig.” Historical reference explicitly labelled Berlin southwest / January 2026 / retrospective. Approx. 100 hours refers to the overall disruption, not every household or all Berlin; earlier reconnections are acknowledged.
+- Primary factual source printed and linked: Stromnetz Berlin, 08.01.2026, https://www.stromnetz.berlin/uber-uns/presse/pressemitteilungen-2026/strom-ist-fur-alle-wieder-da/
+- The three household prompts are hypothetical, not additional reported impacts. BBK source attribution and no-cooperation statement retained.
+- One A4 page visually checked via Poppler; extracted text/source and three links verified. Actual rendered QR decoded at 150 and 96 dpi. German/English download indexes checked at 320/768/1440px.

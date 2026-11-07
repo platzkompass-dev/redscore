@@ -1,6 +1,8 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Stromausfall-Flugblatt herunterladen": "Download the power outage flyer",
+  "Vier A4-Flugblätter für Bürgerzentren, Vereine und Einrichtungen: Stromausfall, SafePlaces, dein persönlicher RedScore und die Plattform im Überblick. Herunterladen, ausdrucken und weitergeben.": "Four A4 flyers for community centres, associations and organisations: power outages, SafePlaces, your personal RedScore and an overview of the platform. Download, print and share.",
   "SafePlaces-Flugblatt herunterladen": "Download the SafePlaces flyer",
   "Drei A4-Flugblätter für Bürgerzentren, Vereine und Einrichtungen: SafePlaces, dein persönlicher RedScore und die Plattform im Überblick. Herunterladen, ausdrucken und weitergeben.": "Three A4 flyers for community centres, associations and organisations: SafePlaces, your personal RedScore and an overview of the platform. Download, print and share.",
   "Score-Flugblatt herunterladen": "Download the score flyer",
