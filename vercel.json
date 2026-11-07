@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "buildCommand": "npm run build:guides",
   "functions": {
+    "api/stock-list-scan.js": {
+      "maxDuration": 60,
+      "supportsCancellation": true
+    },
     "api/live-lage-detail.js": {
       "maxDuration": 25,
       "supportsCancellation": true

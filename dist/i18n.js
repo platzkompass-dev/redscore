@@ -1,6 +1,9 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "Handschriftliche Liste einlesen": "Scan a handwritten list",
+  "Keine Gesichtsanalyse. Listenfoto nur auf deinen Wunsch.": "No facial analysis. List photos only at your request.",
+  "Ein Listenfoto wird nur auf deinen Wunsch zur Erkennung verarbeitet. RedScore führt keine Gesichtsanalyse durch.": "A list photo is only processed for recognition at your request. RedScore does not perform facial analysis.",
   "REDSCORE ZUM WEITERGEBEN": "SHARE REDSCORE",
   "Vorsorge beginnt vor Ort.": "Preparedness starts in your community.",
   "Unser A4-Flugblatt für Bürgerzentren, Vereine und Einrichtungen: herunterladen, ausdrucken und auf RedScore aufmerksam machen.": "Our A4 flyer for community centres, associations and organisations: download, print and introduce people to RedScore.",

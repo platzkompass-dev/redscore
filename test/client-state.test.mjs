@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import * as data from "../dist/data.js";
 import * as offers from "../dist/offers.js";
 import * as twin from "../dist/supply-twin.js";
+import * as stockImport from "../dist/stock-import.js";
 
 const source = (await readFile(new URL("../dist/app.js", import.meta.url), "utf8"))
   .replace(/^import .*;\r?$/gm, "").replace(/^initialize\(\);\r?$/m, "");
@@ -19,7 +20,7 @@ function client(options = {}) {
   const liveElements = Object.fromEntries(["#live-age", "[data-live-title]", "[data-live-dot]", "[data-live-note]"].map(key => [key, { textContent: "", className: "", hidden: false }]));
   const app = { innerHTML: "", addEventListener(type, handler) { appEvents.set(type, handler); }, querySelector() { return null; }, querySelectorAll() { return []; }, contains() { return false; } };
   const context = vm.createContext({
-    ...data, ...offers, ...twin, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
+    ...data, ...offers, ...twin, ...stockImport, console, URLSearchParams, URL, AbortSignal, Response, Date, Math, Intl, JSON,
     navigator: { onLine: options.online !== false }, location: { search: "", hash: "#/profile" },
     history: { replaceState() {} },
     document: { hidden: false, activeElement: null, body: { className: "", classList: { toggle() {} } }, querySelector: selector => selector === "#app" ? app : selector === "[data-sync-status]" ? syncRegion : liveElements[selector] || null, addEventListener() {} },
