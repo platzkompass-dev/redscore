@@ -23,7 +23,7 @@ test("regional results require an actual match, not just a similar town or postc
   assert.equal(localOfferMatches(stade, {city:"Freiburg (Elbe)",postalCode:"21729",district:"Landkreis Stade"}), true);
   assert.equal(localOfferMatches(stade, {city:"Stade",postalCode:"21680",country:"US"}), false);
   assert.equal(selectOffers({mode:"local",location:{city:"Freiburg",postalCode:"79098"}}).length, 0);
-  assert.equal(selectOffers({mode:"local",location:{city:"Berlin",postalCode:"10115"}}).length, 0);
+  assert.ok(selectOffers({mode:"local",location:{city:"Berlin",postalCode:"10115"}}).some(item=>item.id==="first-aid-berlin"));
 });
 
 test("online offers ignore location, finders are never presented as regional hits", () => {

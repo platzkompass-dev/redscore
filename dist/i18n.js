@@ -1,6 +1,23 @@
 const STORAGE_KEY = "redscore-language-v1";
 
 const EN = new Map(Object.entries({
+  "DEIN REDSCORE-KONTO": "YOUR REDSCORE ACCOUNT",
+  "Dein erster Schritt zur Vorsorge": "Your first step towards preparedness",
+  "Willkommen zurück": "Welcome back",
+  "Kostenlos registrieren und deine Vorbereitung Schritt für Schritt verbessern.": "Register for free and improve your preparedness step by step.",
+  "Melde dich an und führe deine persönliche Vorsorge weiter.": "Sign in and continue your personal preparedness.",
+  "DEIN KOSTENLOSES KONTO": "YOUR FREE ACCOUNT",
+  "Dein persönlicher RedScore": "Your personal RedScore",
+  "Erkenne deinen Vorsorgestand und offene Aufgaben.": "See your preparedness status and outstanding tasks.",
+  "Vorräte passend zu deinem Haushalt": "Supplies tailored to your household",
+  "Plane Mengen und behalte deine Bestände im Blick.": "Plan quantities and keep track of your stock.",
+  "Notfallrucksack zum Abhaken": "An emergency backpack checklist",
+  "Stelle deine Ausrüstung Schritt für Schritt zusammen.": "Put together your equipment step by step.",
+  "SafePlaces in deiner Umgebung": "SafePlaces near you",
+  "Entdecke wichtige Anlaufstellen rund um deinen Standort.": "Discover important places near your location.",
+  "Kontozugang": "Account access",
+  "Nach der Registrierung passt du deine Vorsorge an deinen Haushalt an.": "After registering, tailor your preparedness to your household.",
+
   "Stromausfall-Flugblatt herunterladen": "Download the power outage flyer",
   "Vier A4-Flugblätter für Bürgerzentren, Vereine und Einrichtungen: Stromausfall, SafePlaces, dein persönlicher RedScore und die Plattform im Überblick. Herunterladen, ausdrucken und weitergeben.": "Four A4 flyers for community centres, associations and organisations: power outages, SafePlaces, your personal RedScore and an overview of the platform. Download, print and share.",
   "SafePlaces-Flugblatt herunterladen": "Download the SafePlaces flyer",
