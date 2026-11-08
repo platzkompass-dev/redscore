@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {normaliseOffers,GET} from '../api/local-offers.js';
+test('directory results are bounded, deduplicated and link only to OSM',()=>{const item={type:'node',id:12,lat:53,lon:10,tags:{name:'Outdoor',shop:'outdoor',website:'javascript:alert(1)'}};const result=normaliseOffers([item,item,{...item,id:13,lat:48}],53,10);assert.equal(result.length,1);assert.equal(result[0].category,'equipment');assert.equal(result[0].distance,0);assert.equal(result[0].url,'https://www.openstreetmap.org/node/12');});
+test('invalid location never calls providers',async()=>{const r=await GET(new Request('https://redscore.de/api/local-offers?postalCode=abc&city=Berlin'));assert.equal(r.status,400);});

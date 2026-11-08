@@ -1,3 +1,4 @@
+import {GET as localOffersHandler} from './api/local-offers.js';
 import { GET as postcodeHandler } from './api/postcode.js';
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -143,6 +144,7 @@ async function serveStatic(response, requestUrl) {
 
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "127.0.0.1"}`);
+  if (requestUrl.pathname === "/api/local-offers") return runWebHandler(localOffersHandler,request,response,requestUrl);
   if (requestUrl.pathname === "/api/postcode") return runWebHandler(postcodeHandler,request,response,requestUrl);
   if (requestUrl.pathname === "/api/health") return runWebHandler(healthHandler, request, response, requestUrl);
   if (requestUrl.pathname === "/api/live-lage") return proxyLiveLage(request, response, requestUrl);
