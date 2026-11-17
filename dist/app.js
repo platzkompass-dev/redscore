@@ -1,4 +1,4 @@
-import { showBunkerEntrance } from "./bunker-entry.js?v=2";
+import { showBunkerEntrance } from "./bunker-entry.js?v=3";
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=7";
 import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=36";
 import { offerCatalog, offerCategories, offersCheckedAt, selectOffers, offerMatchesSearch, offerPreparation, offerNeedHints } from "./offers.js?v=5";
