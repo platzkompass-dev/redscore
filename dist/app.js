@@ -1,6 +1,6 @@
-import { showBunkerEntrance } from "./bunker-entry.js?v=3";
+import { showBunkerEntrance } from "./bunker-entry.js?v=4";
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=7";
-import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=36";
+import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=37";
 import { offerCatalog, offerCategories, offersCheckedAt, selectOffers, offerMatchesSearch, offerPreparation, offerNeedHints } from "./offers.js?v=5";
 import { newSupplyTwinPlan, supplyTwinModel, supplyTwinMarkup, updateSupplyTwin } from "./supply-twin.js?v=2";
 import {makeStockRows,planStockImport,waterFromRow} from "./stock-import.js?v=1";
@@ -677,7 +677,13 @@ function scoreLabResult(selection = scoreLabSelection) {
   }
   const preparedness = questions.filter(([id]) => answers.has(id)).length / questions.length * 100;
   const supplies = Math.round(groups.reduce((sum, group) => sum + (progress[group.id] || 0), 0) / groups.length * 100);
-  return { value: combineReadinessScore(preparedness, supplies), count: scoreLabSteps.filter(step => selection.has(step.id)).length };
+  // Scale against the steps actually offered in this scenario, not the full
+  // household assessment. Three-day examples can complete this simulation.
+  const allAnswers = new Set(scoreLabSteps.flatMap(step => step.answers));
+  const allProgress = Object.assign({}, ...scoreLabSteps.map(step => step.supplies));
+  const maximum = combineReadinessScore(questions.filter(([id]) => allAnswers.has(id)).length / questions.length * 100,
+    Math.round(groups.reduce((sum, group) => sum + (allProgress[group.id] || 0), 0) / groups.length * 100));
+  return { value: maximum ? Math.round(combineReadinessScore(preparedness, supplies) / maximum * 100) : 0, count: scoreLabSteps.filter(step => selection.has(step.id)).length };
 }
 
 function scoreLabGain(stepId) {
@@ -721,7 +727,7 @@ function scoreLab() {
       <div class="lab-grid" aria-hidden="true"></div><svg viewBox="0 0 240 240" aria-hidden="true"><circle class="lab-ring-track" cx="120" cy="120" r="94"/><circle class="lab-ring-value" data-lab-ring cx="120" cy="120" r="94" pathLength="100" stroke-dasharray="100" style="stroke-dashoffset:${100-result.value}"/></svg>
       <div class="lab-number"><small>SIMULATION</small><strong data-lab-value>${result.value}</strong><span>von 100</span></div>
       ${scoreLabSteps.map((step,i) => `<span class="lab-node ${scoreLabSelection.has(step.id) ? "ready" : ""}" data-lab-node="${step.id}" style="--node-angle:${i*72}deg" aria-hidden="true">${icon(step.icon)}</span>`).join("")}
-    </div><p data-lab-effect>${esc(scoreLabEffect)}</p><small class="lab-disclaimer">Beispiel-Simulation, nicht dein persönlicher RedScore.</small></div>
+    </div><p data-lab-effect>${esc(scoreLabEffect)}</p><small class="lab-disclaimer">Szenario-Fortschritt: Alle fünf Schritte ergeben 100 %. Nicht dein persönlicher RedScore.</small></div>
     <div class="score-lab-actions"><div class="lab-actions-head"><span><b>Deine Schritte im Szenario</b><small class="lab-gesture-hint">Klicke einen Schritt an · Warum ist das wichtig?</small></span><button data-score-lab-reset ${result.count ? "" : "disabled"}>Zurücksetzen</button></div>
       ${scoreLabSteps.map(step => `<button class="lab-step" data-score-lab-step="${step.id}" aria-label="${step.label} – Klicke für die Vorsorge-Erklärung" aria-pressed="${scoreLabSelection.has(step.id)}">${icon(step.icon)}<span><b>${step.label}</b><small>${step.detail}</small></span><strong data-lab-gain>${scoreLabSelection.has(step.id) ? "✓" : `+${scoreLabGain(step.id)}`}</strong></button>`).join("")}
       <button class="green lab-cta" data-open-auth="register">Jetzt meinen echten Score kostenlos prüfen →</button>
@@ -832,7 +838,7 @@ function renderPublic() {
     </section>
     <section class="scenario-strip" aria-labelledby="scenario-heading"><header><h2 id="scenario-heading">Was, wenn …?</h2></header><div class="scenario-photos" tabindex="0" role="region" aria-label="Sieben mögliche Krisenszenarien"><figure><img src="assets/scenarios/blackout.webp" width="640" height="440" loading="lazy" decoding="async" alt="Szenario: dunkle Wohnstraße bei einem Stromausfall"><figcaption>Stromausfall</figcaption></figure><figure><img src="assets/scenarios/flood.webp" width="640" height="440" loading="lazy" decoding="async" alt="Szenario: überflutete Wohnstraße mit Sandsäcken"><figcaption>Hochwasser</figcaption></figure><figure><img src="assets/scenarios/storm.webp" width="640" height="440" loading="lazy" decoding="async" alt="Szenario: umgestürzter Baum nach einem schweren Sturm"><figcaption>Schwerer Sturm</figcaption></figure><figure><img src="assets/scenarios/wildfire.webp" width="640" height="440" loading="lazy" decoding="async" alt="Szenario: Waldbrand und Rauch an einem Waldweg"><figcaption>Waldbrand</figcaption></figure><figure><img src="assets/scenarios/heat.webp" width="640" height="440" loading="lazy" decoding="async" alt="Szenario: ausgetrockneter Boden und verdorrte Felder"><figcaption>Extreme Hitze</figcaption></figure><figure><img src="assets/scenarios/pandemic.webp" width="640" height="440" loading="lazy" decoding="async" alt="Szenario: Frau mit medizinischer Maske und Thermometer zu Hause"><figcaption>Pandemie / Lockdown</figcaption></figure><figure><img src="assets/scenarios/supplies.webp" width="640" height="440" loading="lazy" decoding="async" alt="Szenario: weitgehend leere Lebensmittelregale"><figcaption>Versorgungsengpass</figcaption></figure></div><small class="scenario-swipe">Seitlich wischen, um alle Szenarien zu sehen →</small></section>
     <section class="public-score-purpose" aria-labelledby="score-purpose-title">
-      <div class="score-purpose-copy"><small>DEINE VORSORGE. DEINE ENTSCHEIDUNG.</small><h2 id="score-purpose-title">Ab heute zählt<br>dein <em>Red<span class="score-word-highlight">Score</span>.</em></h2><p class="score-purpose-lead">Für dich. Für deine Familie. Für das, was dir wichtig ist.</p><p>Du kannst nicht jede Krise verhindern. Aber du kannst heute entscheiden, wie vorbereitet du ihr begegnest. Dein RedScore macht sichtbar, was du bereits geregelt hast – und wo du noch handeln kannst.</p><div class="cta-row"><button class="green large" data-open-auth="register">Meinen RedScore kostenlos ermitteln →</button><button class="outline" data-scroll="score-lab">Erst ausprobieren ↓</button></div></div>
+      <div class="score-purpose-copy"><small>DEINE VORSORGE. DEINE ENTSCHEIDUNG.</small><h2 id="score-purpose-title">Ab heute zählt<br>dein <em>Red<span class="score-word-highlight">Score.</span></em></h2><p class="score-purpose-lead">Für dich. Für deine Familie. Für das, was dir wichtig ist.</p><p>Du kannst nicht jede Krise verhindern. Aber du kannst heute entscheiden, wie vorbereitet du ihr begegnest. Dein RedScore macht sichtbar, was du bereits geregelt hast – und wo du noch handeln kannst.</p><div class="cta-row"><button class="green large" data-open-auth="register">Meinen RedScore kostenlos ermitteln →</button><button class="outline" data-scroll="score-lab">Erst ausprobieren ↓</button></div></div>
       <div class="score-purpose-steps"><h3>Aus „wird schon gutgehen“<br>wird ein konkreter Plan.</h3><ol><li><span>01</span><div><b>Ehrlich hinschauen.</b><p>Was wäre bei einem Ausfall wirklich griffbereit?</p></div></li><li><span>02</span><div><b>Deinen Stand erkennen.</b><p>Erfasse deine Vorsorge und entdecke offene Punkte.</p></div></li><li><span>03</span><div><b>Verantwortung übernehmen.</b><p>Schließe deine Lücken – einen machbaren Schritt nach dem anderen.</p></div></li></ol><small>Dein Score beruht auf deinen Angaben. Er ist eine Orientierung, keine Sicherheitsgarantie.</small></div>
     </section>
     ${scoreLab()}

@@ -163,7 +163,7 @@ const EN = new Map(Object.entries({
   "Wähle einen Schritt. Sieh, was sich verändert.": "Choose a step. See what changes.",
   "Schritt zurückgenommen. Du kannst jederzeit neu kombinieren.": "Step removed. You can combine them again anytime.",
   "Jetzt meinen echten Score kostenlos prüfen →": "Check my real score for free →",
-  "Beispiel-Simulation, nicht dein persönlicher RedScore.": "Example simulation, not your personal RedScore.",
+  "Szenario-Fortschritt: Alle fünf Schritte ergeben 100 %. Nicht dein persönlicher RedScore.": "Scenario progress: All five steps reach 100%. Not your personal RedScore.",
   "Beispielannahmen & Berechnung": "Example assumptions & calculation",
   "Wasser einplanen": "Plan water",
   "Trinkwasser für drei Tage": "Drinking water for three days",

@@ -1,3 +1,4 @@
+import { evacuationCause } from "../evacuation.ts";
 import type { NewsCategory, NewsSourceAdapter, NormalizedNewsItem, Severity, SourceConfig } from "../types.ts";
 import { assertAllowedHttpsUrl, fetchStructured, plainText, safePublicUrl } from "../security.ts";
 import { isConflictIncident } from "../conflicts.ts";
@@ -12,6 +13,8 @@ function field(block: string, names: string[]): string {
 
 function categoryFor(value: string): NewsCategory | null {
   const text = value.toLowerCase();
+  const cause = evacuationCause(text);
+  if (cause) return cause;
   if (isConflictIncident(text)) return "international_security";
   if (/drohn|drone|uav/.test(text)) return "drones";
   if (/cyber|ransomware|hacker|it-ausfall|it.?ausfall/.test(text)) return "cyber";

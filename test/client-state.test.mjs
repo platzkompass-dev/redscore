@@ -337,16 +337,16 @@ test("pending local supplies survive a cloud load for the same account", async (
   assert.equal(c.run("state.profile.name"), "QA");
 });
 
-test("public score lab starts at zero and uses the same transparent score weighting", () => {
+test("public score lab scales its available scenario steps from zero to 100", () => {
   const c = client();
   assert.equal(c.run("scoreLabResult().value"), 0);
   assert.equal(c.run("scoreLabResult().count"), 0);
   const water = c.run("scoreLabResult(new Set(['water']))");
   assert.equal(water.count, 1);
-  assert.equal(water.value, 8);
+  assert.equal(water.value, 10);
   const complete = c.run("scoreLabResult(new Set(scoreLabSteps.map(step => step.id)))");
   assert.equal(complete.count, 5);
-  assert.equal(complete.value, 81);
+  assert.equal(complete.value, 100);
 });
 
 test("public score lab changes only its sandbox and exposes selected buttons", () => {
@@ -448,7 +448,7 @@ test("score lab click opens the matching explanation and retains its effect acro
   const button = { dataset: { scoreLabStep: "water" }, hasAttribute() { return false; } };
   await c.appEvents.get("click")({ target: { closest: () => button }, detail: 1 });
   assert.equal(c.run("state.ui.modal"), "scorelab:water");
-  assert.equal(c.run("scoreLabResult().value"), 8);
+  assert.equal(c.run("scoreLabResult().value"), 10);
   assert.match(c.run("modal()"), /In der Simulation eingeplant/);
   c.run("state.ui.modal=null");
   assert.match(c.run("scoreLab()"), /data-lab-effect>Wasser ist eingeplant/);
@@ -472,7 +472,7 @@ test("score lab model opens without changing the router or selected steps", asyn
   assert.equal(model.open, true);
   assert.equal(scrolled && focused, true);
   assert.equal(c.run("location.hash"), "#/profile");
-  assert.equal(c.run("scoreLabResult().value"), 8);
+  assert.equal(c.run("scoreLabResult().value"), 10);
 });
 
 test("supplies show recorded coverage and continue with the next unrecorded area", () => {

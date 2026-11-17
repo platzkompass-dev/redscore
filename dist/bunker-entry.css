@@ -4,3 +4,5 @@ html.bunker-active{overflow:hidden}.bunker-entry{position:fixed;inset:0;margin:0
 .bunker-floor{left:calc(50% - 50vw);right:auto;width:100vw}.bunker-action>[data-bunker-enter]:focus:not(:focus-visible){outline:none}
 
 .bunker-wheel{padding:0;background:none;cursor:pointer;touch-action:manipulation}.bunker-wheel:hover{border-color:#c4d0d6}.bunker-wheel:focus-visible{outline:3px solid white;outline-offset:6px}.bunker-wheel:disabled{cursor:default;opacity:1}
+
+#app h1.bunker-arrival:focus{outline:none}

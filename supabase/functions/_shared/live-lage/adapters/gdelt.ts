@@ -1,3 +1,4 @@
+import { evacuationCause } from "../evacuation.ts";
 import type { NewsCategory, NewsSourceAdapter, NormalizedNewsItem, Severity, SourceConfig } from "../types.ts";
 import { assertAllowedHttpsUrl, fetchStructured, plainText, safePublicUrl } from "../security.ts";
 
@@ -27,6 +28,8 @@ function trusted(host: string): boolean {
 
 function categoryFor(value: string): NewsCategory | null {
   const text = value.toLowerCase();
+  const cause = evacuationCause(text);
+  if (cause) return cause;
   if (/drone|drohne|uav/.test(text)) return "drones";
   if (/cyber|ransomware|hacker|datenangriff/.test(text)) return "cyber";
   if (/it outage|system outage|computerausfall/.test(text)) return "it_outage";
