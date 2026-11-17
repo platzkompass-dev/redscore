@@ -1,3 +1,4 @@
+import {POST as rewardsHandler} from "./api/rewards.js";
 import {GET as localOffersHandler} from './api/local-offers.js';
 import { GET as postcodeHandler } from './api/postcode.js';
 import http from "node:http";
@@ -148,6 +149,7 @@ const server = http.createServer(async (request, response) => {
   if (requestUrl.pathname === "/api/postcode") return runWebHandler(postcodeHandler,request,response,requestUrl);
   if (requestUrl.pathname === "/api/health") return runWebHandler(healthHandler, request, response, requestUrl);
   if (requestUrl.pathname === "/api/live-lage") return proxyLiveLage(request, response, requestUrl);
+  if(requestUrl.pathname === '/api/rewards')return runWebHandler(rewardsHandler,request,response,requestUrl);
   if(requestUrl.pathname === '/api/stock-list-scan')return runWebHandler(stockScanHandler,request,response,requestUrl);
   if (requestUrl.pathname === "/api/live-lage-detail") {
     if (request.method !== "GET") return sendJson(response,405,{error:"GET required"});

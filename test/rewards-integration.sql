@@ -1,0 +1,65 @@
+-- Rollback-only integration test. No accounts, points, stock or addresses persist.
+begin;
+do $$
+declare u uuid:=gen_random_uuid(); v uuid:=gen_random_uuid(); r uuid:=gen_random_uuid(); req uuid:=gen_random_uuid(); result jsonb; red uuid;
+begin
+ insert into auth.users(id,aud,role,email) values(u,'authenticated','authenticated','rewards-qa-a@example.test'),(v,'authenticated','authenticated','rewards-qa-b@example.test');
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true);
+ if has_table_privilege('authenticated','public.reward_ledger','INSERT') then raise exception 'client can write ledger'; end if;
+ if has_table_privilege('authenticated','public.reward_answers','SELECT') then raise exception 'client can read answers'; end if;
+ perform public.red_rewards('start_lesson','{"lesson":"water-basics"}');
+ begin perform public.red_rewards('complete_lesson','{"lesson":"water-basics","answer":2}');raise exception 'early quiz accepted';exception when others then if sqlerrm='early quiz accepted' then raise;end if;end;
+ update public.reward_learning set started_at=now()-interval '40 seconds' where user_id=u;
+ perform public.red_rewards('complete_lesson','{"lesson":"water-basics","answer":2}');
+ perform public.red_rewards('complete_lesson','{"lesson":"water-basics","answer":2}');
+ result:=public.red_rewards('snapshot');if(result->>'balance')::int<>30 then raise exception 'duplicate lesson credit';end if;
+ insert into public.reward_ledger(user_id,event_key,points,description)values(u,'qa-seed',1000,'rollback-only fixture');
+ insert into public.reward_catalog(id,name,name_en,description,description_en,points,stock,active) values(r,'QA test reward','QA test reward','test','test',100,1,true);
+ result:=jsonb_build_object('reward_id',r,'request_key',req,'shipping',jsonb_build_object('name','QA Test','street','Testweg 1','postal_code','10115','city','Berlin','country','DE'));
+ perform public.red_rewards('redeem',result);perform public.red_rewards('redeem',result);
+ if (public.red_rewards('snapshot')->>'balance')::int<>930 then raise exception 'incorrect debit';end if;
+ if(select stock from public.reward_catalog where id=r)<>0 then raise exception 'stock not reserved';end if;
+ select id into red from public.reward_redemptions where request_key=req;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',v,'role','authenticated')::text,true);
+ if(public.red_rewards('snapshot')->>'balance')::int<>0 then raise exception 'cross-account balance leak';end if;
+ begin perform public.red_rewards('save_reward',jsonb_build_object('id',r,'points',100,'stock',5,'active',true,'name','Hacked'));raise exception 'nonadmin mutated reward';exception when others then if sqlerrm='nonadmin mutated reward' then raise;end if;end;
+ begin perform public.red_rewards('redeem',jsonb_set(result,'{request_key}',to_jsonb(gen_random_uuid())));raise exception 'out of stock accepted';exception when others then if sqlerrm='out of stock accepted' then raise;end if;end;
+ insert into public.reward_admins values(v);
+ perform public.red_rewards('fulfil',jsonb_build_object('id',red,'status','cancelled'));
+ if(select sum(points) from public.reward_ledger where user_id=u)<>1030 then raise exception 'refund failed';end if;
+ if(select stock from public.reward_catalog where id=r)<>1 then raise exception 'stock return failed';end if;
+ begin perform public.red_rewards('fulfil',jsonb_build_object('id',red,'status','cancelled'));raise exception 'double refund accepted';exception when others then if sqlerrm='double refund accepted' then raise;end if;end;
+ raise notice 'PASS: ledger permissions, answer secrecy, minimum lesson duration, one-time points, stock, idempotent redemption, owner isolation, admin authorization, cancellation and refund';
+end $$;
+do $$
+declare u uuid:=gen_random_uuid(); reviewer uuid:=gen_random_uuid(); proof_id uuid; answers jsonb; path text;
+begin
+ insert into auth.users(id,aud,role,email) values(u,'authenticated','authenticated','rewards-threshold@example.test'),(reviewer,'authenticated','authenticated','rewards-review@example.test');
+ insert into public.user_profiles(user_id,adults,onboarding_completed) values(u,'[{"gender":"woman"}]',true);
+ answers:='{"water":true,"food":true,"radio":true,"light":true,"power":true,"medicine":true,"documents":true,"backpack":false,"warnings":false,"contacts":false,"meeting":false}';
+ insert into public.user_app_state(user_id,assessment,supplies) values(u,jsonb_build_object('completedAt',now(),'answers',answers),'{"water":16}');
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true);
+ if public.reward_saved_score(u)<>49 then raise exception 'score 49 mismatch';end if;
+ begin perform public.red_rewards('earn','{"activity":"score50","points":9999}');raise exception 'score below 50 accepted';exception when others then if sqlerrm='score below 50 accepted' then raise;end if;end;
+ update public.user_app_state set supplies='{"water":17}' where user_id=u;
+ if public.reward_saved_score(u)<>50 then raise exception 'score 50 mismatch';end if;
+ perform public.red_rewards('earn','{"activity":"score50","points":9999}');
+ update public.user_app_state set assessment=jsonb_build_object('completedAt',now(),'answers',answers||'{"backpack":true,"warnings":true,"contacts":true,"meeting":true}'),supplies='{"water":20,"food":10,"medicine":10,"power":1,"hygiene":1}' where user_id=u;
+ if public.reward_saved_score(u)<>100 then raise exception 'score 100 mismatch';end if;
+ perform public.red_rewards('earn','{"activity":"score50"}');
+ if(public.red_rewards('snapshot')->>'balance')::int<>100 then raise exception 'higher score earned more points';end if;
+ path:=u::text||'/'||gen_random_uuid()||'.pdf';
+ insert into storage.objects(bucket_id,name)values('reward-proofs',path);
+ perform public.red_rewards('submit_proof',jsonb_build_object('provider','QA course','course_date',current_date,'path',path,'hash',md5(u::text)||md5(reviewer::text)));
+ select id into proof_id from public.reward_proofs where user_id=u;
+ if(public.red_rewards('snapshot')->>'balance')::int<>100 then raise exception 'upload awarded points';end if;
+ insert into public.reward_admins values(u),(reviewer);
+ begin perform public.red_rewards('review_proof',jsonb_build_object('id',proof_id,'status','approved'));raise exception 'self approval accepted';exception when others then if sqlerrm='self approval accepted' then raise;end if;end;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',reviewer,'role','authenticated')::text,true);
+ perform public.red_rewards('review_proof',jsonb_build_object('id',proof_id,'status','approved','note','QA rollback only'));
+ if(select sum(points) from public.reward_ledger where user_id=u)<>400 then raise exception 'course approval bonus failed';end if;
+ begin perform public.red_rewards('review_proof',jsonb_build_object('id',proof_id,'status','approved'));raise exception 'double approval accepted';exception when others then if sqlerrm='double approval accepted' then raise;end if;end;
+ if has_function_privilege('anon','public.red_rewards(text,jsonb)','EXECUTE') then raise exception 'anonymous rewards RPC allowed';end if;
+ raise notice 'PASS: saved scores 49/50/100; fixed one-time bonus; uploads award no points; no self review; approval awards once; anonymous RPC denied';
+end $$;
+rollback;

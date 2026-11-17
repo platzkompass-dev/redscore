@@ -5,6 +5,7 @@ export const navItems = [
   { id: "map", icon: "map", label: "SafePlaces" },
   { id: "warnschutz", icon: "radio", label: "Warnschutz" },
   { id: "knowledge", icon: "knowledge", label: "Informationen" },
+  { id: "rewards", icon: "special", label: "RedRewards" },
   { id: "angebote", icon: "special", label: "Angebote" },
 ];
 

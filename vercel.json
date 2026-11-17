@@ -38,6 +38,10 @@
     },
     "api/local-offers.js": {
       "maxDuration": 30
+    },
+    "api/rewards.js": {
+      "maxDuration": 60,
+      "supportsCancellation": true
     }
   },
   "headers": [
@@ -75,7 +79,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-ur5GpVieQQM9Fi9AlfUbHMOK5sQxr/hd2W7EHs8CJtA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' 'sha256-ur5GpVieQQM9Fi9AlfUbHMOK5sQxr/hd2W7EHs8CJtA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://www.openstreetmap.org; media-src 'self' https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests"
         }
       ]
     }

@@ -27,7 +27,7 @@ function client(options = {}) {
     window: { addEventListener: (type, handler) => windowEvents.set(type, handler), matchMedia: () => ({ matches: false }) },
     localStorage: { getItem: key => { if (options.blockStorage) throw new Error("SecurityError"); return storage.get(key) || null; }, setItem: (key,value) => { if (options.blockStorage || options.failWrites) throw new Error("QuotaExceededError"); storage.set(key,value); }, removeItem: key => storage.delete(key) },
     setTimeout: (fn,delay) => { const id = Symbol(); timers.set(id,{ fn,delay }); return id; }, clearTimeout: id => timers.delete(id), setInterval: () => 0,
-    getLanguage: () => "de", setLanguage() {}, applyLanguage() {}, showBunkerEntrance() {}, translateText: value => value,
+    getLanguage: () => "de", setLanguage() {}, applyLanguage() {}, showBunkerEntrance() {}, setRewardsLanguage() {}, resetRewards() {}, mountRewards() {}, rewardsMarkup(){return ""}, translateText: value => value,
     fetch: options.fetch || (async () => { throw new Error("unexpected network access"); }),
   });
   vm.runInContext(source, context);
