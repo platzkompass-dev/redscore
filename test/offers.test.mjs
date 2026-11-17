@@ -73,3 +73,13 @@ test("Lübeck backpack searches return documented local stores and location-inde
   assert.ok(selectOffers({query:'Powerbank',mode:'online'}).some(item=>item.id==='anker-powerbanks'));
   assert.ok(selectOffers({query:'Taschenlampe',mode:'online'}).some(item=>item.id==='ledlenser-light'));
 });
+
+ test("online stove searches find documented ranges regardless of the selected town", () => {
+  for (const query of ["gaskocher", "Campingkocher", "Gas Kocher", "gas stove", "camping stoves", "Gaskocher Lübeck"]) {
+    const items = selectOffers({mode:"online",query,location:{city:"Lübeck",postalCode:"23552"}});
+    assert.ok(items.some(item=>item.id==="bergfreunde-gas-stoves"), query);
+    assert.ok(items.some(item=>item.id==="globetrotter-gas-stoves"), query);
+    assert.ok(items.every(item=>item.mode==="online"));
+  }
+  assert.equal(offerMatchesSearch(offerCatalog.find(item=>item.id==="anker-powerbanks"),"gaskocher"),false);
+});
