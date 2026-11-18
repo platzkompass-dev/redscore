@@ -1,4 +1,4 @@
-import {rewardsMarkup,mountRewards,setRewardsLanguage,resetRewards} from "./rewards.js?v=1";
+import {rewardsMarkup,mountRewards,setRewardsLanguage,resetRewards} from "./rewards.js?v=2";
 import { showBunkerEntrance } from "./bunker-entry.js?v=4";
 import { assessmentQuestions, defaultState, knowledgeArticles, navItems, sources, supplyGroups, tasks } from "./data.js?v=8";
 import { applyLanguage, getLanguage, setLanguage, translateText } from "./i18n.js?v=37";

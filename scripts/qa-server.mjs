@@ -11,7 +11,7 @@ let profile = { display_name: "Development QA", adults: [{ gender: "woman" }, { 
 let appState = {};
 let failSaves = false;
 let feedMode = "normal";
-const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".ico": "image/x-icon" };
+const mime = { ".mp4":"video/mp4", ".vtt":"text/vtt", ".webp":"image/webp", ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".ico": "image/x-icon" };
 function json(response, status, payload) { response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" }); response.end(JSON.stringify(payload)); }
 
 http.createServer(async (request, response) => {

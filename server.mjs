@@ -49,6 +49,8 @@ const mime = {
   ".webmanifest": "application/manifest+json; charset=utf-8",
   ".webp": "image/webp",
   ".pdf": "application/pdf",
+  ".mp4": "video/mp4",
+  ".vtt": "text/vtt; charset=utf-8",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -114,7 +116,7 @@ async function runWebHandler(handler, request, response, requestUrl) {
   response.end(payload);
 }
 
-async function serveStatic(response, requestUrl) {
+async function serveStatic(response, requestUrl, request) {
   let pathname;
   try { pathname = decodeURIComponent(requestUrl.pathname); }
   catch { return sendJson(response, 400, { error: "Ungültige URL" }); }
@@ -128,7 +130,15 @@ async function serveStatic(response, requestUrl) {
   }
   try {
     const body = await readFile(target);
+    if(path.extname(target).toLowerCase()==='.mp4'&&request.headers.range){
+      const match=/^bytes=(\d*)-(\d*)$/.exec(request.headers.range);
+      let start=match?.[1]?Number(match[1]):0,end=match?.[2]?Number(match[2]):body.length-1;
+      if(match&&!match[1]&&match[2]){start=Math.max(0,body.length-Number(match[2]));end=body.length-1;}
+      if(!match||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start>end||start>=body.length){response.writeHead(416,{'content-range':`bytes */${body.length}`});return response.end();}
+      end=Math.min(end,body.length-1);response.writeHead(206,{'content-type':'video/mp4','accept-ranges':'bytes','content-range':`bytes ${start}-${end}/${body.length}`,'content-length':end-start+1,'x-content-type-options':'nosniff'});return response.end(body.subarray(start,end+1));
+    }
     response.writeHead(200, {
+      ...(path.extname(target).toLowerCase()==='.mp4'?{'accept-ranges':'bytes'}:{}),
       "content-type": mime[path.extname(target).toLowerCase()] || "application/octet-stream",
       "cache-control": target.endsWith("index.html") ? "no-cache" : "public, max-age=3600",
       "x-content-type-options": "nosniff",
@@ -168,9 +178,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method !== "POST") return sendJson(response, 405, { error: "POST erforderlich" });
     return runWebHandler(accountHandler, request, response, requestUrl);
   }
-  return serveStatic(response, requestUrl);
+  return serveStatic(response, requestUrl, request);
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`RedScore: http://127.0.0.1:${port}`);
+  console.log(`RedScore: http://127.0.0.1:${server.address().port}`);
 });
